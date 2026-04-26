@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+{% block title %}Analytics Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title"><div class="title-icon">📈</div> Analytics Dashboard</h1>
+  <p class="page-subtitle">Real-time insights across {{ college_name }}</p>
+</div>
+
+<!-- Filters -->
+<div class="card-erp" style="margin-bottom: 24px; padding: 16px;">
+  <form method="GET" action="{{ url_for('analytics.index') }}" style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
+    
+    {% if current_user.role in ['Principal', 'Admin'] %}
+    <div style="flex: 1; min-width: 200px;">
+      <label class="form-label-erp">Department</label>
+      <select name="department_id" class="form-control-erp" onchange="this.form.submit()">
+        <option value="">All Departments</option>
+        {% for d in departments %}
+        <option value="{{ d.id }}" {% if selected_dept_id == d.id %}selected{% endif %}>{{ d.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+
+    {% if current_user.role in ['Principal', 'Admin', 'HOD'] %}
+    <div style="flex: 1; min-width: 200px;">
+      <label class="form-label-erp">Class</label>
+      <select name="class_id" class="form-control-erp" onchange="this.form.submit()">
+        <option value="">All Classes</option>
+        {% for c in classes %}
+        <option value="{{ c.id }}" {% if selected_class_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+
+    <div style="flex: 1; min-width: 200px;">
+      <label class="form-label-erp">Date</label>
+      <input type="date" name="date" class="form-control-erp" value="{{ selected_date.strftime('%Y-%m-%d') }}" onchange="this.form.submit()">
+    </div>
+    
+  </form>
+</div>
+
+<!-- Daily Attendance Lists -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:28px;" class="responsive-grid">
+  
+  <!-- Present Students -->
+  <div class="card-erp">
+    <div class="card-header-erp" style="border-bottom: 1px solid rgba(16,185,129,0.3);">
+      <h5><i class="fa-solid fa-check-circle" style="color:var(--accent-green);"></i> Present Students <span class="badge-erp badge-success">{{ present_students|length }}</span></h5>
+    </div>
+    <div class="card-body-erp" style="padding:0; max-height: 400px; overflow-y: auto;">
+      {% if present_students %}
+      <table class="table-erp">
+        <thead><tr><th>Student Name</th><th>Class</th><th>Status</th></tr></thead>
+        <tbody>
+          {% for p in present_students %}
+          <tr>
+            <td>{{ p.student.user.name }}</td>
+            <td>{{ p.student.class_.name if p.student.class_ else 'N/A' }}</td>
+            <td><span class="badge-erp badge-success">Present ({{ p.present_count }} lectures)</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state"><div class="empty-icon">✓</div><p>No students present (or no records found)</p></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Absent Students -->
+  <div class="card-erp">
+    <div class="card-header-erp" style="border-bottom: 1px solid rgba(239,68,68,0.3);">
+      <h5><i class="fa-solid fa-times-circle" style="color:var(--accent-red);"></i> Absent Students <span class="badge-erp badge-danger">{{ absent_students|length }}</span></h5>
+    </div>
+    <div class="card-body-erp" style="padding:0; max-height: 400px; overflow-y: auto;">
+      {% if absent_students %}
+      <table class="table-erp">
+        <thead><tr><th>Student Name</th><th>Absent For</th><th>Reason</th><th>Action</th></tr></thead>
+        <tbody>
+          {% for a in absent_students %}
+          <tr>
+            <td>{{ a.student.user.name }}<br><small style="color:var(--text-muted);">{{ a.student.class_.name if a.student.class_ else '' }}</small></td>
+            <td>{{ a.absent_count }} lectures</td>
+            <td>
+              {% set first_absent_record = none %}
+              {% for rec in a.records if not rec.status %}
+                {% if loop.first %}{% set first_absent_record = rec %}{% endif %}
+              {% endfor %}
+              
+              {% if first_absent_record and first_absent_record.absentee_reason %}
+                {% if first_absent_record.absentee_reason.status == 'SUBMITTED' %}
+                  <span style="font-size:12px; color:var(--text-secondary);">"{{ first_absent_record.absentee_reason.reason_text }}"</span>
+                {% else %}
+                  <span class="badge-erp badge-warning">Reason Requested</span>
+                {% endif %}
+              {% else %}
+                <span class="badge-erp badge-secondary">No Reason</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if first_absent_record and not first_absent_record.absentee_reason and current_user.role == 'Teacher' %}
+              <!-- TGs can request reason -->
+              <form action="{{ url_for('analytics.request_reason', attendance_id=first_absent_record.id) }}" method="POST" style="display:inline;">
+                <button type="submit" class="btn-erp btn-ghost-erp" style="padding:4px 8px; font-size:11px;">Request Reason</button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state"><div class="empty-icon">🎉</div><p>No absent students</p></div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;" class="responsive-grid">
+  <!-- Attendance Trend -->
+  <div class="card-erp">
+    <div class="card-header-erp">
+      <h5><i class="fa-solid fa-chart-line" style="color:var(--accent-blue);"></i> 30-Day Attendance Trend</h5>
+    </div>
+    <div class="card-body-erp">
+      <div class="chart-container" style="height:250px;">
+        <canvas id="trendChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dept Attendance -->
+  <div class="card-erp">
+    <div class="card-header-erp">
+      <h5><i class="fa-solid fa-chart-bar" style="color:var(--accent-purple);"></i> Department Attendance %</h5>
+    </div>
+    <div class="card-body-erp">
+      <div class="chart-container" style="height:250px;">
+        <canvas id="deptChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;" class="responsive-grid">
+  <!-- Defaulters by class -->
+  <div class="card-erp">
+    <div class="card-header-erp">
+      <h5><i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-red);"></i> Defaulters by Class</h5>
+    </div>
+    <div class="card-body-erp">
+      <div class="chart-container" style="height:220px;">
+        <canvas id="defaulterChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Performance Risk (mock) -->
+  <div class="card-erp">
+    <div class="card-header-erp">
+      <h5><i class="fa-solid fa-robot" style="color:var(--accent-cyan);"></i> AI Risk Distribution</h5>
+      <span class="badge-erp badge-info">AI Powered</span>
+    </div>
+    <div class="card-body-erp">
+      <div class="chart-container" style="height:220px;">
+        <canvas id="riskChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Load summary
+fetch('/analytics/api/summary').then(r=>r.json()).then(d => {
+  document.getElementById('statStudents').textContent = d.students;
+  document.getElementById('statTeachers').textContent = d.teachers;
+  document.getElementById('statGrievances').textContent = d.grievances;
+  document.getElementById('statDepts').textContent = d.departments;
+});
+
+// Attendance Trend
+fetch('/analytics/api/attendance-trend').then(r=>r.json()).then(d => {
+  const ctx = document.getElementById('trendChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: d.labels,
+      datasets: [
+        {label:'Present', data:d.present, borderColor:'#10b981', backgroundColor:ERP.blueGradient(ctx),
+         fill:true, tension:0.4, pointRadius:3, borderWidth:2},
+        {label:'Absent', data:d.absent, borderColor:'#ef4444', backgroundColor:'transparent',
+         fill:false, tension:0.4, pointRadius:3, borderWidth:2}
+      ]
+    },
+    options: { ...ERP.chartDefaults }
+  });
+});
+
+// Dept Attendance
+fetch('/analytics/api/attendance-overview').then(r=>r.json()).then(d => {
+  const ctx = document.getElementById('deptChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: d.labels,
+      datasets: [{
+        label: 'Attendance %',
+        data: d.data,
+        backgroundColor: d.data.map(v => v < 75 ? 'rgba(239,68,68,0.6)' : 'rgba(139,92,246,0.6)'),
+        borderColor: d.data.map(v => v < 75 ? '#ef4444' : '#8b5cf6'),
+        borderWidth:2, borderRadius:6
+      }]
+    },
+    options: { ...ERP.chartDefaults,
+      scales:{...ERP.chartDefaults.scales, y:{...ERP.chartDefaults.scales.y, min:0, max:100}} }
+  });
+});
+
+// Defaulters
+fetch('/analytics/api/defaulters').then(r=>r.json()).then(d => {
+  const ctx = document.getElementById('defaulterChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: d.labels,
+      datasets: [{ label:'Defaulters', data:d.data, backgroundColor:'rgba(239,68,68,0.6)',
+        borderColor:'#ef4444', borderWidth:2, borderRadius:6 }]
+    },
+    options: { ...ERP.chartDefaults }
+  });
+});
+
+// Risk Donut (mock data)
+const ctx5 = document.getElementById('riskChart').getContext('2d');
+new Chart(ctx5, {
+  type: 'doughnut',
+  data: {
+    labels: ['🟢 Safe', '🟡 Medium Risk', '🔴 High Risk'],
+    datasets: [{
+      data: [65, 25, 10],
+      backgroundColor: ['rgba(16,185,129,0.7)','rgba(245,158,11,0.7)','rgba(239,68,68,0.7)'],
+      borderColor: ['#10b981','#f59e0b','#ef4444'], borderWidth:2
+    }]
+  },
+  options: { ...ERP.donutDefaults }
+});
+</script>
+<style>.responsive-grid{} @media(max-width:768px){.responsive-grid{grid-template-columns:1fr!important}}</style>
+{% endblock %}

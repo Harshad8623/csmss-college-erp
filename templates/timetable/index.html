@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Timetable{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+  <div><h1 class="page-title"><div class="title-icon">📅</div> Timetable</h1></div>
+  {% if current_user.role in ['SUPER_ADMIN','HOD','CLASS_TEACHER'] %}
+  <a href="{{ url_for('timetable.manage') }}" class="btn-erp btn-primary-erp">
+    <i class="fa-solid fa-pen-to-square"></i> Manage Timetable
+  </a>
+  {% endif %}
+</div>
+
+{% if current_user.role not in ['STUDENT','CR'] %}
+<div class="card-erp" style="margin-bottom:20px;">
+  <div class="card-body-erp">
+    <form style="display:flex;gap:14px;align-items:flex-end;">
+      <div style="min-width:200px;">
+        <label class="form-label-erp">View Class Timetable</label>
+        <select name="class_id" class="form-control-erp" onchange="this.form.submit()">
+          <option value="">-- Select Class --</option>
+          {% for cls in classes %}<option value="{{ cls.id }}" {{ 'selected' if selected_class and selected_class.id==cls.id }}>{{ cls.name }}</option>{% endfor %}
+        </select>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% if selected_class %}
+<h4 style="margin-bottom:16px;font-size:16px;font-weight:700;color:var(--text-secondary);">
+  📅 {{ selected_class.name }} — Weekly Schedule
+</h4>
+<div class="card-erp" style="overflow-x:auto;">
+  <div class="card-body-erp">
+    <div style="display:grid;grid-template-columns:90px repeat(6, 1fr);gap:6px;min-width:700px;">
+      <div></div>
+      {% for day in days %}
+      <div class="tt-day-header">{{ day[:3].upper() }}</div>
+      {% endfor %}
+
+      {% set time_slots = ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00'] %}
+      {% for slot in time_slots %}
+      <div class="tt-time">{{ slot }}</div>
+      {% for day in days %}
+        {% set entries = timetable_data.get(day, []) %}
+        {% set cell_subj = namespace(found=None) %}
+        {% for e in entries %}
+          {% if e.start_time == slot %}
+            {% set cell_subj.found = e %}
+          {% endif %}
+        {% endfor %}
+        {% if cell_subj.found %}
+        <div class="tt-cell filled">
+          <div style="font-size:11px;font-weight:700;color:var(--accent-blue);">{{ cell_subj.found.subject.name[:15] }}</div>
+          <div style="font-size:10px;color:var(--text-muted);">{{ cell_subj.found.start_time }}–{{ cell_subj.found.end_time }}</div>
+        </div>
+        {% else %}
+        <div class="tt-cell" style="color:var(--text-muted);font-size:11px;">—</div>
+        {% endif %}
+      {% endfor %}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% elif not (current_user.role == 'STUDENT') %}
+<div class="card-erp"><div class="card-body-erp">
+  <div class="empty-state"><div class="empty-icon">📅</div><h6>Select a Class</h6><p>Choose a class above to view its timetable.</p></div>
+</div></div>
+{% else %}
+<div class="card-erp"><div class="card-body-erp">
+  <div class="empty-state"><div class="empty-icon">📅</div><h6>No Timetable</h6><p>Your class timetable hasn't been set up yet.</p></div>
+</div></div>
+{% endif %}
+{% endblock %}

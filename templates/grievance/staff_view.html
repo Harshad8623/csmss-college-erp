@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Grievances{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
+  <div>
+    <h1 class="page-title"><div class="title-icon">⚠️</div> Grievance Management</h1>
+    <p class="page-subtitle">{{ pending_count }} pending grievances to review</p>
+  </div>
+</div>
+
+<div class="card-erp">
+  <div class="card-header-erp">
+    <h5><i class="fa-solid fa-list" style="color:var(--accent-purple);"></i> All Grievances</h5>
+    <span class="badge-erp badge-warning">{{ pending_count }} Pending</span>
+  </div>
+  <div class="card-body-erp" style="padding:0;">
+    <table class="table-erp">
+      <thead>
+        <tr><th>Student</th><th>Type</th><th>Description</th><th>Status</th><th>Date</th><th>Action</th></tr>
+      </thead>
+      <tbody>
+        {% for g in grievances %}
+        <tr>
+          <td>
+            <div style="font-weight:600;">{{ g.student.user.name }}</div>
+            <div style="font-size:11px;color:var(--text-muted);">{{ g.student.class_.name if g.student.class_ else '' }}</div>
+          </td>
+          <td><span class="badge-erp badge-purple">{{ g.type.title() }}</span></td>
+          <td><div class="truncate" style="max-width:200px;">{{ g.description }}</div></td>
+          <td>
+            <span class="badge-erp {{ 'badge-warning' if g.status=='pending' else 'badge-success' if g.status=='approved' else 'badge-danger' }}">
+              {{ g.status.title() }}
+            </span>
+          </td>
+          <td style="font-size:12px;color:var(--text-muted);">{{ g.created_at.strftime('%d %b %Y') }}</td>
+          <td>
+            <a href="{{ url_for('grievance.detail', id=g.id) }}" class="btn-erp btn-ghost-erp btn-sm-erp">
+              <i class="fa-solid fa-eye"></i> Review
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6"><div class="empty-state"><div class="empty-icon">✅</div><h6>No Grievances</h6><p>All clear!</p></div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

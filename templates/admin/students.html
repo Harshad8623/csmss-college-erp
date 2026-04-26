@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+{% block title %}Student Directory{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">
+    <div class="title-icon">🎓</div> Student Directory
+    <span style="font-size:14px;font-weight:500;color:var(--text-muted);margin-left:8px;">ECE – Semester V
+      (2025-26)</span>
+  </h1>
+  <a href="{{ url_for('admin.students', search=search, category=category, gender=gender, blood=blood) }}"
+    class="btn-erp btn-secondary-erp" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
+    <i class="fa-solid fa-rotate"></i> Reset
+  </a>
+</div>
+
+{# ── Stats Row ──────────────────────────────────────────────────────────── #}
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;margin-bottom:24px;">
+  <div class="card-erp" style="padding:16px;text-align:center;">
+    <div style="font-size:28px;font-weight:800;color:var(--primary-color);">{{ total }}</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Total Students</div>
+  </div>
+  <div class="card-erp" style="padding:16px;text-align:center;">
+    <div style="font-size:28px;font-weight:800;color:#38b2ac;">{{ male_ct }}</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Male</div>
+  </div>
+  <div class="card-erp" style="padding:16px;text-align:center;">
+    <div style="font-size:28px;font-weight:800;color:#ed64a6;">{{ female_ct }}</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Female</div>
+  </div>
+  <div class="card-erp" style="padding:16px;text-align:center;">
+    <div style="font-size:28px;font-weight:800;color:#f6ad55;">3<sup style="font-size:14px;">rd</sup></div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Year / Sem V</div>
+  </div>
+</div>
+
+{# ── Filters ────────────────────────────────────────────────────────────── #}
+<div class="card-erp" style="margin-bottom:20px;">
+  <div class="card-body-erp">
+    <form method="GET" action="{{ url_for('admin.students') }}">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:12px;align-items:end;">
+        <div style="grid-column: span 2;">
+          <label style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Search</label>
+          <input type="text" name="search" class="form-control-erp" placeholder="Name / PRN / Roll No…" value="{{ search }}" style="margin-top:4px;">
+        </div>
+
+        {% if current_user.role == 'SUPER_ADMIN' %}
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Department</label>
+          <select name="department_id" class="form-control-erp" style="margin-top:4px;" onchange="this.form.submit()">
+            <option value="">All Departments</option>
+            {% for d in available_depts %}
+            <option value="{{ d.id }}" {{ 'selected' if dept_filter == d.id else '' }}>{{ d.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+
+        {% if current_user.role in ['SUPER_ADMIN', 'HOD'] %}
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Class</label>
+          <select name="class_id" class="form-control-erp" style="margin-top:4px;" onchange="this.form.submit()">
+            <option value="">All Classes</option>
+            {% for c in available_classes %}
+            <option value="{{ c.id }}" {{ 'selected' if class_filter == c.id else '' }}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Category</label>
+          <select name="category" class="form-control-erp" style="margin-top:4px;">
+            <option value="">All</option>
+            {% for c in categories %}
+            <option value="{{ c }}" {{ 'selected' if category==c else '' }}>{{ c }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Gender</label>
+          <select name="gender" class="form-control-erp" style="margin-top:4px;">
+            <option value="">All</option>
+            <option value="M" {{ 'selected' if gender=='M' else '' }}>Male</option>
+            <option value="F" {{ 'selected' if gender=='F' else '' }}>Female</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Blood Group</label>
+          <select name="blood" class="form-control-erp" style="margin-top:4px;">
+            <option value="">All</option>
+            {% for b in blood_groups %}
+            <option value="{{ b }}" {{ 'selected' if blood==b else '' }}>{{ b }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <button type="submit" class="btn-erp btn-primary-erp" style="width:100%;height:38px;">
+            <i class="fa-solid fa-search"></i> Filter
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# ── Table ──────────────────────────────────────────────────────────────── #}
+<div class="card-erp">
+  <div class="card-header-erp" style="display:flex;justify-content:space-between;align-items:center;">
+    <h5>
+      Student Records
+      {% if search or category or gender or blood %}
+      <span class="badge-erp badge-info" style="font-size:11px;margin-left:8px;">Filtered</span>
+      {% endif %}
+    </h5>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button onclick="openBulkAssignTGModal()" class="btn-erp btn-primary-erp"
+        style="padding:4px 10px;font-size:12px;display:none;" id="bulkAssignBtn">
+        <i class="fa-solid fa-users"></i> Bulk Assign TG
+      </button>
+      <span style="font-size:13px;color:var(--text-muted);">
+        Showing {{ students|length }} of {{ pagination.total }} students
+      </span>
+    </div>
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="table-erp" style="width:100%;min-width:900px;">
+      <thead>
+        <tr>
+          <th><input type="checkbox" id="selectAllStudents" onchange="toggleAllStudents(this)"></th>
+          <th>Roll</th>
+          <th>PRN</th>
+          <th>Name</th>
+          <th>Gender</th>
+          <th>Category</th>
+          <th>Blood</th>
+          <th>Mobile</th>
+          <th>TG</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in students %}
+        <tr>
+          <td><input type="checkbox" class="student-checkbox" value="{{ s.id }}" onchange="updateBulkBtn()"></td>
+          <td><strong>{{ s.roll_no }}</strong></td>
+          <td style="font-size:12px;color:var(--text-muted);">{{ s.prn }}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="user-avatar" style="width:34px;height:34px;font-size:13px;flex-shrink:0;">
+                {{ s.user.name[0] }}
+              </div>
+              <div>
+                <div style="font-weight:600;">{{ s.user.name }}</div>
+                <div style="font-size:11px;color:var(--text-muted);">{{ s.user.email }}</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            {% if s.gender == 'M' %}
+            <span class="badge-erp badge-info">♂ Male</span>
+            {% elif s.gender == 'F' %}
+            <span class="badge-erp" style="background:rgba(237,100,166,.15);color:#ed64a6;">♀ Female</span>
+            {% else %}—{% endif %}
+          </td>
+          <td><span class="badge-erp badge-warning" style="font-size:11px;">{{ s.category or '—' }}</span></td>
+          <td>
+            <span style="font-weight:600;color:
+              {% if s.blood_group and 'O' in s.blood_group %}#f687b3
+              {% elif s.blood_group and 'A' in s.blood_group %}#76e4f7
+              {% elif s.blood_group and 'B' in s.blood_group %}#9ae6b4
+              {% else %}var(--text-muted){% endif %};">
+              {{ s.blood_group or '—' }}
+            </span>
+          </td>
+          <td style="font-size:13px;">{{ s.user.phone or '—' }}</td>
+          <td>
+            {% if s.tg %}
+            <span style="font-size:12px;font-weight:600;color:var(--accent-blue);">{{ s.tg.name }}</span>
+            {% else %}
+            <span style="color:var(--text-muted);font-size:12px;">None</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if s.approval_status == 'approved' %}
+            <span class="badge-erp badge-success">Active</span>
+            {% elif s.approval_status == 'pending' %}
+            <span class="badge-erp badge-warning">Pending</span>
+            {% else %}
+            <span class="badge-erp badge-danger">{{ s.approval_status.title() }}</span>
+            {% endif %}
+          </td>
+          <td style="white-space:nowrap;">
+            <a href="{{ url_for('admin.student_detail', id=s.id) }}" class="btn-erp btn-secondary-erp"
+              style="padding:4px 10px;font-size:12px;text-decoration:none;">
+              <i class="fa-solid fa-eye"></i> View
+            </a>
+            {% if s.approval_status == 'pending' %}
+            <form method="POST" action="{{ url_for('admin.approve_student', id=s.id) }}" style="display:inline;">
+              <input type="hidden" name="action" value="approve">
+              <button type="submit" class="btn-erp btn-success-erp" style="padding:4px 10px;font-size:12px;">
+                <i class="fa-solid fa-check"></i> Approve
+              </button>
+            </form>
+            {% endif %}
+            <button onclick="openAssignTGModal({{ s.id }}, '{{ s.tg_id or '' }}')" class="btn-erp"
+              style="padding:4px 8px;font-size:11px;background:var(--bg-hover);">
+              <i class="fa-solid fa-user-tag"></i> TG
+            </button>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="12" style="text-align:center;padding:40px;color:var(--text-muted);">
+            <div style="font-size:40px;margin-bottom:12px;">🔍</div>
+            No students found for the selected filters.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {# ── Pagination ── #}
+  {% if pagination.pages > 1 %}
+  <div style="display:flex;justify-content:center;gap:8px;padding:20px;border-top:1px solid var(--border-color);">
+    {% if pagination.has_prev %}
+    <a href="{{ url_for('admin.students', page=pagination.prev_num, search=search, category=category, gender=gender, blood=blood) }}"
+      class="btn-erp btn-secondary-erp" style="padding:6px 14px;text-decoration:none;">‹ Prev</a>
+    {% endif %}
+    {% for p in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+    {% if p %}
+    <a href="{{ url_for('admin.students', page=p, search=search, category=category, gender=gender, blood=blood) }}"
+      class="btn-erp {{ 'btn-primary-erp' if p == pagination.page else 'btn-secondary-erp' }}"
+      style="padding:6px 14px;text-decoration:none;min-width:36px;text-align:center;">{{ p }}</a>
+    {% else %}
+    <span style="padding:6px 4px;color:var(--text-muted);">…</span>
+    {% endif %}
+    {% endfor %}
+    {% if pagination.has_next %}
+    <a href="{{ url_for('admin.students', page=pagination.next_num, search=search, category=category, gender=gender, blood=blood) }}"
+      class="btn-erp btn-secondary-erp" style="padding:6px 14px;text-decoration:none;">Next ›</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<!-- Assign TG Modal -->
+<div id="assignTGModal"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2000;align-items:center;justify-content:center;">
+  <div class="card-erp" style="max-width:420px;width:90%;padding:0;">
+    <div class="card-header-erp">
+      <h5><i class="fa-solid fa-user-tag"></i> Assign Teacher Guardian</h5>
+      <button onclick="document.getElementById('assignTGModal').style.display='none'"
+        style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">×</button>
+    </div>
+    <div class="card-body-erp">
+      <form method="POST" id="assignTGForm">
+        <input type="hidden" name="student_ids" id="assignTGStudentIds" value="">
+        <div class="form-group-erp">
+          <label class="form-label-erp">Select Teacher Guardian</label>
+          <select name="tg_id" id="assignTGSelect" class="form-control-erp">
+            <option value="">-- Remove TG --</option>
+            {% for t in teachers %}
+            <option value="{{ t.id }}">{{ t.name }} ({{ t.role }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn-erp btn-primary-erp"
+          style="width:100%;justify-content:center;margin-top:10px;">Save</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function openAssignTGModal(studentId, currentTgId) {
+    document.getElementById('assignTGSelect').value = currentTgId || '';
+    document.getElementById('assignTGStudentIds').value = studentId;
+    document.getElementById('assignTGForm').action = '/admin/students/bulk-assign-tg';
+    document.getElementById('assignTGModal').style.display = 'flex';
+  }
+
+  function toggleAllStudents(source) {
+    const checkboxes = document.querySelectorAll('.student-checkbox');
+    checkboxes.forEach(cb => cb.checked = source.checked);
+    updateBulkBtn();
+  }
+
+  function updateBulkBtn() {
+    const anyChecked = document.querySelectorAll('.student-checkbox:checked').length > 0;
+    document.getElementById('bulkAssignBtn').style.display = anyChecked ? 'inline-flex' : 'none';
+  }
+
+  function openBulkAssignTGModal() {
+    const selectedIds = Array.from(document.querySelectorAll('.student-checkbox:checked')).map(cb => cb.value);
+    if (selectedIds.length === 0) return;
+    document.getElementById('assignTGSelect').value = '';
+    document.getElementById('assignTGStudentIds').value = selectedIds.join(',');
+    document.getElementById('assignTGForm').action = '/admin/students/bulk-assign-tg';
+    document.getElementById('assignTGModal').style.display = 'flex';
+  }
+</script>
+{% endblock %}

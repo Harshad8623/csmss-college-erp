@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Grievance Detail{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title"><div class="title-icon">📋</div> Grievance #{{ grievance.id }}</h1>
+</div>
+<div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;max-width:900px;">
+  <div>
+    <div class="card-erp" style="margin-bottom:20px;">
+      <div class="card-header-erp">
+        <h5>Grievance Details</h5>
+        <span class="badge-erp {{ 'badge-warning' if grievance.status=='pending' else 'badge-success' if grievance.status=='approved' else 'badge-danger' }}">
+          {{ grievance.status.title() }}
+        </span>
+      </div>
+      <div class="card-body-erp">
+        <div style="margin-bottom:16px;">
+          <div class="form-label-erp">Student</div>
+          <div style="font-weight:600;font-size:15px;">{{ grievance.student.user.name }}</div>
+        </div>
+        <div style="margin-bottom:16px;">
+          <div class="form-label-erp">Type</div>
+          <span class="badge-erp badge-purple">{{ grievance.type.title() }}</span>
+        </div>
+        <div style="margin-bottom:16px;">
+          <div class="form-label-erp">Description</div>
+          <div style="background:var(--bg-secondary);padding:14px;border-radius:var(--radius-sm);font-size:14px;line-height:1.7;">
+            {{ grievance.description }}
+          </div>
+        </div>
+        {% if grievance.comment %}
+        <div style="margin-bottom:16px;">
+          <div class="form-label-erp">Staff Comment</div>
+          <div style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.15);padding:14px;border-radius:var(--radius-sm);font-size:14px;">
+            {{ grievance.comment }}
+          </div>
+        </div>
+        {% endif %}
+        <div style="font-size:12px;color:var(--text-muted);">
+          Submitted: {{ grievance.created_at.strftime('%d %B %Y, %I:%M %p') }}
+        </div>
+      </div>
+    </div>
+    <a href="{{ url_for('grievance.index') }}" class="btn-erp btn-outline-erp">← Back to List</a>
+  </div>
+
+  {% if current_user.role != 'STUDENT' %}
+  <div class="card-erp">
+    <div class="card-header-erp"><h5>Review Action</h5></div>
+    <div class="card-body-erp">
+      <form method="POST" action="{{ url_for('grievance.detail', id=grievance.id) }}" data-validate>
+        <div class="form-group-erp">
+          <label class="form-label-erp">Comment / Reason</label>
+          <textarea name="comment" class="form-control-erp" rows="4"
+            placeholder="Add a comment or explanation...">{{ grievance.comment or '' }}</textarea>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <button type="submit" name="action" value="approve" class="btn-erp btn-success-erp" style="justify-content:center;">
+            ✅ Approve
+          </button>
+          <button type="submit" name="action" value="reject" class="btn-erp btn-danger-erp" style="justify-content:center;">
+            ❌ Reject
+          </button>
+          <button type="submit" name="action" value="escalate" class="btn-erp btn-warning-erp" style="justify-content:center;">
+            ⬆️ Escalate to HOD
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

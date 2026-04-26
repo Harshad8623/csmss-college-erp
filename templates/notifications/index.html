@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title"><div class="title-icon">🔔</div> Notifications</h1>
+  <p class="page-subtitle">All your recent alerts and updates</p>
+</div>
+
+<div style="max-width:700px;">
+  <div class="card-erp">
+    <div class="card-header-erp">
+      <h5>Recent Notifications</h5>
+      <span class="badge-erp badge-info">{{ notifications|length }} total</span>
+    </div>
+    <div style="padding:0;">
+      {% if notifications %}
+        {% for n in notifications %}
+        <div class="notif-item {{ 'unread' if not n.is_read else '' }}"
+          onclick="window.location='{{ n.link or url_for('dashboard.index') }}'">
+          <div class="notif-dot {{ n.type }}"></div>
+          <div style="flex:1;">
+            <div style="font-size:13.5px;font-weight:{{ '600' if not n.is_read else '400' }};">{{ n.message }}</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+              <i class="fa-solid fa-clock"></i>
+              {{ n.created_at.strftime('%d %b %Y, %I:%M %p') }}
+            </div>
+          </div>
+          {% if not n.is_read %}
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--accent-blue);flex-shrink:0;margin-top:6px;"></div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      {% else %}
+      <div class="empty-state">
+        <div class="empty-icon">🔔</div>
+        <h6>No Notifications</h6>
+        <p>You're all caught up! No new notifications.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

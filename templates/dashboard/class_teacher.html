@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Class Teacher Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title"><div class="title-icon">👨‍🏫</div> Class Teacher Dashboard</h1>
+  <p class="page-subtitle">Class: <strong>{{ class_.name if class_ else 'Not Assigned' }}</strong></p>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-bottom:28px;">
+  <div class="stat-card stat-card-blue">
+    <div class="stat-icon stat-icon-blue"><i class="fa-solid fa-users"></i></div>
+    <div class="stat-content">
+      <div class="stat-value">{{ stats.total_students }}</div><div class="stat-label">Total Students</div>
+    </div>
+  </div>
+  <div class="stat-card stat-card-gold">
+    <div class="stat-icon stat-icon-gold"><i class="fa-solid fa-user-clock"></i></div>
+    <div class="stat-content">
+      <div class="stat-value">{{ stats.pending_approvals }}</div><div class="stat-label">Pending</div>
+    </div>
+  </div>
+  <div class="stat-card stat-card-red">
+    <div class="stat-icon stat-icon-red"><i class="fa-solid fa-triangle-exclamation"></i></div>
+    <div class="stat-content">
+      <div class="stat-value">{{ stats.defaulters }}</div><div class="stat-label">Defaulters</div>
+    </div>
+  </div>
+  <div class="stat-card stat-card-purple">
+    <div class="stat-icon stat-icon-purple"><i class="fa-solid fa-comment-dots"></i></div>
+    <div class="stat-content">
+      <div class="stat-value">{{ stats.active_grievances }}</div><div class="stat-label">Grievances</div>
+    </div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+  <!-- Pending Approvals -->
+  <div class="card-erp">
+    <div class="card-header-erp">
+      <h5><i class="fa-solid fa-user-check" style="color:var(--accent-green);"></i> Pending Student Approvals</h5>
+    </div>
+    <div class="card-body-erp" style="padding:0;">
+      <table class="table-erp">
+        <thead><tr><th>Student</th><th>PRN</th><th>Actions</th></tr></thead>
+        <tbody>
+          {% for s in pending %}
+          <tr>
+            <td>
+              <div style="font-weight:600;">{{ s.user.name }}</div>
+              <div style="font-size:11px;color:var(--text-muted);">{{ s.user.email }}</div>
+            </td>
+            <td>{{ s.prn or '—' }}</td>
+            <td>
+              <form method="POST" action="{{ url_for('admin.approve_student', id=s.id) }}" style="display:inline;">
+                <input type="hidden" name="action" value="approve">
+                <button type="submit" class="btn-erp btn-success-erp btn-sm-erp">✅</button>
+              </form>
+              <form method="POST" action="{{ url_for('admin.approve_student', id=s.id) }}" style="display:inline;">
+                <input type="hidden" name="action" value="reject">
+                <button type="submit" class="btn-erp btn-danger-erp btn-sm-erp">❌</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3"><div class="empty-state" style="padding:24px;"><div class="empty-icon">✅</div><p>All students approved</p></div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Defaulters Alert -->
+  <div class="card-erp">
+    <div class="card-header-erp">
+      <h5><i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-red);"></i> Attendance Defaulters</h5>
+      {% if class_ %}
+      <a href="{{ url_for('attendance.class_report', class_id=class_.id) }}" style="font-size:12px;color:var(--accent-blue);text-decoration:none;">Full Report →</a>
+      {% endif %}
+    </div>
+    <div class="card-body-erp" style="padding:0;">
+      <table class="table-erp">
+        <thead><tr><th>Student</th><th>Attendance</th><th>Risk</th></tr></thead>
+        <tbody>
+          {% for d in defaulters %}
+          <tr>
+            <td style="font-weight:600;">{{ d.student.user.name }}</td>
+            <td>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="progress-erp" style="flex:1;height:6px;">
+                  <div class="progress-bar-erp red" style="width:{{ d.pct }}%;"></div>
+                </div>
+                <span style="font-size:12px;font-weight:700;color:var(--accent-red);">{{ d.pct }}%</span>
+              </div>
+            </td>
+            <td>
+              <span class="badge-erp {{ 'badge-danger' if d.pct < 50 else 'badge-warning' }}">
+                {{ '🔴 Critical' if d.pct < 50 else '🟡 Warning' }}
+              </span>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3"><div class="empty-state" style="padding:24px;"><div class="empty-icon">🎉</div><p>No defaulters! Great class!</p></div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

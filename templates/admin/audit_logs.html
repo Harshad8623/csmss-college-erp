@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Audit Logs{% endblock %}
+{% block content %}
+<div class="page-header"><h1 class="page-title"><div class="title-icon">🛡️</div> Audit Logs</h1></div>
+<div class="card-erp">
+  <div class="card-body-erp" style="padding:0;overflow-x:auto;">
+    <table class="table-erp">
+      <thead><tr><th>User</th><th>Action</th><th>Details</th><th>IP</th><th>Time</th></tr></thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td style="font-size:13px;">{{ log.user.name if log.user else 'System' }}</td>
+          <td><span class="badge-erp badge-info">{{ log.action }}</span></td>
+          <td style="color:var(--text-muted);font-size:12px;max-width:200px;" class="truncate">{{ log.details or '—' }}</td>
+          <td style="color:var(--text-muted);font-size:12px;">{{ log.ip_address or '—' }}</td>
+          <td style="color:var(--text-muted);font-size:12px;">{{ log.created_at.strftime('%d %b %Y %H:%M') }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5"><div class="empty-state"><p>No audit logs yet</p></div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

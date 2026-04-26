@@ -1,0 +1,62 @@
+from flask import Flask
+from config import Config
+from app.extensions import db, login_manager, bcrypt, migrate
+import os
+
+def create_app(config_class=Config):
+    app = Flask(__name__, template_folder='../templates', static_folder='../static')
+    app.config.from_object(config_class)
+
+    # Init extensions
+    db.init_app(app)
+    login_manager.init_app(app)
+    bcrypt.init_app(app)
+    migrate.init_app(app, db)
+
+    # Ensure upload folder exists
+    os.makedirs(os.path.join(app.root_path, '..', app.config['UPLOAD_FOLDER']), exist_ok=True)
+
+    # Register blueprints
+    from app.auth.routes import auth_bp
+    from app.dashboard.routes import dashboard_bp
+    from app.attendance.routes import attendance_bp
+    from app.marks.routes import marks_bp
+    from app.grievance.routes import grievance_bp
+    from app.certificate.routes import certificate_bp
+    from app.notices.routes import notices_bp
+    from app.assignments.routes import assignments_bp
+    from app.timetable.routes import timetable_bp
+    from app.analytics.routes import analytics_bp
+    from app.admin.routes import admin_bp
+    from app.notifications.routes import notifications_bp
+    from app.leaves.routes import leaves_bp
+
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(dashboard_bp)
+    app.register_blueprint(attendance_bp)
+    app.register_blueprint(marks_bp)
+    app.register_blueprint(grievance_bp)
+    app.register_blueprint(certificate_bp)
+    app.register_blueprint(notices_bp)
+    app.register_blueprint(assignments_bp)
+    app.register_blueprint(timetable_bp)
+    app.register_blueprint(analytics_bp)
+    app.register_blueprint(admin_bp)
+    app.register_blueprint(notifications_bp)
+    app.register_blueprint(leaves_bp)
+
+    # Inject globals into all templates
+    @app.context_processor
+    def inject_globals():
+        from flask_login import current_user
+        unread = 0
+        if current_user.is_authenticated:
+            from app.models import Notification
+            unread = Notification.query.filter_by(user_id=current_user.id, is_read=False).count()
+        return dict(
+            college_name=app.config['COLLEGE_NAME'],
+            college_short=app.config['COLLEGE_SHORT'],
+            unread_notifications=unread
+        )
+
+    return app

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}My Leaves{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
+  <h1 class="page-title"><div class="title-icon">📃</div> My Leaves</h1>
+  <a href="{{ url_for('leaves.apply') }}" class="btn-erp btn-primary-erp">
+    <i class="fa-solid fa-plus"></i> Apply Leave
+  </a>
+</div>
+
+<div class="table-container">
+  <table class="table-erp">
+    <thead>
+      <tr>
+        <th>Date Applied</th>
+        <th>Leave Type</th>
+        <th>Duration / Details</th>
+        <th>Reason</th>
+        <th>TG Status</th>
+        <th>CT Status</th>
+        <th>Final Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for leave in leaves %}
+      <tr>
+        <td>{{ leave.created_at.strftime('%d %b %Y') }}</td>
+        <td>{{ leave.type.replace('_',' ').title() }}</td>
+        <td>
+          {% if leave.type == 'multi_day' %}
+            {{ leave.start_date.strftime('%d %b') }} to {{ leave.end_date.strftime('%d %b %Y') }}
+          {% elif leave.type == 'specific_lectures' %}
+            {{ leave.start_date.strftime('%d %b %Y') }} <br>
+            <span style="font-size:11px;color:var(--text-muted);">{{ leave.specific_lectures }}</span>
+          {% else %}
+            {{ leave.start_date.strftime('%d %b %Y') }}
+          {% endif %}
+        </td>
+        <td style="max-width:250px;">{{ leave.reason }}</td>
+        
+        <td>
+          <span class="badge-erp 
+            {% if leave.tg_status == 'approved' %}badge-success
+            {% elif leave.tg_status == 'rejected' %}badge-danger
+            {% else %}badge-warning{% endif %}">
+            {{ leave.tg_status.title() }}
+          </span>
+          {% if leave.tg_comment %}<br><small><i>"{{ leave.tg_comment }}"</i></small>{% endif %}
+        </td>
+
+        <td>
+          <span class="badge-erp 
+            {% if leave.ct_status == 'approved' %}badge-success
+            {% elif leave.ct_status == 'rejected' %}badge-danger
+            {% else %}badge-warning{% endif %}">
+            {{ leave.ct_status.title() }}
+          </span>
+          {% if leave.ct_comment %}<br><small><i>"{{ leave.ct_comment }}"</i></small>{% endif %}
+        </td>
+
+        <td>
+          <span class="badge-erp 
+            {% if leave.status == 'approved' %}badge-success
+            {% elif leave.status == 'rejected' %}badge-danger
+            {% else %}badge-warning{% endif %}" style="font-size:13px;padding:6px 12px;">
+            {% if leave.status == 'pending_tg' %}Pending TG
+            {% elif leave.status == 'pending_ct' %}Pending CT
+            {% else %}{{ leave.status.title() }}{% endif %}
+          </span>
+        </td>
+
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="7" style="text-align:center;padding:30px;">
+          <i class="fa-solid fa-umbrella-beach" style="font-size:40px;color:var(--border-color);margin-bottom:10px;"></i>
+          <p style="color:var(--text-muted);">You haven't requested any leaves yet.</p>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

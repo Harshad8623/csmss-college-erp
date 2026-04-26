@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Certificate Applications{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+  <div><h1 class="page-title"><div class="title-icon">📜</div> Certificates</h1></div>
+  {% if current_user.role == 'STUDENT' %}
+  <a href="{{ url_for('certificate.apply') }}" class="btn-erp btn-primary-erp">
+    <i class="fa-solid fa-plus"></i> Apply for Certificate
+  </a>
+  {% endif %}
+</div>
+<div class="card-erp">
+  <div class="card-body-erp" style="padding:0;">
+    <table class="table-erp">
+      <thead><tr><th>Student</th><th>Type</th><th>Reason</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
+      <tbody>
+        {% for cert in certs %}
+        <tr>
+          <td style="font-weight:600;">{{ cert.student.user.name }}</td>
+          <td><span class="badge-erp badge-purple">{{ cert.type.title() }}</span></td>
+          <td><div class="truncate" style="max-width:200px;">{{ cert.reason or '—' }}</div></td>
+          <td>
+            <span class="badge-erp {{ 'badge-success' if cert.status=='approved' else 'badge-warning' if cert.status=='pending' else 'badge-danger' }}">
+              {{ cert.status.title() }}
+            </span>
+          </td>
+          <td style="font-size:12px;color:var(--text-muted);">{{ cert.created_at.strftime('%d %b %Y') }}</td>
+          <td>
+            {% if current_user.role != 'STUDENT' and cert.status == 'pending' %}
+            <form method="POST" action="{{ url_for('certificate.action', id=cert.id) }}" style="display:inline;">
+              <input type="hidden" name="action" value="approve">
+              <button type="submit" class="btn-erp btn-success-erp btn-sm-erp">✅ Approve</button>
+            </form>
+            <form method="POST" action="{{ url_for('certificate.action', id=cert.id) }}" style="display:inline;">
+              <input type="hidden" name="action" value="reject">
+              <input type="hidden" name="notes" value="Rejected">
+              <button type="submit" class="btn-erp btn-danger-erp btn-sm-erp">❌ Reject</button>
+            </form>
+            {% elif cert.status == 'approved' %}
+            <span class="badge-erp badge-success">✅ Approved</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📜</div><p>No certificate applications</p></div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

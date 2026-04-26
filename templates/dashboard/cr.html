@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}CR Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title"><div class="title-icon">🎖️</div> Class Representative</h1>
+  <p class="page-subtitle">Class: <strong>{{ class_.name if class_ else 'N/A' }}</strong></p>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+  <div class="card-erp">
+    <div class="card-header-erp">
+      <h5><i class="fa-solid fa-users" style="color:var(--accent-blue);"></i> Class Students ({{ students|length }})</h5>
+    </div>
+    <div class="card-body-erp" style="padding:0;">
+      <table class="table-erp">
+        <thead><tr><th>Name</th><th>Roll</th><th>Attendance</th></tr></thead>
+        <tbody>
+          {% for s in students %}
+          <tr>
+            <td style="font-weight:600;">{{ s.user.name }}</td>
+            <td>{{ s.roll_no or '—' }}</td>
+            <td>
+              {% set pct = s.attendance_percentage() %}
+              <span style="color:{{ 'var(--accent-red)' if pct < 75 else 'var(--accent-green)' }};font-weight:700;">{{ pct }}%</span>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3"><div class="empty-state"><p>No students</p></div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card-erp">
+    <div class="card-header-erp">
+      <h5><i class="fa-solid fa-bullhorn" style="color:var(--accent-purple);"></i> Recent Notices</h5>
+    </div>
+    <div class="card-body-erp" style="padding:0;">
+      <table class="table-erp">
+        <thead><tr><th>Title</th><th>Date</th></tr></thead>
+        <tbody>
+          {% for n in notices %}
+          <tr>
+            <td>{{ '🚨' if n.is_urgent else '📢'}} {{ n.title }}</td>
+            <td style="font-size:12px;color:var(--text-muted);">{{ n.created_at.strftime('%d %b') }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="2"><div class="empty-state"><p>No notices</p></div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+{% block title %}Manage Timetable{% endblock %}
+{% block content %}
+
+<div class="page-header" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;align-items:center;">
+  <div>
+    <h1 class="page-title">
+      <div class="title-icon">📅</div> Manage Timetable
+    </h1>
+  </div>
+  <a href="{{ url_for('timetable.index') }}" class="btn-erp"
+    style="background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-secondary);">
+    <i class="fa-solid fa-arrow-left"></i> Back to View
+  </a>
+</div>
+
+{# ── Class Selector ─────────────────────────────────────────────────────── #}
+<div class="card-erp" style="margin-bottom:20px;">
+  <div class="card-body-erp">
+    <form method="GET" style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;">
+      <div style="min-width:220px;">
+        <label class="form-label-erp">Select Class to Manage</label>
+        <select name="class_id" id="classSelect" class="form-control-erp" onchange="this.form.submit()">
+          <option value="">-- Select Class --</option>
+          {% for cls in classes %}
+          <option value="{{ cls.id }}" {{ 'selected' if selected_class and selected_class.id==cls.id }}>{{ cls.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if selected_class %}
+
+{# ── Add New Entry ──────────────────────────────────────────────────────── #}
+<div class="card-erp" style="margin-bottom:24px;">
+  <div class="card-header-erp">
+    <h5>➕ Add Timetable Entry — {{ selected_class.name }}</h5>
+  </div>
+  <div class="card-body-erp">
+    <form method="POST" action="{{ url_for('timetable.manage', class_id=selected_class.id) }}"
+      style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;align-items:end;">
+      <input type="hidden" name="action" value="add">
+      <input type="hidden" name="class_id" value="{{ selected_class.id }}">
+
+      <div>
+        <label class="form-label-erp">Day</label>
+        <select name="day" id="addDay" class="form-control-erp" required>
+          <option value="">-- Day --</option>
+          {% for day in days %}
+          <option value="{{ day }}">{{ day }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="form-label-erp">Subject</label>
+        <select name="subject_id" id="addSubject" class="form-control-erp" required>
+          <option value="">-- Subject --</option>
+          {% for subj in subjects %}
+          <option value="{{ subj.id }}">{{ subj.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="form-label-erp">Start Time</label>
+        <input type="time" name="start_time" id="addStart" class="form-control-erp" required>
+      </div>
+
+      <div>
+        <label class="form-label-erp">End Time</label>
+        <input type="time" name="end_time" id="addEnd" class="form-control-erp" required>
+      </div>
+
+      <div>
+        <button type="submit" class="btn-erp btn-primary-erp" style="width:100%;">
+          <i class="fa-solid fa-plus"></i> Add Entry
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# ── Edit Modal ─────────────────────────────────────────────────────────── #}
+<div id="editModal"
+  style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
+  <div class="card-erp" style="width:100%;max-width:480px;margin:auto;padding:24px;position:relative;">
+    <button onclick="closeEditModal()"
+      style="position:absolute;top:12px;right:16px;background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">✕</button>
+    <h5 style="margin-bottom:20px;font-weight:700;"><i class="fa-solid fa-pen-to-square"></i> Edit Entry</h5>
+    <form method="POST" action="" id="editForm">
+      <input type="hidden" name="action" value="edit">
+      <input type="hidden" name="class_id" value="{{ selected_class.id }}">
+
+      <div class="form-group-erp" style="margin-bottom:16px;">
+        <label class="form-label-erp">Day</label>
+        <select name="day" id="editDay" class="form-control-erp" required>
+          {% for day in days %}
+          <option value="{{ day }}">{{ day }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group-erp" style="margin-bottom:16px;">
+        <label class="form-label-erp">Subject</label>
+        <select name="subject_id" id="editSubject" class="form-control-erp" required>
+          {% for subj in subjects %}
+          <option value="{{ subj.id }}">{{ subj.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
+        <div>
+          <label class="form-label-erp">Start Time</label>
+          <input type="time" name="start_time" id="editStart" class="form-control-erp" required>
+        </div>
+        <div>
+          <label class="form-label-erp">End Time</label>
+          <input type="time" name="end_time" id="editEnd" class="form-control-erp" required>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-erp btn-primary-erp" style="width:100%;">
+        <i class="fa-solid fa-floppy-disk"></i> Save Changes
+      </button>
+    </form>
+  </div>
+</div>
+
+{# ── Current Entries Table ──────────────────────────────────────────────── #}
+<div class="card-erp">
+  <div class="card-header-erp" style="display:flex;justify-content:space-between;align-items:center;">
+    <h5 style="margin:0;">📋 Current Schedule — {{ selected_class.name }}</h5>
+    <span class="badge-erp badge-info">{{ entries|length }} slot{{ 's' if entries|length != 1 }}</span>
+  </div>
+
+  {% if entries %}
+  <div class="table-container">
+    <table class="table-erp">
+      <thead>
+        <tr>
+          <th>Day</th>
+          <th>Time</th>
+          <th>Subject</th>
+          <th>Teacher</th>
+          <th style="text-align:center;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in entries | sort(attribute='day') %}
+        <tr>
+          <td>
+            <span class="badge-erp" style="background:rgba(99,102,241,0.15);color:#818cf8;">{{ e.day }}</span>
+          </td>
+          <td style="font-family:monospace;font-size:13px;">
+            {{ e.start_time }} – {{ e.end_time }}
+          </td>
+          <td>
+            <strong>{{ e.subject.name }}</strong><br>
+            <span style="font-size:11px;color:var(--text-muted);">{{ e.subject.code or '' }}</span>
+          </td>
+          <td style="font-size:13px;color:var(--text-secondary);">
+            {{ e.subject.teacher_user.name if e.subject.teacher_user else '—' }}
+          </td>
+          <td style="text-align:center;">
+            <div style="display:flex;gap:8px;justify-content:center;">
+              <button type="button"
+                onclick="openEditModal({{ e.id }}, '{{ e.day }}', '{{ e.subject_id }}', '{{ e.start_time }}', '{{ e.end_time }}')"
+                class="btn-erp"
+                style="padding:4px 10px;background:rgba(59,130,246,0.1);color:#60a5fa;border:1px solid rgba(59,130,246,0.3);"
+                title="Edit">
+                <i class="fa-solid fa-pen-to-square"></i> Edit
+              </button>
+              <form method="POST" action="{{ url_for('timetable.delete', id=e.id) }}"
+                onsubmit="return confirm('Delete this timetable entry?');" style="margin:0;">
+                <button type="submit" class="btn-erp btn-danger-erp" style="padding:4px 10px;" title="Delete">
+                  <i class="fa-solid fa-trash"></i> Delete
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body-erp">
+    <div class="empty-state" style="padding:40px 0;">
+      <div class="empty-icon">📅</div>
+      <h6>No Entries Yet</h6>
+      <p>Add your first timetable slot using the form above.</p>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% else %}
+<div class="card-erp">
+  <div class="card-body-erp">
+    <div class="empty-state">
+      <div class="empty-icon">📅</div>
+      <h6>Select a Class</h6>
+      <p>Choose a class above to start managing its timetable.</p>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function openEditModal(id, day, subjectId, startTime, endTime) {
+    // Set form action dynamically
+    document.getElementById('editForm').action = '/timetable/edit/' + id;
+
+    // Set values
+    document.getElementById('editDay').value = day;
+    document.getElementById('editSubject').value = subjectId;
+    document.getElementById('editStart').value = startTime;
+    document.getElementById('editEnd').value = endTime;
+
+    // Show modal
+    const modal = document.getElementById('editModal');
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeEditModal() {
+    document.getElementById('editModal').style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  // Close modal on backdrop click
+  document.getElementById('editModal').addEventListener('click', function (e) {
+    if (e.target === this) closeEditModal();
+  });
+
+  // Close on Escape key
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeEditModal();
+  });
+</script>
+{% endblock %}

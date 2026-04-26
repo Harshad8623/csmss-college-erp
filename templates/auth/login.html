@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login | CSMSS College ERP</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-card" style="max-width:480px;">
+    <!-- Logo -->
+    <div class="auth-logo">
+      <img src="{{ url_for('static', filename='img/college_logo.png') }}" alt="College Logo" style="width: 80px; height: 80px; object-fit: contain; margin: 0 auto 12px; display: block;">
+      <h2 class="text-gradient">CSMSS ERP System</h2>
+      <p>Chh. Shahu College of Engineering</p>
+    </div>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert-erp alert-{{ category if category in ['success','danger','warning','info'] else 'info' }}" style="margin-bottom:16px;">
+            <span>{{ message }}</span>
+            <button class="alert-close">×</button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- Demo Login Panel -->
+    <div class="demo-logins">
+      <h6><i class="fa-solid fa-bolt"></i> &nbsp;Quick Demo Login</h6>
+      <div>
+        <span class="demo-btn" data-email="principal@csmss.edu" data-pass="admin123" title="Super Admin">👑 Principal</span>
+        <span class="demo-btn" data-email="hod@csmss.edu" data-pass="admin123" title="HOD">🏫 HOD</span>
+        <span class="demo-btn" data-email="classteacher@csmss.edu" data-pass="admin123" title="Class Teacher">👨‍🏫 C. Teacher</span>
+        <span class="demo-btn" data-email="teacher@csmss.edu" data-pass="admin123" title="Teacher">📖 Teacher</span>
+        <span class="demo-btn" data-email="student@csmss.edu" data-pass="student123" title="Student">🧑‍🎓 Student</span>
+      </div>
+    </div>
+
+    <!-- Login Form -->
+    <form method="POST" action="{{ url_for('auth.login') }}" data-validate id="loginForm">
+      <div class="form-group-erp">
+        <label class="form-label-erp" for="email">Email Address</label>
+        <div class="input-group-erp">
+          <i class="fa-solid fa-envelope input-icon"></i>
+          <input type="email" id="email" name="email" class="form-control-erp"
+            placeholder="Enter your email" required autocomplete="email">
+        </div>
+      </div>
+
+      <div class="form-group-erp">
+        <label class="form-label-erp" for="password">Password</label>
+        <div class="input-group-erp">
+          <i class="fa-solid fa-lock input-icon"></i>
+          <input type="password" id="password" name="password" class="form-control-erp"
+            placeholder="Enter your password" required autocomplete="current-password"
+            style="padding-right:42px;">
+          <button type="button" id="togglePass"
+            style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;">
+            <i class="fa-solid fa-eye"></i>
+          </button>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);cursor:pointer;">
+          <input type="checkbox" name="remember" style="accent-color:var(--accent-blue);">
+          Remember me
+        </label>
+      </div>
+
+      <button type="submit" class="btn-erp btn-primary-erp" style="width:100%;justify-content:center;padding:12px;">
+        <i class="fa-solid fa-right-to-bracket"></i>
+        Sign In to ERP
+      </button>
+    </form>
+
+    <div class="divider"></div>
+
+    <p style="text-align:center;font-size:13px;color:var(--text-secondary);">
+      Don't have an account?
+      <a href="{{ url_for('auth.register') }}" style="color:var(--accent-blue);font-weight:600;text-decoration:none;">
+        Register here
+      </a>
+    </p>
+
+    <!-- College Info -->
+    <div style="text-align:center;margin-top:24px;padding-top:20px;border-top:1px solid var(--border-color);">
+      <p style="font-size:11px;color:var(--text-muted);">
+        🏛️ CSMSS Chh. Shahu College of Engineering, Aurangabad<br>
+        AI-Enabled Smart ERP System v1.0
+      </p>
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script>
+  // Password Toggle
+  document.getElementById('togglePass')?.addEventListener('click', function() {
+    const pwd = document.getElementById('password');
+    const icon = this.querySelector('i');
+    if (pwd.type === 'password') {
+      pwd.type = 'text';
+      icon.className = 'fa-solid fa-eye-slash';
+    } else {
+      pwd.type = 'password';
+      icon.className = 'fa-solid fa-eye';
+    }
+  });
+</script>
+</body>
+</html>

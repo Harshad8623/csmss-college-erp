@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}My Profile{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title"><div class="title-icon">👤</div> My Profile</h1>
+</div>
+
+<div style="display:grid;grid-template-columns:280px 1fr;gap:24px;align-items:start;">
+
+  {# ── Left Identity Card ────────────────────────────────────────────────── #}
+  <div class="card-erp" style="text-align:center;padding:28px 20px;">
+    {% if current_user.profile_pic and current_user.profile_pic != 'default.png' %}
+    <img src="{{ url_for('static', filename='uploads/profiles/' + current_user.profile_pic) }}" 
+         alt="Profile Picture" class="user-avatar" style="width:80px;height:80px;border-radius:50%;object-fit:cover;margin:0 auto 14px;">
+    {% else %}
+    <div class="user-avatar" style="width:80px;height:80px;font-size:32px;margin:0 auto 14px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--bg-tertiary);">
+      {{ current_user.name[0] }}
+    </div>
+    {% endif %}
+    <h3 style="font-size:17px;font-weight:800;">{{ current_user.name }}</h3>
+    <div style="margin-top:8px;display:flex;flex-wrap:wrap;justify-content:center;gap:6px;">
+      <span class="badge-erp badge-info">{{ current_user.role.replace('_',' ') }}</span>
+      <span class="badge-erp {{ 'badge-success' if current_user.status=='active' else 'badge-warning' }}">
+        {{ current_user.status.title() }}
+      </span>
+    </div>
+    {% if student %}
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border-color);text-align:left;">
+      <div style="display:grid;gap:8px;">
+        <div style="display:flex;justify-content:space-between;font-size:13px;">
+          <span style="color:var(--text-muted);">PRN</span>
+          <strong style="font-size:11px;font-family:monospace;">{{ student.prn }}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;">
+          <span style="color:var(--text-muted);">Roll No</span>
+          <strong>{{ student.roll_no }}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;">
+          <span style="color:var(--text-muted);">Year</span>
+          <strong>{{ student.current_year or 3 }}<sup>rd</sup> Yr – Sem {{ student.semester or 5 }}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;">
+          <span style="color:var(--text-muted);">Blood Group</span>
+          <strong style="color:#f687b3;">{{ student.blood_group or '—' }}</strong>
+        </div>
+      </div>
+    </div>
+    {% if student.attendance_percentage() > 0 %}
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border-color);">
+      {% set att = student.attendance_percentage() %}
+      <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Attendance</div>
+      <div style="background:var(--bg-tertiary);border-radius:6px;height:8px;margin-bottom:6px;overflow:hidden;">
+        <div style="width:{{ att }}%;height:100%;background:{{ '#48bb78' if att >= 75 else '#f56565' }};border-radius:6px;"></div>
+      </div>
+      <strong style="color:{{ '#48bb78' if att >= 75 else '#f56565' }};">{{ att }}%</strong>
+    </div>
+    {% endif %}
+    {% endif %}
+  </div>
+
+  {# ── Right: Edit Form ──────────────────────────────────────────────────── #}
+  <div>
+    <form method="POST" action="{{ url_for('auth.profile') }}" enctype="multipart/form-data">
+
+      {# Section 1: Basic Info #}
+      <div class="card-erp" style="margin-bottom:20px;">
+        <div class="card-header-erp"><h5>📋 Basic Information</h5></div>
+        <div class="card-body-erp">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div class="form-group-erp">
+              <label class="form-label-erp">Full Name</label>
+              <input type="text" name="name" class="form-control-erp" value="{{ current_user.name }}" required>
+            </div>
+            <div class="form-group-erp">
+              <label class="form-label-erp">Email (read only)</label>
+              <input type="email" class="form-control-erp" value="{{ current_user.email }}" disabled>
+            </div>
+            <div class="form-group-erp">
+              <label class="form-label-erp">Mobile Number</label>
+              <input type="tel" name="phone" class="form-control-erp"
+                     value="{{ current_user.phone or '' }}" placeholder="10-digit number">
+            </div>
+            {% if student %}
+            <div class="form-group-erp">
+              <label class="form-label-erp">Date of Birth</label>
+              <input type="text" name="dob" class="form-control-erp"
+                     value="{{ student.dob or '' }}" placeholder="DD-MM-YYYY">
+            </div>
+            {% endif %}
+            <div class="form-group-erp" style="grid-column: 1 / -1;">
+              <label class="form-label-erp">Profile Picture</label>
+              <input type="file" name="profile_pic" class="form-control-erp" accept="image/*">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {% if student %}
+      {# Section 2: Academic & Personal Details #}
+      <div class="card-erp" style="margin-bottom:20px;">
+        <div class="card-header-erp"><h5>🎓 Academic & Personal Details</h5></div>
+        <div class="card-body-erp">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+            <div class="form-group-erp">
+              <label class="form-label-erp">Gender</label>
+              <select name="gender" class="form-control-erp">
+                <option value="">Select</option>
+                <option value="M" {{ 'selected' if student.gender == 'M' }}>Male</option>
+                <option value="F" {{ 'selected' if student.gender == 'F' }}>Female</option>
+              </select>
+            </div>
+            <div class="form-group-erp">
+              <label class="form-label-erp">Category</label>
+              <select name="category" class="form-control-erp">
+                {% for cat in ['OPEN','OBC','SC','ST','NT1','NT2','NT3','VJA','SBC','EWS'] %}
+                <option value="{{ cat }}" {{ 'selected' if student.category == cat }}>{{ cat }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group-erp">
+              <label class="form-label-erp">Blood Group</label>
+              <select name="blood_group" class="form-control-erp">
+                {% for bg in ['A+','A-','B+','B-','AB+','AB-','O+','O-'] %}
+                <option value="{{ bg }}" {{ 'selected' if student.blood_group == bg }}>{{ bg }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group-erp">
+              <label class="form-label-erp">Aadhar Number</label>
+              <input type="text" name="aadhar_no" class="form-control-erp"
+                     value="{{ student.aadhar_no or '' }}" placeholder="XXXX XXXX XXXX" maxlength="14">
+            </div>
+            <div class="form-group-erp">
+              <label class="form-label-erp">Mother's Name</label>
+              <input type="text" name="mother_name" class="form-control-erp"
+                     value="{{ student.mother_name or '' }}" placeholder="Mother's full name">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# Section 3: Address #}
+      <div class="card-erp" style="margin-bottom:20px;">
+        <div class="card-header-erp"><h5>🏠 Address Details</h5></div>
+        <div class="card-body-erp">
+          <div class="form-group-erp">
+            <label class="form-label-erp">Full Address</label>
+            <textarea name="address" class="form-control-erp" rows="2"
+                      placeholder="House No, Street, Area…">{{ student.address or '' }}</textarea>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;margin-top:4px;">
+            <div class="form-group-erp">
+              <label class="form-label-erp">City / Village</label>
+              <input type="text" name="city" class="form-control-erp"
+                     value="{{ student.city or '' }}" placeholder="City">
+            </div>
+            <div class="form-group-erp">
+              <label class="form-label-erp">District</label>
+              <input type="text" name="district" class="form-control-erp"
+                     value="{{ student.district or '' }}" placeholder="District">
+            </div>
+            <div class="form-group-erp">
+              <label class="form-label-erp">State</label>
+              <input type="text" name="state" class="form-control-erp"
+                     value="{{ student.state or 'Maharashtra' }}" placeholder="State">
+            </div>
+            <div class="form-group-erp">
+              <label class="form-label-erp">Pincode</label>
+              <input type="text" name="pincode" class="form-control-erp"
+                     value="{{ student.pincode or '' }}" placeholder="431001" maxlength="6">
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      {# Section 4: Change Password #}
+      <div class="card-erp" style="margin-bottom:20px;">
+        <div class="card-header-erp"><h5>🔒 Change Password</h5></div>
+        <div class="card-body-erp">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div class="form-group-erp">
+              <label class="form-label-erp">New Password (leave blank to keep current)</label>
+              <input type="password" name="new_password" class="form-control-erp"
+                     placeholder="Min 6 characters" minlength="6">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-erp btn-primary-erp" style="padding:12px 32px;font-size:15px;">
+        <i class="fa-solid fa-save"></i> Save All Changes
+      </button>
+
+    </form>
+  </div>
+</div>
+{% endblock %}

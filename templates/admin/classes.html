@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Classes{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+  <div><h1 class="page-title"><div class="title-icon">🏫</div> Classes</h1></div>
+  <button onclick="document.getElementById('addClassModal').style.display='flex'" class="btn-erp btn-primary-erp">
+    <i class="fa-solid fa-plus"></i> Add Class
+  </button>
+</div>
+<div class="card-erp">
+  <div class="card-body-erp" style="padding:0;">
+    <table class="table-erp">
+      <thead><tr><th>Class Name</th><th>Year</th><th>Section</th><th>Department</th><th>Class Teacher</th><th>Students</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for cls in classes %}
+        <tr>
+          <td style="font-weight:600;">{{ cls.name }}</td>
+          <td>Year {{ cls.year }}</td>
+          <td>{{ cls.section }}</td>
+          <td>{{ cls.department.name if cls.department else '—' }}</td>
+          <td>{{ cls.class_teacher.name if cls.class_teacher else '—' }}</td>
+          <td><span class="badge-erp badge-info">{{ cls.students.count() }}</span></td>
+          <td>
+            <a href="{{ url_for('attendance.class_report', class_id=cls.id) }}" class="btn-erp btn-ghost-erp btn-sm-erp">Attendance</a>
+            <a href="{{ url_for('marks.class_report', class_id=cls.id) }}" class="btn-erp btn-ghost-erp btn-sm-erp">Marks</a>
+            <a href="{{ url_for('timetable.manage', class_id=cls.id) }}" class="btn-erp btn-ghost-erp btn-sm-erp">Timetable</a>
+            <button onclick="openEditClassModal({{ cls.id }}, '{{ cls.name }}', '{{ cls.year }}', '{{ cls.section }}', '{{ cls.class_teacher_id or '' }}')"
+              class="btn-erp btn-sm-erp" style="background:var(--bg-hover);padding:4px 8px;font-size:12px;">
+              <i class="fa-solid fa-pen"></i> Edit
+            </button>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7"><div class="empty-state"><p>No classes yet</p></div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="addClassModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2000;align-items:center;justify-content:center;">
+  <div class="card-erp" style="max-width:500px;width:90%;padding:0;">
+    <div class="card-header-erp">
+      <h5>Add Class</h5>
+      <button onclick="document.getElementById('addClassModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">×</button>
+    </div>
+    <div class="card-body-erp">
+      <form method="POST" action="{{ url_for('admin.create_class') }}" data-validate>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+          <div class="form-group-erp" style="grid-column:1/-1;">
+            <label class="form-label-erp">Class Name *</label>
+            <input type="text" name="name" class="form-control-erp" placeholder="e.g. SE Computer" required>
+          </div>
+          <div class="form-group-erp">
+            <label class="form-label-erp">Year *</label>
+            <select name="year" class="form-control-erp" required>
+              <option value="1">First Year (FE)</option>
+              <option value="2">Second Year (SE)</option>
+              <option value="3">Third Year (TE)</option>
+              <option value="4">Fourth Year (BE)</option>
+            </select>
+          </div>
+          <div class="form-group-erp">
+            <label class="form-label-erp">Section</label>
+            <input type="text" name="section" class="form-control-erp" value="A">
+          </div>
+          <div class="form-group-erp">
+            <label class="form-label-erp">Department *</label>
+            <select name="department_id" class="form-control-erp" required>
+              {% for dept in departments %}
+              <option value="{{ dept.id }}">{{ dept.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group-erp">
+            <label class="form-label-erp">Class Teacher</label>
+            <select name="class_teacher_id" class="form-control-erp">
+              <option value="">-- Optional --</option>
+              {% for t in teachers %}
+              <option value="{{ t.id }}">{{ t.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <button type="submit" class="btn-erp btn-primary-erp" style="width:100%;justify-content:center;">Create Class</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Class Modal -->
+<div id="editClassModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2000;align-items:center;justify-content:center;">
+  <div class="card-erp" style="max-width:500px;width:90%;padding:0;">
+    <div class="card-header-erp">
+      <h5>Edit Class</h5>
+      <button onclick="document.getElementById('editClassModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">×</button>
+    </div>
+    <div class="card-body-erp">
+      <form method="POST" id="editClassForm">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+          <div class="form-group-erp" style="grid-column:1/-1;">
+            <label class="form-label-erp">Class Name *</label>
+            <input type="text" name="name" id="editClassName" class="form-control-erp" required>
+          </div>
+          <div class="form-group-erp">
+            <label class="form-label-erp">Year</label>
+            <select name="year" id="editClassYear" class="form-control-erp">
+              <option value="1">First Year (FE)</option>
+              <option value="2">Second Year (SE)</option>
+              <option value="3">Third Year (TE)</option>
+              <option value="4">Fourth Year (BE)</option>
+            </select>
+          </div>
+          <div class="form-group-erp">
+            <label class="form-label-erp">Section</label>
+            <input type="text" name="section" id="editClassSection" class="form-control-erp">
+          </div>
+          <div class="form-group-erp" style="grid-column:1/-1;">
+            <label class="form-label-erp">Class Teacher</label>
+            <select name="class_teacher_id" id="editClassCT" class="form-control-erp">
+              <option value="">-- None --</option>
+              {% for t in teachers %}
+              <option value="{{ t.id }}">{{ t.name }} ({{ t.role }})</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <button type="submit" class="btn-erp btn-primary-erp" style="width:100%;justify-content:center;margin-top:14px;">Save Changes</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openEditClassModal(id, name, year, section, ctId) {
+  document.getElementById('editClassName').value    = name;
+  document.getElementById('editClassYear').value    = year;
+  document.getElementById('editClassSection').value = section;
+  document.getElementById('editClassCT').value      = ctId;
+  document.getElementById('editClassForm').action   = '/admin/classes/edit/' + id;
+  document.getElementById('editClassModal').style.display = 'flex';
+}
+</script>
+{% endblock %}

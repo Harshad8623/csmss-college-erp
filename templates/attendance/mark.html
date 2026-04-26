@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}Mark Attendance{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+  <div>
+    <h1 class="page-title"><div class="title-icon">✅</div> Mark Attendance</h1>
+    <p class="page-subtitle">Select subject and date to mark attendance</p>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="card-erp" style="margin-bottom:20px;">
+  <div class="card-body-erp">
+    <form method="GET" action="{{ url_for('attendance.mark') }}" style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
+      <div style="flex:1;min-width:200px;">
+        <label class="form-label-erp">Subject *</label>
+        <select name="subject_id" class="form-control-erp" id="subjectSelect" required>
+          <option value="">-- Select Subject --</option>
+          {% for sub in subjects %}
+          <option value="{{ sub.id }}" {{ 'selected' if selected_subject and selected_subject.id == sub.id }}>
+            {{ sub.name }} ({{ sub.class_.name if sub.class_ else 'N/A' }})
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="min-width:140px;">
+        <label class="form-label-erp">Date *</label>
+        <input type="date" name="date" class="form-control-erp" value="{{ att_date }}" max="{{ today.strftime('%Y-%m-%d') if today else '' }}">
+      </div>
+      <button type="submit" class="btn-erp btn-primary-erp">
+        <i class="fa-solid fa-search"></i> Load Students
+      </button>
+    </form>
+  </div>
+</div>
+
+{% if selected_subject and students %}
+<form method="POST" action="{{ url_for('attendance.mark') }}" id="attendanceForm">
+  <input type="hidden" name="subject_id" value="{{ selected_subject.id }}">
+  <input type="hidden" name="date" value="{{ selected_date }}">
+
+  <div class="card-erp">
+    <div class="card-header-erp">
+      <h5>
+        <i class="fa-solid fa-users" style="color:var(--accent-blue);"></i>
+        {{ selected_subject.name }} — {{ selected_date.strftime('%d %B %Y') }}
+        <span class="badge-erp badge-info" style="margin-left:8px;">{{ students|length }} Students</span>
+      </h5>
+      <div style="display:flex;gap:8px;">
+        <button type="button" id="markAllPresent" class="btn-erp btn-success-erp btn-sm-erp">
+          ✅ All Present
+        </button>
+        <button type="button" id="markAllAbsent" class="btn-erp btn-danger-erp btn-sm-erp">
+          ❌ All Absent
+        </button>
+      </div>
+    </div>
+
+    <div class="card-body-erp" style="padding:0;">
+      <!-- Summary bar -->
+      <div style="padding:16px 22px;background:rgba(59,130,246,0.06);border-bottom:1px solid var(--border-color);display:flex;gap:24px;font-size:13px;">
+        <span id="presentCount" style="color:var(--accent-green);font-weight:700;">✅ Present: 0</span>
+        <span id="absentCount" style="color:var(--accent-red);font-weight:700;">❌ Absent: 0</span>
+        <span style="color:var(--text-muted);">Total: {{ students|length }}</span>
+      </div>
+
+      <table class="table-erp">
+        <thead>
+          <tr>
+            <th style="width:50px;">#</th>
+            <th>Student Name</th>
+            <th>Roll No</th>
+            <th>PRN</th>
+            <th style="text-align:center;">Attendance</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for student in students %}
+          {% set is_present = existing.get(student.id, True) %}
+          <tr>
+            <td style="color:var(--text-muted);">{{ loop.index }}</td>
+            <td>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div class="user-avatar" style="width:32px;height:32px;font-size:13px;">{{ student.user.name[0] }}</div>
+                <span style="font-weight:600;">{{ student.user.name }}</span>
+              </div>
+            </td>
+            <td style="color:var(--text-muted);">{{ student.roll_no or '—' }}</td>
+            <td style="color:var(--text-muted);font-size:12px;">{{ student.prn or '—' }}</td>
+            <td style="text-align:center;">
+              <div class="att-toggle-wrap" data-present="{{ 'true' if is_present else 'false' }}" style="justify-content:center;">
+                <!-- Hidden checkbox that gets submitted -->
+                <input type="checkbox" name="present" value="{{ student.id }}"
+                  {% if is_present %}checked{% endif %}
+                  style="display:none;" id="chk_{{ student.id }}">
+                <button type="button" class="att-btn att-present" onclick="toggleStudent({{ student.id }}, true)"
+                  title="Mark Present">
+                  <i class="fa-solid fa-check"></i>
+                </button>
+                <button type="button" class="att-btn att-absent" onclick="toggleStudent({{ student.id }}, false)"
+                  title="Mark Absent">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div style="padding:18px 22px;border-top:1px solid var(--border-color);display:flex;gap:12px;">
+      <button type="submit" class="btn-erp btn-primary-erp">
+        <i class="fa-solid fa-save"></i> Save Attendance
+      </button>
+      <a href="{{ url_for('attendance.class_report', class_id=selected_subject.class_id) }}"
+        class="btn-erp btn-outline-erp">
+        <i class="fa-solid fa-chart-bar"></i> View Report
+      </a>
+    </div>
+  </div>
+</form>
+
+{% elif selected_subject %}
+<div class="card-erp">
+  <div class="card-body-erp">
+    <div class="empty-state"><div class="empty-icon">👥</div><h6>No Students Found</h6><p>No approved students in this class yet.</p></div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleStudent(id, present) {
+  const chk = document.getElementById('chk_' + id);
+  const row = chk.closest('tr');
+  const presentBtn = row.querySelector('.att-present');
+  const absentBtn  = row.querySelector('.att-absent');
+
+  if (present) {
+    chk.checked = true;
+    presentBtn.classList.add('present');
+    absentBtn.classList.remove('absent');
+  } else {
+    chk.checked = false;
+    presentBtn.classList.remove('present');
+    absentBtn.classList.add('absent');
+  }
+  updateCounts();
+}
+
+function updateCounts() {
+  const total = document.querySelectorAll('[id^="chk_"]').length;
+  const present = document.querySelectorAll('[id^="chk_"]:checked').length;
+  document.getElementById('presentCount').textContent = '✅ Present: ' + present;
+  document.getElementById('absentCount').textContent  = '❌ Absent: ' + (total - present);
+}
+
+// Mark All
+document.getElementById('markAllPresent')?.addEventListener('click', () => {
+  document.querySelectorAll('[id^="chk_"]').forEach(chk => {
+    const id = chk.id.replace('chk_', '');
+    toggleStudent(parseInt(id), true);
+  });
+});
+document.getElementById('markAllAbsent')?.addEventListener('click', () => {
+  document.querySelectorAll('[id^="chk_"]').forEach(chk => {
+    const id = chk.id.replace('chk_', '');
+    toggleStudent(parseInt(id), false);
+  });
+});
+
+// Initialize counts
+updateCounts();
+
+// Initialize button states from data
+document.querySelectorAll('.att-toggle-wrap').forEach(wrap => {
+  const isPresent = wrap.dataset.present === 'true';
+  const presentBtn = wrap.querySelector('.att-present');
+  const absentBtn = wrap.querySelector('.att-absent');
+  if (isPresent) { presentBtn.classList.add('present'); }
+  else           { absentBtn.classList.add('absent'); }
+});
+
+const today = new Date().toISOString().split('T')[0];
+document.querySelector('[name="date"]')?.setAttribute('max', today);
+</script>
+{% endblock %}

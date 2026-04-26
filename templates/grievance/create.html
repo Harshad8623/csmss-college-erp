@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Raise Grievance{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title"><div class="title-icon">📝</div> Raise a Grievance</h1>
+  <p class="page-subtitle">Describe your issue — it will be reviewed by your class teacher</p>
+</div>
+<div style="max-width:600px;">
+  <div class="card-erp">
+    <div class="card-header-erp"><h5>📋 Grievance Form</h5></div>
+    <div class="card-body-erp">
+      <form method="POST" action="{{ url_for('grievance.create') }}" data-validate>
+        <div class="form-group-erp">
+          <label class="form-label-erp">Grievance Type *</label>
+          <select name="type" class="form-control-erp" required>
+            {% for val, label in types %}
+            <option value="{{ val }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group-erp">
+          <label class="form-label-erp">Description *</label>
+          <textarea name="description" class="form-control-erp" rows="5"
+            placeholder="Describe your grievance in detail..." required></textarea>
+        </div>
+        <div style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.15);border-radius:var(--radius-sm);padding:12px;margin-bottom:18px;font-size:13px;color:var(--text-secondary);">
+          <i class="fa-solid fa-circle-info" style="color:var(--accent-blue);"></i>
+          Your grievance will be assigned to your class teacher for review.
+          You will be notified of any updates.
+        </div>
+        <div style="display:flex;gap:12px;">
+          <button type="submit" class="btn-erp btn-primary-erp">
+            <i class="fa-solid fa-paper-plane"></i> Submit Grievance
+          </button>
+          <a href="{{ url_for('grievance.index') }}" class="btn-erp btn-outline-erp">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

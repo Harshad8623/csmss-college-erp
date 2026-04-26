@@ -1,0 +1,180 @@
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, abort
+from flask_login import login_required, current_user
+from app.extensions import db
+from app.models import Marks, Student, Subject, Class, User, Roles, ApprovalStatus, ExamType
+from app.utils.decorators import role_required
+from app.utils.helpers import send_notification, get_grade, get_dept_for_hod, get_class_for_ct
+
+marks_bp = Blueprint('marks', __name__, url_prefix='/marks')
+
+def _scoped_subjects():
+    """Return subjects list scoped by current user's role."""
+    role = current_user.role
+    if role == Roles.SUPER_ADMIN:
+        return Subject.query.all()
+    elif role == Roles.HOD:
+        dept_id = get_dept_for_hod(current_user.id)
+        if dept_id:
+            class_ids = [c.id for c in Class.query.filter_by(department_id=dept_id).all()]
+            return Subject.query.filter(Subject.class_id.in_(class_ids)).all()
+        return []
+    elif role == Roles.CLASS_TEACHER:
+        cls = get_class_for_ct(current_user.id)
+        return Subject.query.filter_by(class_id=cls.id).all() if cls else []
+    else:
+        return Subject.query.filter_by(teacher_id=current_user.id).all()
+
+@marks_bp.route('/')
+@login_required
+def index():
+    if current_user.role in [Roles.TEACHER, Roles.CLASS_TEACHER, Roles.HOD, Roles.SUPER_ADMIN]:
+        subjects = _scoped_subjects()
+        return render_template('marks/teacher_view.html', subjects=subjects)
+    else:
+        student = Student.query.filter_by(user_id=current_user.id).first()
+        if not student:
+            flash('Student profile not found.', 'danger')
+            return redirect(url_for('dashboard.index'))
+        all_marks = Marks.query.filter_by(student_id=student.id)\
+            .order_by(Marks.created_at.desc()).all()
+        # Group by subject
+        subjects_summary = {}
+        for m in all_marks:
+            sid = m.subject_id
+            if sid not in subjects_summary:
+                subjects_summary[sid] = {'subject': m.subject, 'marks': []}
+            subjects_summary[sid]['marks'].append(m)
+        return render_template('marks/student_view.html',
+            student=student, subjects_summary=subjects_summary.values())
+
+@marks_bp.route('/upload', methods=['GET', 'POST'])
+@login_required
+@role_required(Roles.TEACHER, Roles.CLASS_TEACHER, Roles.HOD, Roles.SUPER_ADMIN)
+def upload():
+    subjects = _scoped_subjects()
+
+    selected_subject = None
+    students = []
+    exam_type = request.args.get('exam_type', ExamType.INTERNAL)
+    subject_id = request.args.get('subject_id') or request.form.get('subject_id')
+
+    if subject_id:
+        selected_subject = Subject.query.get(subject_id)
+        # Scope check — block access to out-of-scope subjects
+        if selected_subject and selected_subject not in subjects:
+            abort(403)
+        exam_type = request.args.get('exam_type', ExamType.INTERNAL) or request.form.get('exam_type', ExamType.INTERNAL)
+        if selected_subject:
+            students = Student.query.filter_by(
+                class_id=selected_subject.class_id,
+                approval_status=ApprovalStatus.APPROVED
+            ).all()
+
+    if request.method == 'POST' and selected_subject:
+        exam_type = request.form.get('exam_type', ExamType.INTERNAL)
+        max_marks = float(request.form.get('max_marks', 100))
+        count = 0
+        for student in students:
+            marks_val = request.form.get(f'marks_{student.id}', '').strip()
+            if marks_val == '':
+                continue
+            try:
+                marks_float = float(marks_val)
+            except ValueError:
+                continue
+            # Upsert
+            existing = Marks.query.filter_by(
+                student_id=student.id,
+                subject_id=selected_subject.id,
+                exam_type=exam_type
+            ).first()
+            if existing:
+                existing.marks = marks_float
+                existing.max_marks = max_marks
+                existing.uploaded_by = current_user.id
+            else:
+                m = Marks(student_id=student.id, subject_id=selected_subject.id,
+                          marks=marks_float, max_marks=max_marks, exam_type=exam_type,
+                          uploaded_by=current_user.id)
+                db.session.add(m)
+            count += 1
+            send_notification(
+                student.user_id,
+                f'📊 Marks uploaded for {selected_subject.name} — {exam_type.title()}',
+                'info', url_for('marks.index')
+            )
+
+        db.session.commit()
+        flash(f'Marks uploaded for {count} students — {selected_subject.name} [{exam_type}]', 'success')
+        return redirect(url_for('marks.upload', subject_id=selected_subject.id, exam_type=exam_type))
+
+    # Load existing marks for display
+    existing_marks = {}
+    if selected_subject:
+        for m in Marks.query.filter_by(subject_id=selected_subject.id, exam_type=exam_type).all():
+            existing_marks[m.student_id] = m
+
+    return render_template('marks/upload.html',
+        subjects=subjects, selected_subject=selected_subject,
+        students=students, exam_type=exam_type,
+        existing_marks=existing_marks, exam_types=[
+            ExamType.INTERNAL, ExamType.PRACTICAL, ExamType.EXTERNAL, ExamType.MIDTERM
+        ])
+
+@marks_bp.route('/report/<int:class_id>')
+@login_required
+@role_required(Roles.TEACHER, Roles.CLASS_TEACHER, Roles.HOD, Roles.SUPER_ADMIN)
+def class_report(class_id):
+    class_ = Class.query.get_or_404(class_id)
+    # Scope check
+    if current_user.role == Roles.HOD:
+        dept_id = get_dept_for_hod(current_user.id)
+        if class_.department_id != dept_id:
+            abort(403)
+    elif current_user.role == Roles.CLASS_TEACHER:
+        cls = get_class_for_ct(current_user.id)
+        if not cls or cls.id != class_id:
+            abort(403)
+    students = Student.query.filter_by(class_id=class_id, approval_status=ApprovalStatus.APPROVED).all()
+    subjects = Subject.query.filter_by(class_id=class_id).all()
+    exam_type = request.args.get('exam_type', ExamType.INTERNAL)
+
+    report = []
+    for student in students:
+        row = {'student': student, 'subjects': {}, 'total': 0, 'max_total': 0}
+        for sub in subjects:
+            m = Marks.query.filter_by(student_id=student.id,
+                subject_id=sub.id, exam_type=exam_type).first()
+            row['subjects'][sub.id] = m
+            if m:
+                row['total'] += m.marks
+                row['max_total'] += m.max_marks
+        row['percentage'] = round((row['total'] / row['max_total']) * 100, 2) if row['max_total'] else 0
+        row['grade_info'] = get_grade(row['percentage'])
+        report.append(row)
+
+    # Sort by percentage descending for rank
+    report.sort(key=lambda x: x['percentage'], reverse=True)
+    for i, r in enumerate(report):
+        r['rank'] = i + 1
+
+    return render_template('marks/class_report.html',
+        class_=class_, subjects=subjects, report=report, exam_type=exam_type,
+        exam_types=[ExamType.INTERNAL, ExamType.PRACTICAL, ExamType.EXTERNAL, ExamType.MIDTERM])
+
+@marks_bp.route('/api/performance/<int:student_id>')
+@login_required
+def performance_data(student_id):
+    student = Student.query.get_or_404(student_id)
+    subjects = Subject.query.filter_by(class_id=student.class_id).all()
+    labels = []
+    internal_data, practical_data = [], []
+    for sub in subjects:
+        labels.append(sub.name)
+        m_int = Marks.query.filter_by(student_id=student_id, subject_id=sub.id,
+                                       exam_type=ExamType.INTERNAL).first()
+        m_prc = Marks.query.filter_by(student_id=student_id, subject_id=sub.id,
+                                       exam_type=ExamType.PRACTICAL).first()
+        internal_data.append(m_int.percentage if m_int else 0)
+        practical_data.append(m_prc.percentage if m_prc else 0)
+    return jsonify({'labels': labels, 'internal': internal_data, 'practical': practical_data})

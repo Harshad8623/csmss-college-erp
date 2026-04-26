@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Departments{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+  <div>
+    <h1 class="page-title"><div class="title-icon">🏛️</div> Departments</h1>
+    <p class="page-subtitle">Manage college departments</p>
+  </div>
+  <button onclick="document.getElementById('addDeptModal').style.display='flex'" class="btn-erp btn-primary-erp">
+    <i class="fa-solid fa-plus"></i> Add Department
+  </button>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;">
+  {% for dept in departments %}
+  <div class="card-erp">
+    <div class="card-body-erp">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:14px;">
+          <div style="width:50px;height:50px;border-radius:var(--radius);background:var(--gradient-main);
+            display:flex;align-items:center;justify-content:center;font-size:22px;">🏛️</div>
+          <div>
+            <h6 style="font-size:15px;font-weight:700;">{{ dept.name }}</h6>
+            <div style="font-size:11px;color:var(--text-muted);">{{ dept.code or 'No code' }}</div>
+          </div>
+        </div>
+        <button onclick="openEditDeptModal({{ dept.id }}, '{{ dept.name }}', '{{ dept.code or '' }}', '{{ dept.hod_id or '' }}')" class="btn-erp" style="padding:4px 8px;font-size:12px;background:var(--bg-hover);">
+          <i class="fa-solid fa-pen"></i> Edit
+        </button>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;">
+        <span style="color:var(--text-secondary);">HOD: {{ dept.hod.name if dept.hod else 'Not Assigned' }}</span>
+        <span style="color:var(--accent-blue);font-weight:600;">{{ dept.classes.count() }} Classes</span>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="card-erp" style="grid-column:1/-1;">
+    <div class="card-body-erp">
+      <div class="empty-state"><div class="empty-icon">🏛️</div><p>No departments yet. Add one!</p></div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Add Dept Modal -->
+<div id="addDeptModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2000;align-items:center;justify-content:center;">
+  <div class="card-erp" style="max-width:440px;width:90%;padding:0;">
+    <div class="card-header-erp">
+      <h5>Add Department</h5>
+      <button onclick="document.getElementById('addDeptModal').style.display='none'"
+        style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">×</button>
+    </div>
+    <div class="card-body-erp">
+      <form method="POST" action="{{ url_for('admin.create_department') }}" data-validate>
+        <div class="form-group-erp">
+          <label class="form-label-erp">Department Name *</label>
+          <input type="text" name="name" class="form-control-erp" placeholder="e.g. Computer Engineering" required>
+        </div>
+        <div class="form-group-erp">
+          <label class="form-label-erp">Department Code</label>
+          <input type="text" name="code" class="form-control-erp" placeholder="e.g. CSE">
+        </div>
+        <div class="form-group-erp">
+          <label class="form-label-erp">HOD (optional)</label>
+          <select name="hod_id" class="form-control-erp">
+            <option value="">-- Select HOD --</option>
+            {% for t in teachers %}
+            <option value="{{ t.id }}">{{ t.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn-erp btn-primary-erp" style="width:100%;justify-content:center;">
+          Create Department
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+<!-- Edit Dept Modal -->
+<div id="editDeptModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2000;align-items:center;justify-content:center;">
+  <div class="card-erp" style="max-width:440px;width:90%;padding:0;">
+    <div class="card-header-erp">
+      <h5>Edit Department</h5>
+      <button onclick="document.getElementById('editDeptModal').style.display='none'"
+        style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">×</button>
+    </div>
+    <div class="card-body-erp">
+      <form method="POST" id="editDeptForm" data-validate>
+        <div class="form-group-erp">
+          <label class="form-label-erp">Department Name *</label>
+          <input type="text" name="name" id="editDeptName" class="form-control-erp" required>
+        </div>
+        <div class="form-group-erp">
+          <label class="form-label-erp">Department Code</label>
+          <input type="text" name="code" id="editDeptCode" class="form-control-erp">
+        </div>
+        <div class="form-group-erp">
+          <label class="form-label-erp">Assign HOD</label>
+          <select name="hod_id" id="editDeptHod" class="form-control-erp">
+            <option value="">-- Select HOD --</option>
+            {% for t in teachers %}
+            <option value="{{ t.id }}">{{ t.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn-erp btn-primary-erp" style="width:100%;justify-content:center;">
+          Save Changes
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openEditDeptModal(id, name, code, hodId) {
+  document.getElementById('editDeptName').value = name;
+  document.getElementById('editDeptCode').value = code;
+  document.getElementById('editDeptHod').value = hodId;
+  document.getElementById('editDeptForm').action = "/admin/departments/edit/" + id;
+  document.getElementById('editDeptModal').style.display = 'flex';
+}
+</script>
+{% endblock %}

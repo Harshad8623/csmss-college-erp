@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Apply for Leave{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title"><div class="title-icon">📝</div> Apply for Leave</h1>
+</div>
+
+<div class="card-erp" style="max-width:600px; margin:0 auto; padding:24px;">
+  <form method="POST" action="{{ url_for('leaves.apply') }}" id="leaveForm">
+    
+    <div class="form-group-erp" style="margin-bottom:20px;">
+      <label class="form-label-erp">Leave Type</label>
+      <select name="type" id="leaveType" class="form-control-erp" required>
+        <option value="">Select Type</option>
+        <option value="single_day">Single Day</option>
+        <option value="multi_day">Multiple Days</option>
+        <option value="specific_lectures">Specific Lecture(s) Only</option>
+      </select>
+    </div>
+
+    <div class="form-group-erp" style="margin-bottom:20px;">
+      <label class="form-label-erp" id="startDateLabel">Date</label>
+      <input type="date" name="start_date" id="startDate" class="form-control-erp" required>
+    </div>
+
+    <div class="form-group-erp" id="endDateGroup" style="display:none; margin-bottom:20px;">
+      <label class="form-label-erp">End Date</label>
+      <input type="date" name="end_date" id="endDate" class="form-control-erp">
+    </div>
+
+    <div class="form-group-erp" id="lecturesGroup" style="display:none; margin-bottom:20px;">
+      <label class="form-label-erp">Specific Lectures / Subjects</label>
+      <input type="text" name="specific_lectures" id="specificLectures" class="form-control-erp" placeholder="e.g. DSP (09:00 - 10:00), MES">
+      <small style="color:var(--text-muted);margin-top:4px;display:block;">Specify the subject(s) or timing(s) you will miss.</small>
+    </div>
+
+    <div class="form-group-erp" style="margin-bottom:24px;">
+      <label class="form-label-erp">Reason for Leave</label>
+      <textarea name="reason" class="form-control-erp" rows="4" placeholder="Explain the reason for your absence..." required></textarea>
+    </div>
+
+    <button type="submit" class="btn-erp btn-primary-erp" style="width:100%;">
+      <i class="fa-solid fa-paper-plane"></i> Submit Leave Request
+    </button>
+  </form>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const leaveType = document.getElementById('leaveType');
+    const endDateGroup = document.getElementById('endDateGroup');
+    const endDate = document.getElementById('endDate');
+    const lecturesGroup = document.getElementById('lecturesGroup');
+    const specificLectures = document.getElementById('specificLectures');
+    const startDateLabel = document.getElementById('startDateLabel');
+
+    leaveType.addEventListener('change', () => {
+        if (leaveType.value === 'multi_day') {
+            endDateGroup.style.display = 'block';
+            endDate.required = true;
+            lecturesGroup.style.display = 'none';
+            specificLectures.required = false;
+            startDateLabel.textContent = 'Start Date';
+        } else if (leaveType.value === 'specific_lectures') {
+            endDateGroup.style.display = 'none';
+            endDate.required = false;
+            lecturesGroup.style.display = 'block';
+            specificLectures.required = true;
+            startDateLabel.textContent = 'Date';
+        } else {
+            endDateGroup.style.display = 'none';
+            endDate.required = false;
+            lecturesGroup.style.display = 'none';
+            specificLectures.required = false;
+            startDateLabel.textContent = 'Date';
+        }
+    });
+
+    // Min date constraint for start date
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('startDate').min = today;
+    endDate.min = today;
+
+    document.getElementById('startDate').addEventListener('change', (e) => {
+        endDate.min = e.target.value;
+    });
+});
+</script>
+{% endblock %}

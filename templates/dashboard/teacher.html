@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Teacher Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title"><div class="title-icon">📖</div> Teacher Dashboard</h1>
+  <p class="page-subtitle">Manage your subjects, attendance and marks</p>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-bottom:28px;">
+  <div class="stat-card stat-card-blue">
+    <div class="stat-icon stat-icon-blue"><i class="fa-solid fa-book"></i></div>
+    <div class="stat-content">
+      <div class="stat-value">{{ stats.total_subjects }}</div><div class="stat-label">My Subjects</div>
+    </div>
+  </div>
+  <div class="stat-card stat-card-green">
+    <div class="stat-icon stat-icon-green"><i class="fa-solid fa-users"></i></div>
+    <div class="stat-content">
+      <div class="stat-value">{{ stats.total_students }}</div><div class="stat-label">My Students</div>
+    </div>
+  </div>
+  {% if stats.tg_students_count > 0 %}
+  <div class="stat-card stat-card-gold" style="background:linear-gradient(135deg, rgba(255,215,0,0.1), transparent);">
+    <div class="stat-icon stat-icon-gold"><i class="fa-solid fa-user-shield"></i></div>
+    <div class="stat-content">
+      <div class="stat-value">{{ stats.tg_students_count }}</div><div class="stat-label">TG Students</div>
+    </div>
+  </div>
+  {% endif %}
+  <div class="stat-card stat-card-gold">
+    <div class="stat-icon stat-icon-gold"><i class="fa-solid fa-file-pen"></i></div>
+    <div class="stat-content">
+      <div class="stat-value">{{ stats.pending_assignments }}</div><div class="stat-label">Assignments</div>
+    </div>
+  </div>
+  <div class="stat-card stat-card-cyan">
+    <div class="stat-icon stat-icon-cyan"><i class="fa-solid fa-clipboard-check"></i></div>
+    <div class="stat-content">
+      <div class="stat-value">{{ stats.today_marked }}</div><div class="stat-label">Marked Today</div>
+    </div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+  <!-- My Subjects -->
+  <div class="card-erp">
+    <div class="card-header-erp">
+      <h5><i class="fa-solid fa-book" style="color:var(--accent-blue);"></i> My Subjects</h5>
+    </div>
+    <div class="card-body-erp" style="padding:0;">
+      <table class="table-erp">
+        <thead><tr><th>Subject</th><th>Class</th><th>Actions</th></tr></thead>
+        <tbody>
+          {% for sub in subjects %}
+          <tr>
+            <td>
+              <div style="font-weight:600;">{{ sub.name }}</div>
+              <div style="font-size:11px;color:var(--text-muted);">{{ sub.code or '' }}</div>
+            </td>
+            <td>{{ sub.class_.name if sub.class_ else 'N/A' }}</td>
+            <td>
+              <a href="{{ url_for('attendance.mark', subject_id=sub.id) }}" class="btn-erp btn-ghost-erp btn-sm-erp">
+                <i class="fa-solid fa-clipboard-check"></i> Attend
+              </a>
+              <a href="{{ url_for('marks.upload', subject_id=sub.id) }}" class="btn-erp btn-ghost-erp btn-sm-erp">
+                <i class="fa-solid fa-star"></i> Marks
+              </a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3"><div class="empty-state" style="padding:24px;"><div class="empty-icon">📚</div><p>No subjects assigned yet</p></div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="card-erp">
+    <div class="card-header-erp">
+      <h5><i class="fa-solid fa-bolt" style="color:var(--accent-yellow);"></i> Quick Actions</h5>
+    </div>
+    <div class="card-body-erp">
+      <div class="quick-actions">
+        <a href="{{ url_for('attendance.mark') }}" class="quick-action">
+          <div class="qa-icon">✅</div><div class="qa-label">Mark Attend.</div>
+        </a>
+        <a href="{{ url_for('marks.upload') }}" class="quick-action">
+          <div class="qa-icon">📊</div><div class="qa-label">Upload Marks</div>
+        </a>
+        <a href="{{ url_for('assignments.create') }}" class="quick-action">
+          <div class="qa-icon">📝</div><div class="qa-label">Assignment</div>
+        </a>
+        {% if stats.tg_students_count > 0 %}
+        <a href="{{ url_for('admin.students') }}" class="quick-action">
+          <div class="qa-icon">🛡️</div><div class="qa-label">TG Students</div>
+        </a>
+        {% endif %}
+        <a href="{{ url_for('notices.create') }}" class="quick-action">
+          <div class="qa-icon">📢</div><div class="qa-label">Notice</div>
+        </a>
+        <a href="{{ url_for('grievance.index') }}" class="quick-action">
+          <div class="qa-icon">⚠️</div><div class="qa-label">Grievances</div>
+        </a>
+        <a href="{{ url_for('timetable.index') }}" class="quick-action">
+          <div class="qa-icon">📅</div><div class="qa-label">Timetable</div>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Post Notice{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title"><div class="title-icon">📢</div> Post Notice</h1>
+</div>
+<div style="max-width:600px;">
+  <div class="card-erp">
+    <div class="card-body-erp">
+      <form method="POST" action="{{ url_for('notices.create') }}" data-validate>
+        <div class="form-group-erp">
+          <label class="form-label-erp">Notice Title *</label>
+          <input type="text" name="title" class="form-control-erp" placeholder="e.g. Exam Schedule Update" required>
+        </div>
+        <div class="form-group-erp">
+          <label class="form-label-erp">Content *</label>
+          <textarea name="content" class="form-control-erp" rows="5" required
+            placeholder="Write the full notice content here..."></textarea>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+          <div class="form-group-erp">
+            <label class="form-label-erp">Target Audience</label>
+            <select name="target_role" class="form-control-erp">
+              {% for val, label in roles %}
+              <option value="{{ val }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group-erp">
+            <label class="form-label-erp">Target Class (Optional)</label>
+            <select name="target_class_id" class="form-control-erp">
+              <option value="">All Classes</option>
+              {% for cls in classes %}
+              <option value="{{ cls.id }}">{{ cls.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="form-group-erp">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:var(--text-primary);">
+            <input type="checkbox" name="is_urgent" style="accent-color:var(--accent-red);width:16px;height:16px;">
+            🚨 Mark as Urgent Notice
+          </label>
+        </div>
+        <div style="display:flex;gap:12px;">
+          <button type="submit" class="btn-erp btn-primary-erp">
+            <i class="fa-solid fa-paper-plane"></i> Post Notice
+          </button>
+          <a href="{{ url_for('notices.index') }}" class="btn-erp btn-outline-erp">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

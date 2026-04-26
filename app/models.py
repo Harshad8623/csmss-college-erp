@@ -1,0 +1,432 @@
+from datetime import datetime
+from app.extensions import db, login_manager
+from flask_login import UserMixin
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ENUMS / CONSTANTS
+# ─────────────────────────────────────────────────────────────────────────────
+class Roles:
+    SUPER_ADMIN   = 'SUPER_ADMIN'
+    HOD           = 'HOD'
+    CLASS_TEACHER = 'CLASS_TEACHER'
+    TEACHER       = 'TEACHER'
+    CR            = 'CR'
+    STUDENT       = 'STUDENT'
+
+    ALL = [SUPER_ADMIN, HOD, CLASS_TEACHER, TEACHER, CR, STUDENT]
+    STAFF = [SUPER_ADMIN, HOD, CLASS_TEACHER, TEACHER]
+    ADMIN_ROLES = [SUPER_ADMIN, HOD, CLASS_TEACHER]
+
+class Status:
+    ACTIVE  = 'active'
+    PENDING = 'pending'
+    BLOCKED = 'blocked'
+
+class ApprovalStatus:
+    PENDING  = 'pending'
+    APPROVED = 'approved'
+    REJECTED = 'rejected'
+
+class ExamType:
+    INTERNAL  = 'internal'
+    PRACTICAL = 'practical'
+    EXTERNAL  = 'external'
+    MIDTERM   = 'midterm'
+
+class GrievanceType:
+    MARKS      = 'marks'
+    ATTENDANCE = 'attendance'
+    FACULTY    = 'faculty'
+    FACILITY   = 'facility'
+    OTHER      = 'other'
+
+class CertificateType:
+    BONAFIDE  = 'bonafide'
+    LEAVING   = 'leaving'
+    CHARACTER = 'character'
+    TRANSFER  = 'transfer'
+
+class LeaveStatus:
+    PENDING_TG = 'pending_tg'
+    PENDING_CT = 'pending_ct'
+    APPROVED   = 'approved'
+    REJECTED   = 'rejected'
+
+class LeaveType:
+    SINGLE_DAY        = 'single_day'
+    MULTI_DAY         = 'multi_day'
+    SPECIFIC_LECTURES = 'specific_lectures'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# USER LOADER
+# ─────────────────────────────────────────────────────────────────────────────
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CORE MODELS
+# ─────────────────────────────────────────────────────────────────────────────
+class User(UserMixin, db.Model):
+    __tablename__ = 'users'
+    id            = db.Column(db.Integer, primary_key=True)
+    name          = db.Column(db.String(120), nullable=False)
+    email         = db.Column(db.String(150), unique=True, nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
+    role          = db.Column(db.String(30), nullable=False, default=Roles.STUDENT)
+    status        = db.Column(db.String(20), default=Status.PENDING)
+    phone         = db.Column(db.String(15))
+    profile_pic   = db.Column(db.String(200), default='default.png')
+    created_at    = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at    = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    student_profile     = db.relationship('Student', backref='user', uselist=False, foreign_keys='Student.user_id')
+    teacher_profile     = db.relationship('Teacher', backref='user', uselist=False, foreign_keys='Teacher.user_id')
+    notifications       = db.relationship('Notification', backref='user', lazy='dynamic', foreign_keys='Notification.user_id')
+    sent_messages       = db.relationship('Message', backref='sender', lazy='dynamic', foreign_keys='Message.sender_id')
+    received_messages   = db.relationship('Message', backref='receiver', lazy='dynamic', foreign_keys='Message.receiver_id')
+
+    def is_active_status(self):
+        return self.status == Status.ACTIVE
+
+    def has_role(self, *roles):
+        return self.role in roles
+
+    def is_admin(self):
+        return self.role in Roles.ADMIN_ROLES
+
+    def __repr__(self):
+        return f'<User {self.email} [{self.role}]>'
+
+
+class Department(db.Model):
+    __tablename__ = 'departments'
+    id         = db.Column(db.Integer, primary_key=True)
+    name       = db.Column(db.String(100), nullable=False)
+    code       = db.Column(db.String(10))
+    hod_id     = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    hod      = db.relationship('User', foreign_keys=[hod_id])
+    classes  = db.relationship('Class', backref='department', lazy='dynamic')
+    teachers = db.relationship('Teacher', backref='department', lazy='dynamic')
+
+    def __repr__(self):
+        return f'<Department {self.name}>'
+
+
+class Class(db.Model):
+    __tablename__ = 'classes'
+    id               = db.Column(db.Integer, primary_key=True)
+    name             = db.Column(db.String(100), nullable=False)
+    year             = db.Column(db.Integer)
+    section          = db.Column(db.String(10))
+    department_id    = db.Column(db.Integer, db.ForeignKey('departments.id'))
+    class_teacher_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    created_at       = db.Column(db.DateTime, default=datetime.utcnow)
+
+    class_teacher  = db.relationship('User', foreign_keys=[class_teacher_id])
+    students       = db.relationship('Student', backref='class_', lazy='dynamic')
+    subjects       = db.relationship('Subject', backref='class_', lazy='dynamic')
+    timetable      = db.relationship('Timetable', backref='class_', lazy='dynamic')
+
+    @property
+    def full_name(self):
+        return f"{self.name} - Year {self.year} [{self.section}]"
+
+    def __repr__(self):
+        return f'<Class {self.name}>'
+
+
+class Student(db.Model):
+    __tablename__ = 'students'
+    id              = db.Column(db.Integer, primary_key=True)
+    user_id         = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    class_id        = db.Column(db.Integer, db.ForeignKey('classes.id'))
+    roll_no         = db.Column(db.String(20))
+    prn             = db.Column(db.String(30), unique=True)
+    approval_status = db.Column(db.String(20), default=ApprovalStatus.PENDING)
+    approved_by     = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    tg_id           = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True) # Teacher Guardian
+    created_at      = db.Column(db.DateTime, default=datetime.utcnow)
+
+    tg = db.relationship('User', foreign_keys=[tg_id])
+
+    # ── Extended Profile Fields (from real enrollment data) ──────────────────
+    dob             = db.Column(db.String(20))          # DD-MM-YYYY
+    gender          = db.Column(db.String(10))          # M / F
+    category        = db.Column(db.String(20))          # OPEN/OBC/SC/ST/NT2/NT3/VJA/SBC
+    blood_group     = db.Column(db.String(10))
+    aadhar_no       = db.Column(db.String(20))
+    mother_name     = db.Column(db.String(120))
+    address         = db.Column(db.String(300))
+    city            = db.Column(db.String(80))
+    district        = db.Column(db.String(80))
+    state           = db.Column(db.String(80), default='Maharashtra')
+    pincode         = db.Column(db.String(10))
+    current_year    = db.Column(db.Integer, default=3)  # 3rd Year
+    semester        = db.Column(db.Integer, default=5)  # Semester V
+
+    attendance     = db.relationship('Attendance', backref='student', lazy='dynamic')
+    marks          = db.relationship('Marks', backref='student', lazy='dynamic')
+    grievances     = db.relationship('Grievance', backref='student', lazy='dynamic')
+    certificates   = db.relationship('Certificate', backref='student', lazy='dynamic')
+    submissions    = db.relationship('AssignmentSubmission', backref='student', lazy='dynamic')
+
+    def attendance_percentage(self, subject_id=None):
+        query = self.attendance
+        if subject_id:
+            query = query.filter_by(subject_id=subject_id)
+        total = query.count()
+        if total == 0:
+            return 0
+        present = query.filter_by(status=True).count()
+        return round((present / total) * 100, 2)
+
+    def is_defaulter(self):
+        return self.attendance_percentage() < 75
+
+    def __repr__(self):
+        return f'<Student {self.user.name}>'
+
+
+class Teacher(db.Model):
+    __tablename__ = 'teachers'
+    id            = db.Column(db.Integer, primary_key=True)
+    user_id       = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    teacher_type  = db.Column(db.String(30))   # subject / lab / TG
+    department_id = db.Column(db.Integer, db.ForeignKey('departments.id'))
+    designation   = db.Column(db.String(100))
+    created_at    = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Note: subjects are linked via Subject.teacher_id -> users.id
+    # Access teacher's subjects via Subject.query.filter_by(teacher_id=teacher.user_id)
+
+
+class Subject(db.Model):
+    __tablename__ = 'subjects'
+    id         = db.Column(db.Integer, primary_key=True)
+    name       = db.Column(db.String(120), nullable=False)
+    code       = db.Column(db.String(20))
+    class_id   = db.Column(db.Integer, db.ForeignKey('classes.id'))
+    teacher_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    credits    = db.Column(db.Integer, default=3)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    teacher_user = db.relationship('User', foreign_keys=[teacher_id])
+    attendance   = db.relationship('Attendance', backref='subject', lazy='dynamic')
+    marks        = db.relationship('Marks', backref='subject', lazy='dynamic')
+    assignments  = db.relationship('Assignment', backref='subject', lazy='dynamic')
+    timetable    = db.relationship('Timetable', backref='subject', lazy='dynamic')
+
+    def __repr__(self):
+        return f'<Subject {self.name}>'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ACADEMIC MODELS
+# ─────────────────────────────────────────────────────────────────────────────
+class Attendance(db.Model):
+    __tablename__ = 'attendance'
+    id         = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
+    date       = db.Column(db.Date, nullable=False)
+    status     = db.Column(db.Boolean, default=False)   # True=Present
+    marked_by  = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint('student_id', 'subject_id', 'date'),)
+    marker = db.relationship('User', foreign_keys=[marked_by])
+
+
+class AbsenteeReason(db.Model):
+    __tablename__ = 'absentee_reasons'
+    id            = db.Column(db.Integer, primary_key=True)
+    attendance_id = db.Column(db.Integer, db.ForeignKey('attendance.id'), nullable=False, unique=True)
+    requested_by  = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    reason_text   = db.Column(db.Text, nullable=True)
+    status        = db.Column(db.String(20), default='REQUESTED') # REQUESTED, SUBMITTED
+    created_at    = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at    = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    attendance    = db.relationship('Attendance', backref=db.backref('absentee_reason', uselist=False))
+    requester     = db.relationship('User', foreign_keys=[requested_by])
+
+
+class Marks(db.Model):
+    __tablename__ = 'marks'
+    id          = db.Column(db.Integer, primary_key=True)
+    student_id  = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
+    subject_id  = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
+    marks       = db.Column(db.Float, nullable=False)
+    max_marks   = db.Column(db.Float, default=100)
+    exam_type   = db.Column(db.String(30), default=ExamType.INTERNAL)
+    uploaded_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at  = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    uploader = db.relationship('User', foreign_keys=[uploaded_by])
+
+    @property
+    def percentage(self):
+        if self.max_marks == 0:
+            return 0
+        return round((self.marks / self.max_marks) * 100, 2)
+
+    @property
+    def grade(self):
+        p = self.percentage
+        if p >= 90: return 'O'
+        if p >= 80: return 'A+'
+        if p >= 70: return 'A'
+        if p >= 60: return 'B+'
+        if p >= 50: return 'B'
+        if p >= 40: return 'C'
+        return 'F'
+
+
+class Grievance(db.Model):
+    __tablename__ = 'grievances'
+    id          = db.Column(db.Integer, primary_key=True)
+    student_id  = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
+    type        = db.Column(db.String(30), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    status      = db.Column(db.String(20), default=ApprovalStatus.PENDING)
+    assigned_to = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    comment     = db.Column(db.Text)
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at  = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    assignee = db.relationship('User', foreign_keys=[assigned_to])
+
+
+class Certificate(db.Model):
+    __tablename__ = 'certificates'
+    id          = db.Column(db.Integer, primary_key=True)
+    student_id  = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
+    type        = db.Column(db.String(30), nullable=False)
+    reason      = db.Column(db.Text)
+    status      = db.Column(db.String(20), default=ApprovalStatus.PENDING)
+    approved_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    notes       = db.Column(db.Text)
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at  = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    approver = db.relationship('User', foreign_keys=[approved_by])
+
+
+class Notice(db.Model):
+    __tablename__ = 'notices'
+    id             = db.Column(db.Integer, primary_key=True)
+    title          = db.Column(db.String(200), nullable=False)
+    content        = db.Column(db.Text, nullable=False)
+    target_role    = db.Column(db.String(30))   # null = all
+    target_class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=True)
+    posted_by      = db.Column(db.Integer, db.ForeignKey('users.id'))
+    is_urgent      = db.Column(db.Boolean, default=False)
+    created_at     = db.Column(db.DateTime, default=datetime.utcnow)
+
+    poster       = db.relationship('User', foreign_keys=[posted_by])
+    target_class = db.relationship('Class', foreign_keys=[target_class_id])
+
+
+class Assignment(db.Model):
+    __tablename__ = 'assignments'
+    id          = db.Column(db.Integer, primary_key=True)
+    subject_id  = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
+    title       = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    deadline    = db.Column(db.DateTime, nullable=False)
+    max_marks   = db.Column(db.Float, default=10)
+    created_by  = db.Column(db.Integer, db.ForeignKey('users.id'))
+    file_path   = db.Column(db.String(300))
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+
+    creator     = db.relationship('User', foreign_keys=[created_by])
+    submissions = db.relationship('AssignmentSubmission', backref='assignment', lazy='dynamic')
+
+
+class LeaveApplication(db.Model):
+    __tablename__ = 'leave_applications'
+    id          = db.Column(db.Integer, primary_key=True)
+    student_id  = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
+    type        = db.Column(db.String(30), nullable=False) # single_day, multi_day, specific_lectures
+    start_date  = db.Column(db.Date, nullable=False)
+    end_date    = db.Column(db.Date, nullable=False)
+    specific_lectures = db.Column(db.String(300))
+    reason      = db.Column(db.Text, nullable=False)
+    
+    status      = db.Column(db.String(30), default=LeaveStatus.PENDING_TG)
+    
+    tg_status      = db.Column(db.String(20), default=ApprovalStatus.PENDING)
+    tg_approved_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    tg_comment     = db.Column(db.Text)
+    
+    ct_status      = db.Column(db.String(20), default=ApprovalStatus.PENDING)
+    ct_approved_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    ct_comment     = db.Column(db.Text)
+
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at  = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    student     = db.relationship('Student', foreign_keys=[student_id], backref='leave_applications')
+    tg_approver = db.relationship('User', foreign_keys=[tg_approved_by])
+    ct_approver = db.relationship('User', foreign_keys=[ct_approved_by])
+
+
+class AssignmentSubmission(db.Model):
+    __tablename__ = 'assignment_submissions'
+    id            = db.Column(db.Integer, primary_key=True)
+    assignment_id = db.Column(db.Integer, db.ForeignKey('assignments.id'), nullable=False)
+    student_id    = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
+    file_path     = db.Column(db.String(300))
+    marks         = db.Column(db.Float)
+    feedback      = db.Column(db.Text)
+    submitted_at  = db.Column(db.DateTime, default=datetime.utcnow)
+    is_late       = db.Column(db.Boolean, default=False)
+
+
+class Timetable(db.Model):
+    __tablename__ = 'timetable'
+    id         = db.Column(db.Integer, primary_key=True)
+    class_id   = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
+    day        = db.Column(db.String(10), nullable=False)  # Monday-Saturday
+    start_time = db.Column(db.String(10), nullable=False)  # HH:MM
+    end_time   = db.Column(db.String(10), nullable=False)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SYSTEM MODELS
+# ─────────────────────────────────────────────────────────────────────────────
+class Notification(db.Model):
+    __tablename__ = 'notifications'
+    id         = db.Column(db.Integer, primary_key=True)
+    user_id    = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    message    = db.Column(db.String(500), nullable=False)
+    type       = db.Column(db.String(30), default='info')   # info/warning/success/danger
+    link       = db.Column(db.String(200))
+    is_read    = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class Message(db.Model):
+    __tablename__ = 'messages'
+    id         = db.Column(db.Integer, primary_key=True)
+    sender_id  = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    receiver_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    content    = db.Column(db.Text, nullable=False)
+    is_read    = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class AuditLog(db.Model):
+    __tablename__ = 'audit_logs'
+    id         = db.Column(db.Integer, primary_key=True)
+    user_id    = db.Column(db.Integer, db.ForeignKey('users.id'))
+    action     = db.Column(db.String(200), nullable=False)
+    details    = db.Column(db.Text)
+    ip_address = db.Column(db.String(50))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', foreign_keys=[user_id])

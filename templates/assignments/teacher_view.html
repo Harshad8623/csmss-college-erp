@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Assignments{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+  <div><h1 class="page-title"><div class="title-icon">📝</div> Assignments</h1></div>
+  {% if current_user.role in ['TEACHER','CLASS_TEACHER','HOD','SUPER_ADMIN'] %}
+  <a href="{{ url_for('assignments.create') }}" class="btn-erp btn-primary-erp">
+    <i class="fa-solid fa-plus"></i> Create Assignment
+  </a>
+  {% endif %}
+</div>
+<div class="card-erp">
+  <div class="card-body-erp" style="padding:0;">
+    <table class="table-erp">
+      <thead><tr><th>Title</th><th>Subject</th><th>Deadline</th><th>Max Marks</th><th>Submissions</th></tr></thead>
+      <tbody>
+        {% for a in assignments %}
+        <tr>
+          <td style="font-weight:600;">{{ a.title }}</td>
+          <td>{{ a.subject.name }}</td>
+          <td>
+            <span style="color:{{ 'var(--accent-red)' if now > a.deadline else 'var(--accent-green)' }};font-weight:600;">
+              {{ a.deadline.strftime('%d %b %Y %H:%M') }}
+              {{ '⏰ PASSED' if now > a.deadline else '' }}
+            </span>
+          </td>
+          <td>{{ a.max_marks|int }}</td>
+          <td><span class="badge-erp badge-info">{{ a.submissions.count() }}</span></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5"><div class="empty-state"><div class="empty-icon">📝</div><p>No assignments yet</p></div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

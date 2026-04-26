@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Attendance Overview{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+  <div>
+    <h1 class="page-title"><div class="title-icon">📋</div> Attendance Overview</h1>
+    <p class="page-subtitle">Recent attendance sessions – click Edit to modify</p>
+  </div>
+</div>
+
+{% if recent_sessions %}
+<div class="card-erp" style="margin-top:20px;">
+  <div class="card-body-erp" style="padding:0;overflow-x:auto;">
+    <table class="table-erp">
+      <thead>
+        <tr>
+          <th style="width:40px;">#</th>
+          <th>Date</th>
+          <th>Subject</th>
+          <th>Class</th>
+          <th style="text-align:center;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for sess in recent_sessions %}
+        <tr>
+          <td style="color:var(--text-muted);">{{ loop.index }}</td>
+          <td>{{ sess.date.strftime('%d %b %Y') }}</td>
+          <td>{{ sess.subject.name }}</td>
+          <td>{{ sess.subject.class_.name if sess.subject.class_ else '—' }}</td>
+          <td style="text-align:center;">
+            <a href="{{ url_for('attendance.mark', subject_id=sess.subject.id, date=sess.date) }}" class="btn-erp btn-primary-erp" style="padding:4px 8px;font-size:12px;">
+              <i class="fa-solid fa-pen"></i> Edit
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="empty-state" style="margin-top:30px;">
+  <p>No recent attendance records found.</p>
+</div>
+{% endif %}
+{% endblock %}

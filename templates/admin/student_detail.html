@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block title %}{{ student.user.name }} – Profile{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1 class="page-title"><div class="title-icon">🎓</div> Student Profile</h1>
+  <a href="{{ url_for('admin.students') }}" class="btn-erp btn-secondary-erp" style="text-decoration:none;">
+    <i class="fa-solid fa-arrow-left"></i> Back to Directory
+  </a>
+</div>
+
+<div style="display:grid;grid-template-columns:320px 1fr;gap:24px;align-items:start;">
+
+  {# ── Left: Identity Card ── #}
+  <div>
+    <div class="card-erp" style="text-align:center;padding:32px 24px;">
+      <div class="user-avatar" style="width:90px;height:90px;font-size:36px;margin:0 auto 16px;">
+        {{ student.user.name[0] }}
+      </div>
+      <h2 style="font-size:20px;font-weight:800;line-height:1.3;">{{ student.user.name }}</h2>
+      <div style="margin:8px 0;display:flex;flex-wrap:wrap;justify-content:center;gap:6px;">
+        <span class="badge-erp badge-info">{{ student.user.role.replace('_',' ') }}</span>
+        <span class="badge-erp badge-success">Active</span>
+        {% if student.category %}
+          <span class="badge-erp badge-warning">{{ student.category }}</span>
+        {% endif %}
+      </div>
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border-color);text-align:left;">
+        <div style="display:grid;gap:10px;">
+          <div style="display:flex;justify-content:space-between;">
+            <span style="color:var(--text-muted);font-size:13px;">PRN</span>
+            <strong style="font-size:12px;font-family:monospace;">{{ student.prn }}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span style="color:var(--text-muted);font-size:13px;">Roll No</span>
+            <strong>{{ student.roll_no }}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span style="color:var(--text-muted);font-size:13px;">Year</span>
+            <strong>{{ student.current_year or 3 }}<sup>rd</sup> Year – Sem {{ student.semester or 5 }}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span style="color:var(--text-muted);font-size:13px;">Gender</span>
+            <strong>{{ 'Male ♂' if student.gender == 'M' else 'Female ♀' if student.gender == 'F' else '—' }}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span style="color:var(--text-muted);font-size:13px;">Blood Group</span>
+            <strong style="color:#f687b3;">{{ student.blood_group or '—' }}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span style="color:var(--text-muted);font-size:13px;">DOB</span>
+            <strong>{{ student.dob or '—' }}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# Attendance mini-card #}
+    <div class="card-erp" style="margin-top:16px;padding:20px;">
+      <h6 style="font-size:13px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">Attendance</h6>
+      {% set att_pct = student.attendance_percentage() %}
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="flex:1;background:var(--bg-tertiary);border-radius:6px;height:8px;overflow:hidden;">
+          <div style="width:{{ att_pct }}%;height:100%;background:{{ '#48bb78' if att_pct >= 75 else '#f56565' }};border-radius:6px;transition:width .4s;"></div>
+        </div>
+        <strong style="color:{{ '#48bb78' if att_pct >= 75 else '#f56565' }};">{{ att_pct }}%</strong>
+      </div>
+      {% if att_pct < 75 %}
+        <div style="margin-top:8px;font-size:12px;color:#f56565;">⚠️ Attendance Defaulter</div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ── Right: Details Tabs ── #}
+  <div>
+    <div class="card-erp">
+      <div class="card-header-erp">
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          <button class="tab-btn active" onclick="showTab('personal', this)">👤 Personal</button>
+          <button class="tab-btn" onclick="showTab('contact', this)">📞 Contact</button>
+          <button class="tab-btn" onclick="showTab('academic', this)">🎓 Academic</button>
+        </div>
+      </div>
+      <div class="card-body-erp">
+
+        {# Personal Tab #}
+        <div id="tab-personal" class="tab-pane active">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            {% set fields = [
+              ('Full Name',    student.user.name),
+              ('Date of Birth', student.dob),
+              ('Gender',       'Male' if student.gender=='M' else 'Female' if student.gender=='F' else '—'),
+              ('Category',     student.category),
+              ('Blood Group',  student.blood_group),
+              ("Mother's Name", student.mother_name),
+              ('Aadhar No.',   student.aadhar_no),
+            ] %}
+            {% for label, val in fields %}
+            <div style="padding:14px;background:var(--bg-tertiary);border-radius:8px;">
+              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;">{{ label }}</div>
+              <div style="margin-top:6px;font-weight:600;">{{ val or '—' }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        {# Contact Tab #}
+        <div id="tab-contact" class="tab-pane" style="display:none;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            {% set fields = [
+              ('Email',    student.user.email),
+              ('Mobile',   student.user.phone),
+              ('Address',  student.address),
+              ('City',     student.city),
+              ('District', student.district),
+              ('State',    student.state),
+              ('Pincode',  student.pincode),
+            ] %}
+            {% for label, val in fields %}
+            <div style="padding:14px;background:var(--bg-tertiary);border-radius:8px;">
+              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;">{{ label }}</div>
+              <div style="margin-top:6px;font-weight:600;">{{ val or '—' }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        {# Academic Tab #}
+        <div id="tab-academic" class="tab-pane" style="display:none;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+            {% set fields = [
+              ('Class',        student.class_.name if student.class_ else '—'),
+              ('Department',   student.class_.department.name if student.class_ and student.class_.department else '—'),
+              ('Current Year', (student.current_year|string + 'rd Year') if student.current_year else '—'),
+              ('Semester',     'Sem ' + student.semester|string if student.semester else '—'),
+              ('Approval',     student.approval_status.title()),
+            ] %}
+            {% for label, val in fields %}
+            <div style="padding:14px;background:var(--bg-tertiary);border-radius:8px;">
+              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;">{{ label }}</div>
+              <div style="margin-top:6px;font-weight:600;">{{ val }}</div>
+            </div>
+            {% endfor %}
+          </div>
+
+          {# Marks summary if any #}
+          {% if student.marks.count() > 0 %}
+          <h6 style="font-size:13px;color:var(--text-muted);font-weight:600;text-transform:uppercase;margin-bottom:12px;">Marks Summary</h6>
+          <table class="table-erp" style="width:100%;">
+            <thead><tr><th>Subject</th><th>Type</th><th>Marks</th><th>Grade</th></tr></thead>
+            <tbody>
+              {% for m in student.marks.all()[:10] %}
+              <tr>
+                <td>{{ m.subject.name }}</td>
+                <td><span class="badge-erp badge-info" style="font-size:11px;">{{ m.exam_type.title() }}</span></td>
+                <td>{{ m.marks }}/{{ m.max_marks|int }}</td>
+                <td><strong style="color:{{ '#48bb78' if m.grade in ['O','A+','A'] else '#f6ad55' if m.grade == 'B+' else '#f56565' }};">{{ m.grade }}</strong></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% endif %}
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.tab-btn {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all .2s;
+}
+.tab-btn.active, .tab-btn:hover {
+  background: var(--primary-color);
+  color: #fff;
+  border-color: var(--primary-color);
+}
+</style>
+<script>
+function showTab(name, btn) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).style.display = 'block';
+  btn.classList.add('active');
+}
+</script>
+{% endblock %}
