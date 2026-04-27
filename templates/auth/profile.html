@@ -1,198 +1,1182 @@
 {% extends "base.html" %}
 {% block title %}My Profile{% endblock %}
 {% block content %}
-<div class="page-header">
-  <h1 class="page-title"><div class="title-icon">👤</div> My Profile</h1>
-</div>
 
-<div style="display:grid;grid-template-columns:280px 1fr;gap:24px;align-items:start;">
+<style>
+  /* ── Design Tokens ──────────────────────────────────────────────── */
+  :root {
+    --navy: #050d1a;
+    --navy-mid: #0b1830;
+    --card-bg: rgba(10, 22, 44, 0.72);
+    --card-border: rgba(100, 160, 255, 0.11);
+    --card-border-hover: rgba(100, 160, 255, 0.26);
+    --blue: #2563eb;
+    --blue-soft: #60a5fa;
+    --blue-glow: rgba(37, 99, 235, 0.22);
+    --gold: #f59e0b;
+    --gold-soft: #fcd34d;
+    --green: #10b981;
+    --red: #ef4444;
+    --pink: #f472b6;
+    --text-1: #eef4ff;
+    --text-2: #94a8c4;
+    --text-3: #4a6488;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --radius-xs: 7px;
+  }
 
-  {# ── Left Identity Card ────────────────────────────────────────────────── #}
-  <div class="card-erp" style="text-align:center;padding:28px 20px;">
-    {% if current_user.profile_pic and current_user.profile_pic != 'default.png' %}
-    <img src="{{ url_for('static', filename='uploads/profiles/' + current_user.profile_pic) }}" 
-         alt="Profile Picture" class="user-avatar" style="width:80px;height:80px;border-radius:50%;object-fit:cover;margin:0 auto 14px;">
-    {% else %}
-    <div class="user-avatar" style="width:80px;height:80px;font-size:32px;margin:0 auto 14px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--bg-tertiary);">
-      {{ current_user.name[0] }}
-    </div>
-    {% endif %}
-    <h3 style="font-size:17px;font-weight:800;">{{ current_user.name }}</h3>
-    <div style="margin-top:8px;display:flex;flex-wrap:wrap;justify-content:center;gap:6px;">
-      <span class="badge-erp badge-info">{{ current_user.role.replace('_',' ') }}</span>
-      <span class="badge-erp {{ 'badge-success' if current_user.status=='active' else 'badge-warning' }}">
-        {{ current_user.status.title() }}
-      </span>
-    </div>
-    {% if student %}
-    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border-color);text-align:left;">
-      <div style="display:grid;gap:8px;">
-        <div style="display:flex;justify-content:space-between;font-size:13px;">
-          <span style="color:var(--text-muted);">PRN</span>
-          <strong style="font-size:11px;font-family:monospace;">{{ student.prn }}</strong>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:13px;">
-          <span style="color:var(--text-muted);">Roll No</span>
-          <strong>{{ student.roll_no }}</strong>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:13px;">
-          <span style="color:var(--text-muted);">Year</span>
-          <strong>{{ student.current_year or 3 }}<sup>rd</sup> Yr – Sem {{ student.semester or 5 }}</strong>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:13px;">
-          <span style="color:var(--text-muted);">Blood Group</span>
-          <strong style="color:#f687b3;">{{ student.blood_group or '—' }}</strong>
-        </div>
-      </div>
-    </div>
-    {% if student.attendance_percentage() > 0 %}
-    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border-color);">
-      {% set att = student.attendance_percentage() %}
-      <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Attendance</div>
-      <div style="background:var(--bg-tertiary);border-radius:6px;height:8px;margin-bottom:6px;overflow:hidden;">
-        <div style="width:{{ att }}%;height:100%;background:{{ '#48bb78' if att >= 75 else '#f56565' }};border-radius:6px;"></div>
-      </div>
-      <strong style="color:{{ '#48bb78' if att >= 75 else '#f56565' }};">{{ att }}%</strong>
-    </div>
-    {% endif %}
-    {% endif %}
+  /* ── Page Shell ─────────────────────────────────────────────────── */
+  .profile-page {
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text-1);
+    padding-bottom: 48px;
+  }
+
+  /* ── Hero Banner ────────────────────────────────────────────────── */
+  .profile-hero {
+    position: relative;
+    height: 160px;
+    border-radius: 20px;
+    overflow: hidden;
+    margin-bottom: -60px;
+    background:
+      radial-gradient(ellipse 70% 120% at 30% 50%, rgba(37, 99, 235, 0.35) 0%, transparent 65%),
+      radial-gradient(ellipse 50% 100% at 80% 30%, rgba(245, 158, 11, 0.18) 0%, transparent 55%),
+      linear-gradient(135deg, #061020 0%, #0c1e3a 60%, #0e1f3a 100%);
+  }
+
+  .profile-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(59, 130, 246, 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(59, 130, 246, 0.06) 1px, transparent 1px);
+    background-size: 36px 36px;
+  }
+
+  .profile-hero::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background: linear-gradient(to top, var(--navy, #050d1a), transparent);
+  }
+
+  .hero-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    pointer-events: none;
+    background: radial-gradient(circle, rgba(37, 99, 235, 0.3) 0%, transparent 70%);
+    width: 300px;
+    height: 300px;
+    top: -80px;
+    left: -60px;
+    animation: heroFloat 8s ease-in-out infinite;
+  }
+
+  @keyframes heroFloat {
+
+    0%,
+    100% {
+      transform: translate(0, 0);
+    }
+
+    50% {
+      transform: translate(30px, -20px);
+    }
+  }
+
+  /* ── Main Grid ───────────────────────────────────────────────────── */
+  .profile-grid {
+    display: grid;
+    grid-template-columns: 270px 1fr;
+    gap: 22px;
+    align-items: start;
+  }
+
+  /* ── Glass Card Base ─────────────────────────────────────────────── */
+  .p-card {
+    background: var(--card-bg);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .p-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(100, 180, 255, 0.3), transparent);
+  }
+
+  /* ── Identity Card ───────────────────────────────────────────────── */
+  .identity-card {
+    padding: 0 0 20px;
+    text-align: center;
+    animation: slideUp .55s .05s both;
+  }
+
+  .avatar-zone {
+    padding: 32px 20px 18px;
+    position: relative;
+  }
+
+  .avatar-ring {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    margin: 0 auto 14px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .avatar-ring::before {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, #2563eb 0%, #f59e0b 40%, #2563eb 70%, transparent 100%);
+    animation: spinRing 4s linear infinite;
+  }
+
+  @keyframes spinRing {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .avatar-ring::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 50%;
+    background: var(--navy-mid, #0b1830);
+  }
+
+  .avatar-ring img,
+  .avatar-initials {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    position: relative;
+    z-index: 1;
+    object-fit: cover;
+  }
+
+  .avatar-initials {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Syne', sans-serif;
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--blue-soft);
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.18), rgba(99, 102, 241, 0.12));
+    border: 1px solid rgba(59, 130, 246, 0.25);
+  }
+
+  .identity-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-1);
+    letter-spacing: -.2px;
+    margin-bottom: 8px;
+    padding: 0 16px;
+  }
+
+  .badge-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 16px;
+  }
+
+  .p-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .2px;
+  }
+
+  .badge-blue {
+    background: rgba(37, 99, 235, 0.15);
+    color: #93c5fd;
+    border: 1px solid rgba(37, 99, 235, 0.25);
+  }
+
+  .badge-green {
+    background: rgba(16, 185, 129, 0.12);
+    color: #6ee7b7;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+  }
+
+  .badge-amber {
+    background: rgba(245, 158, 11, 0.12);
+    color: #fcd34d;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+  }
+
+  .id-divider {
+    height: 1px;
+    background: var(--card-border);
+    margin: 16px 16px 0;
+  }
+
+  /* student meta rows */
+  .meta-section {
+    padding: 14px 20px 0;
+  }
+
+  .meta-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 12.5px;
+    border-bottom: 1px solid rgba(100, 160, 255, 0.06);
+  }
+
+  .meta-row:last-child {
+    border-bottom: none;
+  }
+
+  .meta-label {
+    color: var(--text-3);
+  }
+
+  .meta-val {
+    color: var(--text-1);
+    font-weight: 500;
+    font-size: 12px;
+  }
+
+  .meta-val.mono {
+    font-family: 'DM Mono', 'Courier New', monospace;
+    font-size: 11px;
+    color: var(--blue-soft);
+  }
+
+  .meta-val.blood {
+    color: var(--pink);
+  }
+
+  /* attendance bar */
+  .att-section {
+    padding: 14px 20px 0;
+  }
+
+  .att-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--text-3);
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .att-label strong {
+    font-size: 14px;
+    letter-spacing: 0;
+  }
+
+  .att-track {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+
+  .att-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 1.2s cubic-bezier(.22, 1, .36, 1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .att-fill::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.25) 50%, transparent 100%);
+    animation: shimmer 2s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  /* ── Right Column ────────────────────────────────────────────────── */
+  .right-col {
+    animation: slideUp .55s .12s both;
+  }
+
+  /* Tab Nav */
+  .tab-nav {
+    display: flex;
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 5px;
+    margin-bottom: 20px;
+  }
+
+  .tab-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 9px 12px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-3);
+    transition: all .2s ease;
+  }
+
+  .tab-btn i {
+    font-size: 12px;
+  }
+
+  .tab-btn:hover {
+    color: var(--text-2);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .tab-btn.active {
+    background: rgba(37, 99, 235, 0.18);
+    color: var(--blue-soft);
+    border: 1px solid rgba(37, 99, 235, 0.28);
+  }
+
+  .tab-btn .tab-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--blue-soft);
+    display: none;
+  }
+
+  .tab-btn.active .tab-dot {
+    display: block;
+  }
+
+  /* Tab Panels */
+  .tab-panel {
+    display: none;
+  }
+
+  .tab-panel.active {
+    display: block;
+    animation: fadeUp .3s both;
+  }
+
+  /* Section card */
+  .s-card {
+    background: var(--card-bg);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    margin-bottom: 18px;
+    overflow: hidden;
+    position: relative;
+    transition: border-color .2s;
+  }
+
+  .s-card:hover {
+    border-color: var(--card-border-hover);
+  }
+
+  .s-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 8%;
+    right: 8%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(100, 180, 255, 0.25), transparent);
+  }
+
+  .s-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--card-border);
+  }
+
+  .s-header-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    background: rgba(37, 99, 235, 0.12);
+    border: 1px solid rgba(37, 99, 235, 0.2);
+  }
+
+  .s-header h5 {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-1);
+    margin: 0;
+  }
+
+  .s-header .s-subtitle {
+    font-size: 11px;
+    color: var(--text-3);
+    margin-left: auto;
+  }
+
+  .s-body {
+    padding: 22px;
+  }
+
+  /* Form Controls */
+  .f-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .f-grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+
+  .f-grid-4 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 16px;
+  }
+
+  .f-full {
+    grid-column: 1 / -1;
+  }
+
+  .f-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .f-label {
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+
+  .f-input,
+  .f-select,
+  .f-textarea {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(100, 160, 255, 0.12);
+    border-radius: var(--radius-xs);
+    color: var(--text-1);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13.5px;
+    padding: 10px 13px;
+    transition: all .22s ease;
+    outline: none;
+    width: 100%;
+  }
+
+  .f-input::placeholder {
+    color: var(--text-3);
+  }
+
+  .f-input:focus,
+  .f-select:focus,
+  .f-textarea:focus {
+    background: rgba(37, 99, 235, 0.07);
+    border-color: rgba(59, 130, 246, 0.45);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  }
+
+  .f-input:disabled {
+    opacity: .4;
+    cursor: not-allowed;
+  }
+
+  .f-select {
+    cursor: pointer;
+  }
+
+  .f-select option {
+    background: #0b1830;
+    color: var(--text-1);
+  }
+
+  .f-textarea {
+    resize: vertical;
+    min-height: 72px;
+  }
+
+  /* file input */
+  .file-wrap {
+    position: relative;
+    border: 1px dashed rgba(100, 160, 255, 0.2);
+    border-radius: var(--radius-xs);
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: all .2s;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .file-wrap:hover {
+    border-color: rgba(59, 130, 246, 0.4);
+    background: rgba(37, 99, 235, 0.05);
+  }
+
+  .file-wrap input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+  }
+
+  .file-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: rgba(37, 99, 235, 0.12);
+    border: 1px solid rgba(37, 99, 235, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: var(--blue-soft);
+    flex-shrink: 0;
+  }
+
+  .file-text .file-title {
+    font-size: 13px;
+    color: var(--text-2);
+  }
+
+  .file-text .file-sub {
+    font-size: 11px;
+    color: var(--text-3);
+    margin-top: 2px;
+  }
+
+  /* password field */
+  .pw-wrap {
+    position: relative;
+  }
+
+  .pw-wrap .f-input {
+    padding-right: 40px;
+  }
+
+  .pw-toggle {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--text-3);
+    cursor: pointer;
+    font-size: 13px;
+    transition: color .2s;
+    padding: 4px;
+  }
+
+  .pw-toggle:hover {
+    color: var(--blue-soft);
+  }
+
+  /* strength bar */
+  .pw-strength {
+    margin-top: 6px;
+    display: flex;
+    gap: 4px;
+  }
+
+  .pw-seg {
+    height: 3px;
+    flex: 1;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.08);
+    transition: background .3s;
+  }
+
+  .pw-hint {
+    font-size: 11px;
+    color: var(--text-3);
+    margin-top: 4px;
+  }
+
+  /* ── Save Button ────────────────────────────────────────────────── */
+  .save-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-top: 4px;
+  }
+
+  .btn-save {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 12px 28px;
+    background: linear-gradient(135deg, #1a56db, #2563eb);
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    cursor: pointer;
+    transition: transform .2s, box-shadow .2s;
+    box-shadow: 0 4px 20px rgba(37, 99, 235, 0.35), 0 1px 0 rgba(255, 255, 255, 0.1) inset;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-save::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, transparent 50%);
+  }
+
+  .btn-save:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 28px rgba(37, 99, 235, 0.48);
+  }
+
+  .btn-save:active {
+    transform: scale(0.98);
+  }
+
+  .btn-save .save-icon {
+    position: relative;
+    z-index: 1;
+  }
+
+  .btn-save .save-text {
+    position: relative;
+    z-index: 1;
+  }
+
+  .btn-cancel {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 12px 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13.5px;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: all .2s;
+  }
+
+  .btn-cancel:hover {
+    border-color: var(--card-border-hover);
+    color: var(--text-1);
+  }
+
+  .save-note {
+    font-size: 12px;
+    color: var(--text-3);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  /* ── Animations ─────────────────────────────────────────────────── */
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(18px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeUp {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* autofill */
+  .f-input:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 40px #0b1830 inset !important;
+    -webkit-text-fill-color: var(--text-1) !important;
+  }
+</style>
+
+<link
+  href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap"
+  rel="stylesheet">
+
+<div class="profile-page">
+
+  <!-- Hero Banner -->
+  <div class="profile-hero">
+    <div class="hero-orb"></div>
   </div>
 
-  {# ── Right: Edit Form ──────────────────────────────────────────────────── #}
-  <div>
-    <form method="POST" action="{{ url_for('auth.profile') }}" enctype="multipart/form-data">
+  <form method="POST" action="{{ url_for('auth.profile') }}" enctype="multipart/form-data" id="profileForm">
+    <div class="profile-grid">
 
-      {# Section 1: Basic Info #}
-      <div class="card-erp" style="margin-bottom:20px;">
-        <div class="card-header-erp"><h5>📋 Basic Information</h5></div>
-        <div class="card-body-erp">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-            <div class="form-group-erp">
-              <label class="form-label-erp">Full Name</label>
-              <input type="text" name="name" class="form-control-erp" value="{{ current_user.name }}" required>
-            </div>
-            <div class="form-group-erp">
-              <label class="form-label-erp">Email (read only)</label>
-              <input type="email" class="form-control-erp" value="{{ current_user.email }}" disabled>
-            </div>
-            <div class="form-group-erp">
-              <label class="form-label-erp">Mobile Number</label>
-              <input type="tel" name="phone" class="form-control-erp"
-                     value="{{ current_user.phone or '' }}" placeholder="10-digit number">
-            </div>
-            {% if student %}
-            <div class="form-group-erp">
-              <label class="form-label-erp">Date of Birth</label>
-              <input type="text" name="dob" class="form-control-erp"
-                     value="{{ student.dob or '' }}" placeholder="DD-MM-YYYY">
-            </div>
+      <!-- ═══════════ LEFT — Identity Card ═══════════ -->
+      <div class="p-card identity-card">
+
+        <div class="avatar-zone">
+          <div class="avatar-ring" id="avatarRing">
+            {% if current_user.profile_pic and current_user.profile_pic != 'default.png' %}
+            <img src="{{ url_for('static', filename='uploads/profiles/' + current_user.profile_pic) }}" alt="Avatar"
+              id="avatarImg">
+            {% else %}
+            <div class="avatar-initials" id="avatarImg">{{ current_user.name[0] }}</div>
             {% endif %}
-            <div class="form-group-erp" style="grid-column: 1 / -1;">
-              <label class="form-label-erp">Profile Picture</label>
-              <input type="file" name="profile_pic" class="form-control-erp" accept="image/*">
-            </div>
+          </div>
+          <div class="identity-name">{{ current_user.name }}</div>
+          <div class="badge-row">
+            <span class="p-badge badge-blue">
+              <i class="fa-solid fa-circle" style="font-size:5px;"></i>
+              {{ current_user.role.replace('_',' ').title() }}
+            </span>
+            <span class="p-badge {{ 'badge-green' if current_user.status == 'active' else 'badge-amber' }}">
+              {{ current_user.status.title() }}
+            </span>
           </div>
         </div>
-      </div>
 
-      {% if student %}
-      {# Section 2: Academic & Personal Details #}
-      <div class="card-erp" style="margin-bottom:20px;">
-        <div class="card-header-erp"><h5>🎓 Academic & Personal Details</h5></div>
-        <div class="card-body-erp">
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
-            <div class="form-group-erp">
-              <label class="form-label-erp">Gender</label>
-              <select name="gender" class="form-control-erp">
-                <option value="">Select</option>
-                <option value="M" {{ 'selected' if student.gender == 'M' }}>Male</option>
-                <option value="F" {{ 'selected' if student.gender == 'F' }}>Female</option>
-              </select>
-            </div>
-            <div class="form-group-erp">
-              <label class="form-label-erp">Category</label>
-              <select name="category" class="form-control-erp">
-                {% for cat in ['OPEN','OBC','SC','ST','NT1','NT2','NT3','VJA','SBC','EWS'] %}
-                <option value="{{ cat }}" {{ 'selected' if student.category == cat }}>{{ cat }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="form-group-erp">
-              <label class="form-label-erp">Blood Group</label>
-              <select name="blood_group" class="form-control-erp">
-                {% for bg in ['A+','A-','B+','B-','AB+','AB-','O+','O-'] %}
-                <option value="{{ bg }}" {{ 'selected' if student.blood_group == bg }}>{{ bg }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="form-group-erp">
-              <label class="form-label-erp">Aadhar Number</label>
-              <input type="text" name="aadhar_no" class="form-control-erp"
-                     value="{{ student.aadhar_no or '' }}" placeholder="XXXX XXXX XXXX" maxlength="14">
-            </div>
-            <div class="form-group-erp">
-              <label class="form-label-erp">Mother's Name</label>
-              <input type="text" name="mother_name" class="form-control-erp"
-                     value="{{ student.mother_name or '' }}" placeholder="Mother's full name">
-            </div>
+        {% if student %}
+        <div class="id-divider"></div>
+        <div class="meta-section">
+          <div class="meta-row">
+            <span class="meta-label">PRN</span>
+            <span class="meta-val mono">{{ student.prn }}</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-label">Roll No</span>
+            <span class="meta-val">{{ student.roll_no }}</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-label">Year / Sem</span>
+            <span class="meta-val">{{ student.current_year or 3 }}rd Yr &mdash; Sem {{ student.semester or 5 }}</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-label">Email</span>
+            <span class="meta-val" style="font-size:11px;color:var(--text-2);">{{ current_user.email }}</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-label">Blood Group</span>
+            <span class="meta-val blood">{{ student.blood_group or '—' }}</span>
           </div>
         </div>
-      </div>
 
-      {# Section 3: Address #}
-      <div class="card-erp" style="margin-bottom:20px;">
-        <div class="card-header-erp"><h5>🏠 Address Details</h5></div>
-        <div class="card-body-erp">
-          <div class="form-group-erp">
-            <label class="form-label-erp">Full Address</label>
-            <textarea name="address" class="form-control-erp" rows="2"
-                      placeholder="House No, Street, Area…">{{ student.address or '' }}</textarea>
+        {% if student.attendance_percentage() > 0 %}
+        {% set att = student.attendance_percentage() %}
+        <div class="id-divider" style="margin-top:10px;"></div>
+        <div class="att-section" style="padding-bottom:20px;">
+          <div class="att-label">
+            Attendance
+            <strong style="color:{{ '#10b981' if att >= 75 else '#ef4444' }};">{{ att }}%</strong>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;margin-top:4px;">
-            <div class="form-group-erp">
-              <label class="form-label-erp">City / Village</label>
-              <input type="text" name="city" class="form-control-erp"
-                     value="{{ student.city or '' }}" placeholder="City">
+          <div class="att-track">
+            <div class="att-fill"
+              style="width:{{ att }}%;background:{{ 'linear-gradient(90deg,#059669,#10b981)' if att >= 75 else 'linear-gradient(90deg,#dc2626,#ef4444)' }};">
             </div>
-            <div class="form-group-erp">
-              <label class="form-label-erp">District</label>
-              <input type="text" name="district" class="form-control-erp"
-                     value="{{ student.district or '' }}" placeholder="District">
-            </div>
-            <div class="form-group-erp">
-              <label class="form-label-erp">State</label>
-              <input type="text" name="state" class="form-control-erp"
-                     value="{{ student.state or 'Maharashtra' }}" placeholder="State">
-            </div>
-            <div class="form-group-erp">
-              <label class="form-label-erp">Pincode</label>
-              <input type="text" name="pincode" class="form-control-erp"
-                     value="{{ student.pincode or '' }}" placeholder="431001" maxlength="6">
-            </div>
+          </div>
+          <div style="font-size:11px;color:var(--text-3);margin-top:6px;">
+            {{ '✓ Eligible for exams' if att >= 75 else '⚠ Below 75% threshold' }}
           </div>
         </div>
-      </div>
-      {% endif %}
+        {% endif %}
+        {% endif %}
 
-      {# Section 4: Change Password #}
-      <div class="card-erp" style="margin-bottom:20px;">
-        <div class="card-header-erp"><h5>🔒 Change Password</h5></div>
-        <div class="card-body-erp">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-            <div class="form-group-erp">
-              <label class="form-label-erp">New Password (leave blank to keep current)</label>
-              <input type="password" name="new_password" class="form-control-erp"
-                     placeholder="Min 6 characters" minlength="6">
+      </div>
+
+      <!-- ═══════════ RIGHT — Form Sections ═══════════ -->
+      <div class="right-col">
+
+        <!-- Tab Navigation -->
+        <div class="tab-nav">
+          <button type="button" class="tab-btn active" data-tab="basic">
+            <i class="fa-solid fa-user"></i> Basic Info
+            <span class="tab-dot"></span>
+          </button>
+          {% if student %}
+          <button type="button" class="tab-btn" data-tab="academic">
+            <i class="fa-solid fa-graduation-cap"></i> Academic
+            <span class="tab-dot"></span>
+          </button>
+          <button type="button" class="tab-btn" data-tab="address">
+            <i class="fa-solid fa-location-dot"></i> Address
+            <span class="tab-dot"></span>
+          </button>
+          {% endif %}
+          <button type="button" class="tab-btn" data-tab="security">
+            <i class="fa-solid fa-shield-halved"></i> Security
+            <span class="tab-dot"></span>
+          </button>
+        </div>
+
+        <!-- ── Tab: Basic Info ─────────────────────── -->
+        <div class="tab-panel active" id="tab-basic">
+          <div class="s-card">
+            <div class="s-header">
+              <div class="s-header-icon">📋</div>
+              <h5>Basic Information</h5>
+              <span class="s-subtitle">Core account details</span>
+            </div>
+            <div class="s-body">
+              <div class="f-grid-2" style="gap:18px;">
+                <div class="f-group">
+                  <label class="f-label">Full Name</label>
+                  <input type="text" name="name" class="f-input" value="{{ current_user.name }}" required
+                    placeholder="Your full name">
+                </div>
+                <div class="f-group">
+                  <label class="f-label">Email Address</label>
+                  <input type="email" class="f-input" value="{{ current_user.email }}" disabled>
+                </div>
+                <div class="f-group">
+                  <label class="f-label">Mobile Number</label>
+                  <input type="tel" name="phone" class="f-input" value="{{ current_user.phone or '' }}"
+                    placeholder="10-digit number">
+                </div>
+                {% if student %}
+                <div class="f-group">
+                  <label class="f-label">Date of Birth</label>
+                  <input type="text" name="dob" class="f-input" value="{{ student.dob or '' }}"
+                    placeholder="DD-MM-YYYY">
+                </div>
+                {% endif %}
+                <div class="f-group f-full">
+                  <label class="f-label">Profile Picture</label>
+                  <div class="file-wrap" id="fileWrap">
+                    <input type="file" name="profile_pic" accept="image/*" id="picInput">
+                    <div class="file-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+                    <div class="file-text">
+                      <div class="file-title" id="fileTitle">Click to upload a new photo</div>
+                      <div class="file-sub">PNG, JPG, WEBP — max 2 MB</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
+
+          <!-- Save bar -->
+          <div class="save-bar">
+            <button type="submit" class="btn-save" id="saveBtn">
+              <i class="fa-solid fa-floppy-disk save-icon"></i>
+              <span class="save-text">Save Changes</span>
+            </button>
+            <span class="save-note"><i class="fa-solid fa-circle-info"></i> All sections are saved together</span>
+          </div>
         </div>
+
+        {% if student %}
+        <!-- ── Tab: Academic ───────────────────────── -->
+        <div class="tab-panel" id="tab-academic">
+          <div class="s-card">
+            <div class="s-header">
+              <div class="s-header-icon">🎓</div>
+              <h5>Academic & Personal Details</h5>
+              <span class="s-subtitle">Student profile data</span>
+            </div>
+            <div class="s-body">
+              <div class="f-grid-3" style="gap:18px;">
+                <div class="f-group">
+                  <label class="f-label">Gender</label>
+                  <select name="gender" class="f-select">
+                    <option value="">Select</option>
+                    <option value="M" {{ 'selected' if student.gender=='M' }}>Male</option>
+                    <option value="F" {{ 'selected' if student.gender=='F' }}>Female</option>
+                  </select>
+                </div>
+                <div class="f-group">
+                  <label class="f-label">Category</label>
+                  <select name="category" class="f-select">
+                    {% for cat in ['OPEN','OBC','SC','ST','NT1','NT2','NT3','VJA','SBC','EWS'] %}
+                    <option value="{{ cat }}" {{ 'selected' if student.category==cat }}>{{ cat }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="f-group">
+                  <label class="f-label">Blood Group</label>
+                  <select name="blood_group" class="f-select">
+                    {% for bg in ['A+','A-','B+','B-','AB+','AB-','O+','O-'] %}
+                    <option value="{{ bg }}" {{ 'selected' if student.blood_group==bg }}>{{ bg }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="f-group">
+                  <label class="f-label">Aadhar Number</label>
+                  <input type="text" name="aadhar_no" class="f-input" value="{{ student.aadhar_no or '' }}"
+                    placeholder="XXXX XXXX XXXX" maxlength="14">
+                </div>
+                <div class="f-group">
+                  <label class="f-label">Mother's Name</label>
+                  <input type="text" name="mother_name" class="f-input" value="{{ student.mother_name or '' }}"
+                    placeholder="Mother's full name">
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="save-bar">
+            <button type="submit" class="btn-save">
+              <i class="fa-solid fa-floppy-disk save-icon"></i>
+              <span class="save-text">Save Changes</span>
+            </button>
+            <span class="save-note"><i class="fa-solid fa-circle-info"></i> All sections are saved together</span>
+          </div>
+        </div>
+
+        <!-- ── Tab: Address ────────────────────────── -->
+        <div class="tab-panel" id="tab-address">
+          <div class="s-card">
+            <div class="s-header">
+              <div class="s-header-icon">🏠</div>
+              <h5>Address Details</h5>
+              <span class="s-subtitle">Residential information</span>
+            </div>
+            <div class="s-body" style="display:flex;flex-direction:column;gap:16px;">
+              <div class="f-group">
+                <label class="f-label">Full Address</label>
+                <textarea name="address" class="f-textarea"
+                  placeholder="House No, Street, Area…">{{ student.address or '' }}</textarea>
+              </div>
+              <div class="f-grid-4" style="gap:16px;">
+                <div class="f-group">
+                  <label class="f-label">City / Village</label>
+                  <input type="text" name="city" class="f-input" value="{{ student.city or '' }}" placeholder="City">
+                </div>
+                <div class="f-group">
+                  <label class="f-label">District</label>
+                  <input type="text" name="district" class="f-input" value="{{ student.district or '' }}"
+                    placeholder="District">
+                </div>
+                <div class="f-group">
+                  <label class="f-label">State</label>
+                  <input type="text" name="state" class="f-input" value="{{ student.state or 'Maharashtra' }}"
+                    placeholder="State">
+                </div>
+                <div class="f-group">
+                  <label class="f-label">Pincode</label>
+                  <input type="text" name="pincode" class="f-input" value="{{ student.pincode or '' }}"
+                    placeholder="431001" maxlength="6">
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="save-bar">
+            <button type="submit" class="btn-save">
+              <i class="fa-solid fa-floppy-disk save-icon"></i>
+              <span class="save-text">Save Changes</span>
+            </button>
+            <span class="save-note"><i class="fa-solid fa-circle-info"></i> All sections are saved together</span>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- ── Tab: Security ──────────────────────── -->
+        <div class="tab-panel" id="tab-security">
+          <div class="s-card">
+            <div class="s-header">
+              <div class="s-header-icon">🔒</div>
+              <h5>Change Password</h5>
+              <span class="s-subtitle">Leave blank to keep current</span>
+            </div>
+            <div class="s-body">
+              <div style="max-width:340px;display:flex;flex-direction:column;gap:16px;">
+                <div class="f-group">
+                  <label class="f-label">New Password</label>
+                  <div class="pw-wrap">
+                    <input type="password" name="new_password" class="f-input" id="pwInput"
+                      placeholder="Minimum 6 characters" minlength="6" autocomplete="new-password">
+                    <button type="button" class="pw-toggle" id="pwToggle">
+                      <i class="fa-solid fa-eye"></i>
+                    </button>
+                  </div>
+                  <div class="pw-strength" id="pwStrength">
+                    <div class="pw-seg" id="ps1"></div>
+                    <div class="pw-seg" id="ps2"></div>
+                    <div class="pw-seg" id="ps3"></div>
+                    <div class="pw-seg" id="ps4"></div>
+                  </div>
+                  <div class="pw-hint" id="pwHint">Enter a new password to change it</div>
+                </div>
+
+                <!-- security info chips -->
+                <div
+                  style="display:flex;flex-direction:column;gap:8px;padding:14px;background:rgba(255,255,255,0.02);border:1px solid var(--card-border);border-radius:var(--radius-xs);">
+                  <div style="font-size:12px;color:var(--text-3);display:flex;align-items:center;gap:7px;">
+                    <i class="fa-solid fa-circle-check" style="color:#10b981;font-size:11px;"></i>
+                    Use at least 6 characters
+                  </div>
+                  <div style="font-size:12px;color:var(--text-3);display:flex;align-items:center;gap:7px;">
+                    <i class="fa-solid fa-circle-check" style="color:#10b981;font-size:11px;"></i>
+                    Mix letters, numbers and symbols for strength
+                  </div>
+                  <div style="font-size:12px;color:var(--text-3);display:flex;align-items:center;gap:7px;">
+                    <i class="fa-solid fa-circle-xmark" style="color:#f59e0b;font-size:11px;"></i>
+                    Avoid using your name or email
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="save-bar">
+            <button type="submit" class="btn-save">
+              <i class="fa-solid fa-shield-halved save-icon"></i>
+              <span class="save-text">Update Password</span>
+            </button>
+            <span class="save-note"><i class="fa-solid fa-circle-info"></i> Only updates if a password is entered</span>
+          </div>
+        </div>
+
       </div>
-
-      <button type="submit" class="btn-erp btn-primary-erp" style="padding:12px 32px;font-size:15px;">
-        <i class="fa-solid fa-save"></i> Save All Changes
-      </button>
-
-    </form>
-  </div>
+    </div>
+  </form>
 </div>
+
+<script>
+  // ── Tab Switching ─────────────────────────────────────────────────
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      this.classList.add('active');
+      const panel = document.getElementById('tab-' + this.dataset.tab);
+      if (panel) panel.classList.add('active');
+    });
+  });
+
+  // ── Password Toggle ───────────────────────────────────────────────
+  const pwToggle = document.getElementById('pwToggle');
+  const pwInput = document.getElementById('pwInput');
+  if (pwToggle && pwInput) {
+    pwToggle.addEventListener('click', function () {
+      const isText = pwInput.type === 'text';
+      pwInput.type = isText ? 'password' : 'text';
+      this.querySelector('i').className = isText ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash';
+    });
+  }
+
+  // ── Password Strength ─────────────────────────────────────────────
+  const colors = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981'];
+  const labels = ['Too short', 'Weak', 'Good', 'Strong'];
+  if (pwInput) {
+    pwInput.addEventListener('input', function () {
+      const v = this.value;
+      let score = 0;
+      if (v.length >= 6) score++;
+      if (v.length >= 10) score++;
+      if (/[^a-zA-Z0-9]/.test(v)) score++;
+      if (/[A-Z]/.test(v) && /[0-9]/.test(v)) score++;
+      score = Math.min(score, 4);
+      [1, 2, 3, 4].forEach(i => {
+        const seg = document.getElementById('ps' + i);
+        seg.style.background = i <= score ? colors[score - 1] : 'rgba(255,255,255,0.08)';
+      });
+      const hint = document.getElementById('pwHint');
+      hint.textContent = v.length === 0 ? 'Enter a new password to change it' : labels[score - 1] || 'Too short';
+      hint.style.color = v.length === 0 ? 'var(--text-3)' : colors[score - 1] || colors[0];
+    });
+  }
+
+  // ── Avatar Preview ────────────────────────────────────────────────
+  const picInput = document.getElementById('picInput');
+  const fileTitle = document.getElementById('fileTitle');
+  if (picInput) {
+    picInput.addEventListener('change', function () {
+      const file = this.files[0];
+      if (!file) return;
+      fileTitle.textContent = file.name;
+      const reader = new FileReader();
+      reader.onload = e => {
+        const imgEl = document.getElementById('avatarImg');
+        if (imgEl.tagName === 'IMG') {
+          imgEl.src = e.target.result;
+        } else {
+          const newImg = document.createElement('img');
+          newImg.src = e.target.result;
+          newImg.id = 'avatarImg';
+          newImg.className = 'avatar-initials';
+          newImg.style.cssText = 'object-fit:cover;';
+          imgEl.replaceWith(newImg);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // ── Save Loading State ────────────────────────────────────────────
+  document.getElementById('profileForm').addEventListener('submit', function () {
+    const btn = document.getElementById('saveBtn');
+    if (btn) {
+      btn.querySelector('.save-icon').className = 'fa-solid fa-circle-notch fa-spin save-icon';
+      btn.querySelector('.save-text').textContent = 'Saving…';
+      btn.style.opacity = '0.8';
+      btn.style.pointerEvents = 'none';
+    }
+  });
+</script>
+
 {% endblock %}
