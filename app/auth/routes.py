@@ -30,52 +30,8 @@ def login():
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard.index'))
-    departments = Department.query.all()
-    classes = Class.query.all()
-    if request.method == 'POST':
-        name     = request.form.get('name', '').strip()
-        email    = request.form.get('email', '').strip().lower()
-        phone    = request.form.get('phone', '').strip()
-        password = request.form.get('password', '')
-        confirm  = request.form.get('confirm_password', '')
-        role     = request.form.get('role', Roles.STUDENT)
-        class_id = request.form.get('class_id')
-
-        if password != confirm:
-            flash('Passwords do not match.', 'danger')
-            return render_template('auth/register.html', departments=departments, classes=classes)
-
-        if User.query.filter_by(email=email).first():
-            flash('Email already registered.', 'danger')
-            return render_template('auth/register.html', departments=departments, classes=classes)
-
-        pw_hash = bcrypt.generate_password_hash(password).decode('utf-8')
-        user = User(name=name, email=email, phone=phone, password_hash=pw_hash,
-                    role=role, status=Status.PENDING)
-        db.session.add(user)
-        db.session.flush()
-
-        if role == Roles.STUDENT:
-            prn = request.form.get('prn', '')
-            roll = request.form.get('roll_no', '')
-            student = Student(user_id=user.id, class_id=class_id if class_id else None,
-                              prn=prn, roll_no=roll, approval_status=ApprovalStatus.PENDING)
-            db.session.add(student)
-
-        elif role in [Roles.TEACHER, Roles.CLASS_TEACHER, Roles.HOD]:
-            dept_id = request.form.get('department_id')
-            designation = request.form.get('designation', '')
-            teacher = Teacher(user_id=user.id, department_id=dept_id if dept_id else None,
-                              designation=designation, teacher_type='subject')
-            db.session.add(teacher)
-
-        db.session.commit()
-        flash('Registration successful! Your account is pending approval.', 'info')
-        return redirect(url_for('auth.login'))
-
-    return render_template('auth/register.html', departments=departments, classes=classes)
+    flash('Self-registration is disabled. Please contact your HOD or Principal to get login credentials.', 'warning')
+    return redirect(url_for('auth.login'))
 
 @auth_bp.route('/logout')
 @login_required

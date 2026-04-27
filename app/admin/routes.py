@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, abort
+from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, send_file
 from flask_login import login_required, current_user
 from app.extensions import db, bcrypt
 from app.models import (
@@ -7,6 +7,9 @@ from app.models import (
 )
 from app.utils.decorators import role_required
 from app.utils.helpers import get_dept_for_hod, get_class_for_ct
+import io
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -45,8 +48,10 @@ def users():
         query = query.filter_by(status=filter_status)
 
     users = query.order_by(User.created_at.desc()).all()
+    departments = Department.query.all()
     return render_template('admin/users.html', users=users, roles=Roles.ALL,
-                           filter_role=filter_role, filter_status=filter_status)
+                           filter_role=filter_role, filter_status=filter_status,
+                           departments=departments)
 
 
 @admin_bp.route('/users/<int:id>/activate', methods=['POST'])
@@ -505,3 +510,349 @@ def student_detail(id):
         User.role.in_([Roles.TEACHER, Roles.CLASS_TEACHER, Roles.HOD])
     ).all()
     return render_template('admin/student_detail.html', student=student, teachers=teachers)
+
+
+# ── Add Teacher (Manual) ─────────────────────────────────────────────────────
+@admin_bp.route('/teachers/add', methods=['POST'])
+@login_required
+@role_required(Roles.SUPER_ADMIN, Roles.HOD)
+def add_teacher():
+    name        = request.form.get('name', '').strip()
+    email       = request.form.get('email', '').strip().lower()
+    phone       = request.form.get('phone', '').strip()
+    password    = request.form.get('password', 'csmss@123').strip() or 'csmss@123'
+    role        = request.form.get('role', Roles.TEACHER)
+    dept_id     = request.form.get('department_id') or None
+    designation = request.form.get('designation', '').strip()
+
+    # HOD can only add to their own department
+    if current_user.role == Roles.HOD:
+        dept_id = str(_hod_dept_id())
+
+    if not name or not email:
+        flash('Name and Email are required.', 'danger')
+        return redirect(url_for('admin.users'))
+
+    if User.query.filter_by(email=email).first():
+        flash(f'Email {email} is already registered.', 'danger')
+        return redirect(url_for('admin.users'))
+
+    if role not in Roles.ALL:
+        role = Roles.TEACHER
+
+    pw_hash = bcrypt.generate_password_hash(password).decode('utf-8')
+    user = User(name=name, email=email, phone=phone, password_hash=pw_hash,
+                role=role, status=Status.ACTIVE)
+    db.session.add(user)
+    db.session.flush()
+
+    teacher = Teacher(user_id=user.id, department_id=dept_id,
+                      designation=designation, teacher_type='subject')
+    db.session.add(teacher)
+    db.session.commit()
+    flash(f'Teacher "{name}" added successfully! Default password: csmss@123', 'success')
+    return redirect(url_for('admin.users'))
+
+
+# ── Add Student (Manual) ─────────────────────────────────────────────────────
+@admin_bp.route('/students/add', methods=['POST'])
+@login_required
+@role_required(Roles.SUPER_ADMIN, Roles.HOD, Roles.CLASS_TEACHER)
+def add_student():
+    name        = request.form.get('name', '').strip()
+    email       = request.form.get('email', '').strip().lower()
+    phone       = request.form.get('phone', '').strip()
+    password    = request.form.get('password', 'csmss@123').strip() or 'csmss@123'
+    prn         = request.form.get('prn', '').strip()
+    roll_no     = request.form.get('roll_no', '').strip()
+    class_id    = request.form.get('class_id') or None
+    dob         = request.form.get('dob', '').strip()
+    gender      = request.form.get('gender', '').strip()
+    category    = request.form.get('category', '').strip()
+    mother_name = request.form.get('mother_name', '').strip()
+
+    # Class Teacher: lock to their class
+    if current_user.role == Roles.CLASS_TEACHER:
+        cls = _ct_class()
+        class_id = cls.id if cls else None
+
+    # HOD: must be within dept
+    if current_user.role == Roles.HOD and class_id:
+        dept_id = _hod_dept_id()
+        cls = Class.query.get(class_id)
+        if not cls or cls.department_id != dept_id:
+            abort(403)
+
+    if not name or not email:
+        flash('Name and Email are required.', 'danger')
+        return redirect(url_for('admin.students'))
+
+    if User.query.filter_by(email=email).first():
+        flash(f'Email {email} is already registered.', 'danger')
+        return redirect(url_for('admin.students'))
+
+    if prn and Student.query.filter_by(prn=prn).first():
+        flash(f'PRN {prn} already exists.', 'danger')
+        return redirect(url_for('admin.students'))
+
+    pw_hash = bcrypt.generate_password_hash(password).decode('utf-8')
+    user = User(name=name, email=email, phone=phone, password_hash=pw_hash,
+                role=Roles.STUDENT, status=Status.ACTIVE)
+    db.session.add(user)
+    db.session.flush()
+
+    student = Student(user_id=user.id, class_id=class_id,
+                      prn=prn or None, roll_no=roll_no or None,
+                      approval_status=ApprovalStatus.APPROVED,
+                      approved_by=current_user.id,
+                      dob=dob or None, gender=gender or None,
+                      category=category or None, mother_name=mother_name or None)
+    db.session.add(student)
+    db.session.commit()
+    flash(f'Student "{name}" added successfully! Default password: csmss@123', 'success')
+    return redirect(url_for('admin.students'))
+
+
+# ── Upload Students via Excel ────────────────────────────────────────────────
+@admin_bp.route('/students/upload-excel', methods=['POST'])
+@login_required
+@role_required(Roles.SUPER_ADMIN, Roles.HOD, Roles.CLASS_TEACHER)
+def upload_students_excel():
+    file = request.files.get('excel_file')
+    if not file or not file.filename.endswith(('.xlsx', '.xls')):
+        flash('Please upload a valid Excel file (.xlsx or .xls).', 'danger')
+        return redirect(url_for('admin.students'))
+
+    try:
+        wb = openpyxl.load_workbook(file)
+        ws = wb.active
+    except Exception:
+        flash('Could not read the Excel file. Please use the correct format.', 'danger')
+        return redirect(url_for('admin.students'))
+
+    added = 0
+    skipped = 0
+    errors = []
+
+    # Determine scope for HOD / Class Teacher
+    hod_dept_id = _hod_dept_id() if current_user.role == Roles.HOD else None
+    ct_class    = _ct_class()     if current_user.role == Roles.CLASS_TEACHER else None
+
+    headers = [str(cell.value).strip().lower() if cell.value else '' for cell in ws[1]]
+    required = ['name', 'email']
+    for req in required:
+        if req not in headers:
+            flash(f'Excel is missing required column: "{req}". Download the format template.', 'danger')
+            return redirect(url_for('admin.students'))
+
+    def col(row, name):
+        try:
+            idx = headers.index(name)
+            val = row[idx].value
+            return str(val).strip() if val is not None else ''
+        except (ValueError, IndexError):
+            return ''
+
+    for row in ws.iter_rows(min_row=2):
+        if all(cell.value is None for cell in row):
+            continue
+
+        name     = col(row, 'name')
+        email    = col(row, 'email').lower()
+        phone    = col(row, 'phone')
+        prn      = col(row, 'prn')
+        roll_no  = col(row, 'roll_no')
+        class_name = col(row, 'class_name')
+        dob      = col(row, 'dob')
+        gender   = col(row, 'gender').upper()[:1]
+        category = col(row, 'category').upper()
+        mother_name = col(row, 'mother_name')
+
+        if not name or not email:
+            skipped += 1
+            continue
+
+        if User.query.filter_by(email=email).first():
+            errors.append(f'Skipped (email exists): {email}')
+            skipped += 1
+            continue
+
+        if prn and Student.query.filter_by(prn=prn).first():
+            errors.append(f'Skipped (PRN exists): {prn}')
+            skipped += 1
+            continue
+
+        # Resolve class_id
+        class_id = None
+        if current_user.role == Roles.CLASS_TEACHER and ct_class:
+            class_id = ct_class.id
+        elif class_name:
+            cls_obj = Class.query.filter(Class.name.ilike(class_name)).first()
+            if cls_obj:
+                # HOD scope check
+                if current_user.role == Roles.HOD and hod_dept_id:
+                    if cls_obj.department_id != hod_dept_id:
+                        errors.append(f'Skipped (class out of dept): {class_name}')
+                        skipped += 1
+                        continue
+                class_id = cls_obj.id
+
+        pw_hash = bcrypt.generate_password_hash('csmss@123').decode('utf-8')
+        user = User(name=name, email=email, phone=phone or None,
+                    password_hash=pw_hash, role=Roles.STUDENT, status=Status.ACTIVE)
+        db.session.add(user)
+        db.session.flush()
+
+        student = Student(user_id=user.id, class_id=class_id,
+                          prn=prn or None, roll_no=roll_no or None,
+                          approval_status=ApprovalStatus.APPROVED,
+                          approved_by=current_user.id,
+                          dob=dob or None,
+                          gender=gender if gender in ['M', 'F'] else None,
+                          category=category or None,
+                          mother_name=mother_name or None)
+        db.session.add(student)
+        added += 1
+
+    db.session.commit()
+    msg = f'✅ Excel upload complete: {added} student(s) added, {skipped} skipped.'
+    if errors:
+        msg += f' Issues: {"; ".join(errors[:5])}'
+    flash(msg, 'success' if added > 0 else 'warning')
+    return redirect(url_for('admin.students'))
+
+
+# ── Upload Teachers via Excel ────────────────────────────────────────────────
+@admin_bp.route('/teachers/upload-excel', methods=['POST'])
+@login_required
+@role_required(Roles.SUPER_ADMIN, Roles.HOD)
+def upload_teachers_excel():
+    file = request.files.get('excel_file')
+    if not file or not file.filename.endswith(('.xlsx', '.xls')):
+        flash('Please upload a valid Excel file (.xlsx or .xls).', 'danger')
+        return redirect(url_for('admin.users'))
+
+    try:
+        wb = openpyxl.load_workbook(file)
+        ws = wb.active
+    except Exception:
+        flash('Could not read the Excel file. Please use the correct format.', 'danger')
+        return redirect(url_for('admin.users'))
+
+    added = 0
+    skipped = 0
+    errors = []
+
+    hod_dept_id = _hod_dept_id() if current_user.role == Roles.HOD else None
+
+    headers = [str(cell.value).strip().lower() if cell.value else '' for cell in ws[1]]
+    required = ['name', 'email']
+    for req in required:
+        if req not in headers:
+            flash(f'Excel is missing required column: "{req}". Download the format template.', 'danger')
+            return redirect(url_for('admin.users'))
+
+    def col(row, name):
+        try:
+            idx = headers.index(name)
+            val = row[idx].value
+            return str(val).strip() if val is not None else ''
+        except (ValueError, IndexError):
+            return ''
+
+    for row in ws.iter_rows(min_row=2):
+        if all(cell.value is None for cell in row):
+            continue
+
+        name        = col(row, 'name')
+        email       = col(row, 'email').lower()
+        phone       = col(row, 'phone')
+        dept_code   = col(row, 'department_code').upper()
+        designation = col(row, 'designation')
+        role        = col(row, 'role').upper()
+
+        if not name or not email:
+            skipped += 1
+            continue
+
+        if User.query.filter_by(email=email).first():
+            errors.append(f'Skipped (email exists): {email}')
+            skipped += 1
+            continue
+
+        if role not in Roles.ALL:
+            role = Roles.TEACHER
+
+        # Resolve department
+        dept_id = None
+        if current_user.role == Roles.HOD:
+            dept_id = hod_dept_id
+        elif dept_code:
+            dept_obj = Department.query.filter(Department.code.ilike(dept_code)).first()
+            if dept_obj:
+                dept_id = dept_obj.id
+
+        pw_hash = bcrypt.generate_password_hash('csmss@123').decode('utf-8')
+        user = User(name=name, email=email, phone=phone or None,
+                    password_hash=pw_hash, role=role, status=Status.ACTIVE)
+        db.session.add(user)
+        db.session.flush()
+
+        teacher = Teacher(user_id=user.id, department_id=dept_id,
+                          designation=designation or None, teacher_type='subject')
+        db.session.add(teacher)
+        added += 1
+
+    db.session.commit()
+    msg = f'✅ Excel upload complete: {added} teacher(s) added, {skipped} skipped.'
+    if errors:
+        msg += f' Issues: {"; ".join(errors[:5])}'
+    flash(msg, 'success' if added > 0 else 'warning')
+    return redirect(url_for('admin.users'))
+
+
+# ── Download Excel Format Templates ─────────────────────────────────────────
+def _make_template_wb(headers, sample_row, title):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = title
+    header_font  = Font(bold=True, color='FFFFFF', size=11)
+    header_fill  = PatternFill('solid', fgColor='1A3C5E')
+    header_align = Alignment(horizontal='center', vertical='center')
+    for col_idx, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_idx, value=h)
+        cell.font  = header_font
+        cell.fill  = header_fill
+        cell.alignment = header_align
+        ws.column_dimensions[cell.column_letter].width = max(18, len(h) + 4)
+    for col_idx, val in enumerate(sample_row, 1):
+        ws.cell(row=2, column=col_idx, value=val)
+    return wb
+
+@admin_bp.route('/students/download-template')
+@login_required
+@role_required(Roles.SUPER_ADMIN, Roles.HOD, Roles.CLASS_TEACHER)
+def download_students_template():
+    headers    = ['name', 'email', 'phone', 'prn', 'roll_no', 'class_name', 'dob', 'gender', 'category', 'mother_name']
+    sample_row = ['John Doe', 'john@csmss.edu', '9876543210', 'PRN2024001', '01', 'SE-A', '01-01-2004', 'M', 'OPEN', 'Jane Doe']
+    wb = _make_template_wb(headers, sample_row, 'Students')
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return send_file(output, download_name='students_upload_format.xlsx',
+                     as_attachment=True,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+@admin_bp.route('/teachers/download-template')
+@login_required
+@role_required(Roles.SUPER_ADMIN, Roles.HOD)
+def download_teachers_template():
+    headers    = ['name', 'email', 'phone', 'department_code', 'designation', 'role']
+    sample_row = ['Prof. Smith', 'smith@csmss.edu', '9876543211', 'CSE', 'Assistant Professor', 'TEACHER']
+    wb = _make_template_wb(headers, sample_row, 'Teachers')
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return send_file(output, download_name='teachers_upload_format.xlsx',
+                     as_attachment=True,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')

@@ -1,118 +1,908 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login | CSMSS College ERP</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --navy: #050d1a;
+      --navy-mid: #0b1830;
+      --navy-card: rgba(10, 20, 40, 0.75);
+      --blue-glow: #1a56db;
+      --blue-bright: #3b82f6;
+      --blue-soft: #60a5fa;
+      --gold: #f59e0b;
+      --gold-soft: #fbbf24;
+      --text-primary: #f0f6ff;
+      --text-secondary: #94a8c4;
+      --text-muted: #5a7499;
+      --border-glass: rgba(100, 160, 255, 0.12);
+      --border-hover: rgba(100, 160, 255, 0.28);
+      --input-bg: rgba(255, 255, 255, 0.04);
+      --input-bg-focus: rgba(59, 130, 246, 0.08);
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--navy);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* === ANIMATED BACKGROUND === */
+    .bg-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background: radial-gradient(ellipse 80% 60% at 20% 10%, rgba(26, 86, 219, 0.22) 0%, transparent 65%),
+        radial-gradient(ellipse 60% 50% at 80% 80%, rgba(245, 158, 11, 0.1) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 70% at 60% 30%, rgba(99, 102, 241, 0.12) 0%, transparent 60%),
+        linear-gradient(160deg, #020810 0%, #050d1a 40%, #060e20 100%);
+    }
+
+    .bg-grid {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background-image:
+        linear-gradient(rgba(59, 130, 246, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59, 130, 246, 0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 100%);
+    }
+
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      z-index: 0;
+      animation: floatOrb 12s ease-in-out infinite;
+    }
+
+    .orb-1 {
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(26, 86, 219, 0.18) 0%, transparent 70%);
+      top: -120px;
+      left: -100px;
+      animation-delay: 0s;
+    }
+
+    .orb-2 {
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(245, 158, 11, 0.1) 0%, transparent 70%);
+      bottom: -100px;
+      right: -80px;
+      animation-delay: -6s;
+    }
+
+    .orb-3 {
+      width: 300px;
+      height: 300px;
+      background: radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, transparent 70%);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      animation-delay: -3s;
+    }
+
+    @keyframes floatOrb {
+
+      0%,
+      100% {
+        transform: translate(0, 0) scale(1);
+      }
+
+      33% {
+        transform: translate(20px, -30px) scale(1.05);
+      }
+
+      66% {
+        transform: translate(-15px, 20px) scale(0.97);
+      }
+    }
+
+    /* Stars */
+    .stars {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .star {
+      position: absolute;
+      background: #fff;
+      border-radius: 50%;
+      animation: twinkle var(--dur, 3s) ease-in-out infinite;
+      animation-delay: var(--delay, 0s);
+    }
+
+    @keyframes twinkle {
+
+      0%,
+      100% {
+        opacity: 0.1;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: 0.6;
+        transform: scale(1.4);
+      }
+    }
+
+    /* === LAYOUT === */
+    .auth-wrap {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      width: 100%;
+      padding: 24px;
+    }
+
+    /* === CARD === */
+    .auth-card {
+      width: 100%;
+      max-width: 460px;
+      background: var(--navy-card);
+      backdrop-filter: blur(28px) saturate(1.4);
+      -webkit-backdrop-filter: blur(28px) saturate(1.4);
+      border: 1px solid var(--border-glass);
+      border-radius: 24px;
+      padding: 40px 40px 32px;
+      position: relative;
+      overflow: hidden;
+      animation: cardIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    @keyframes cardIn {
+      from {
+        opacity: 0;
+        transform: translateY(28px) scale(0.97);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* card top shimmer line */
+    .auth-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 10%;
+      right: 10%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(100, 180, 255, 0.5), rgba(245, 158, 11, 0.4), rgba(100, 180, 255, 0.5), transparent);
+    }
+
+    .auth-card::after {
+      content: '';
+      position: absolute;
+      bottom: -120px;
+      right: -60px;
+      width: 280px;
+      height: 280px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(26, 86, 219, 0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* === LOGO SECTION === */
+    .logo-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 28px;
+      animation: fadeUp 0.6s 0.15s both;
+    }
+
+    .logo-ring {
+      width: 80px;
+      height: 80px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, rgba(26, 86, 219, 0.2), rgba(245, 158, 11, 0.15));
+      border: 1px solid var(--border-hover);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 14px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .logo-ring::before {
+      content: '';
+      position: absolute;
+      inset: -50%;
+      background: conic-gradient(from 0deg, transparent 60%, rgba(59, 130, 246, 0.3) 80%, transparent 90%);
+      animation: spin 6s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .logo-ring img {
+      width: 52px;
+      height: 52px;
+      object-fit: contain;
+      position: relative;
+      z-index: 1;
+    }
+
+    .logo-ring .logo-placeholder {
+      font-family: 'Syne', sans-serif;
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--blue-soft);
+      position: relative;
+      z-index: 1;
+    }
+
+    .logo-section h2 {
+      font-family: 'Syne', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.3px;
+      margin-bottom: 4px;
+    }
+
+    .logo-section h2 span {
+      background: linear-gradient(90deg, #60a5fa, #f59e0b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .logo-section p {
+      font-size: 12px;
+      color: var(--text-muted);
+      letter-spacing: 0.3px;
+    }
+
+    /* === ALERT === */
+    .alert-erp {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      margin-bottom: 16px;
+      animation: fadeUp 0.3s both;
+    }
+
+    .alert-success {
+      background: rgba(16, 185, 129, 0.12);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .alert-danger {
+      background: rgba(239, 68, 68, 0.12);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .alert-warning {
+      background: rgba(245, 158, 11, 0.12);
+      color: #fcd34d;
+      border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+
+    .alert-info {
+      background: rgba(59, 130, 246, 0.12);
+      color: #93c5fd;
+      border: 1px solid rgba(59, 130, 246, 0.2);
+    }
+
+    .alert-close {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: inherit;
+      font-size: 18px;
+      opacity: 0.7;
+    }
+
+    /* === DEMO PANEL === */
+    .demo-panel {
+      margin-bottom: 26px;
+      animation: fadeUp 0.6s 0.25s both;
+    }
+
+    .demo-label {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+    }
+
+    .demo-label::before,
+    .demo-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border-glass);
+    }
+
+    .demo-label i {
+      color: var(--gold-soft);
+      font-size: 10px;
+    }
+
+    .demo-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 7px;
+    }
+
+    .demo-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      padding: 9px 4px;
+      background: var(--input-bg);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .demo-btn:hover {
+      background: rgba(59, 130, 246, 0.1);
+      border-color: var(--border-hover);
+      transform: translateY(-2px);
+    }
+
+    .demo-btn:active {
+      transform: translateY(0) scale(0.97);
+    }
+
+    .demo-btn .demo-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(99, 102, 241, 0.15));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .demo-btn .demo-name {
+      font-size: 9.5px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-align: center;
+      line-height: 1.2;
+    }
+
+    .demo-btn[data-role="principal"] .demo-icon {
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(239, 68, 68, 0.15));
+    }
+
+    .demo-btn[data-role="hod"] .demo-icon {
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(59, 130, 246, 0.15));
+    }
+
+    .demo-btn[data-role="classteacher"] .demo-icon {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(59, 130, 246, 0.15));
+    }
+
+    .demo-btn[data-role="teacher"] .demo-icon {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(99, 102, 241, 0.15));
+    }
+
+    .demo-btn[data-role="student"] .demo-icon {
+      background: linear-gradient(135deg, rgba(244, 63, 94, 0.2), rgba(139, 92, 246, 0.15));
+    }
+
+    /* === FORM === */
+    .login-form {
+      animation: fadeUp 0.6s 0.35s both;
+    }
+
+    .form-field {
+      margin-bottom: 18px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 7px;
+      letter-spacing: 0.2px;
+    }
+
+    .input-wrap {
+      position: relative;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 13px;
+      transition: color 0.2s;
+      pointer-events: none;
+    }
+
+    .form-input {
+      width: 100%;
+      background: var(--input-bg);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      padding: 12px 14px 12px 40px;
+      transition: all 0.25s ease;
+      outline: none;
+    }
+
+    .form-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .form-input:focus {
+      background: var(--input-bg-focus);
+      border-color: rgba(59, 130, 246, 0.5);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .form-input:focus+.input-icon-right~.input-icon,
+    .input-wrap:focus-within .input-icon {
+      color: var(--blue-soft);
+    }
+
+    .toggle-pass {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 13px;
+      transition: color 0.2s;
+      padding: 4px;
+    }
+
+    .toggle-pass:hover {
+      color: var(--blue-soft);
+    }
+
+    /* === REMEMBER ROW === */
+    .form-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 22px;
+    }
+
+    .remember-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+
+    .remember-label input[type="checkbox"] {
+      width: 15px;
+      height: 15px;
+      accent-color: var(--blue-bright);
+      cursor: pointer;
+    }
+
+    /* === SUBMIT BUTTON === */
+    .btn-login {
+      width: 100%;
+      padding: 13px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      color: #fff;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(135deg, #1a56db 0%, #2563eb 50%, #1d4ed8 100%);
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 24px rgba(37, 99, 235, 0.35), 0 1px 0 rgba(255, 255, 255, 0.1) inset;
+    }
+
+    .btn-login::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+      transition: opacity 0.2s;
+    }
+
+    .btn-login::after {
+      content: '';
+      position: absolute;
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.15);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      transition: transform 0.5s, opacity 0.4s;
+      opacity: 0;
+    }
+
+    .btn-login:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 32px rgba(37, 99, 235, 0.5), 0 1px 0 rgba(255, 255, 255, 0.12) inset;
+    }
+
+    .btn-login:active {
+      transform: scale(0.98);
+    }
+
+    .btn-login:active::after {
+      transform: translate(-50%, -50%) scale(3);
+      opacity: 0;
+      transition: 0s;
+    }
+
+    .btn-login .btn-inner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .btn-login .btn-arrow {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      transition: transform 0.2s;
+    }
+
+    .btn-login:hover .btn-arrow {
+      transform: translateX(3px);
+    }
+
+    /* === DIVIDER === */
+    .footer-card {
+      margin-top: 24px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border-glass);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      animation: fadeUp 0.6s 0.45s both;
+    }
+
+    .badge-ai {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(59, 130, 246, 0.08);
+      border: 1px solid rgba(59, 130, 246, 0.18);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 11px;
+      color: var(--blue-soft);
+      margin-bottom: 6px;
+    }
+
+    .badge-ai .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #22d3ee;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: 0.5;
+        transform: scale(0.75);
+      }
+    }
+
+    .footer-text {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    /* === ANIMATIONS === */
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(14px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* === INPUT AUTOFILL FIX === */
+    .form-input:-webkit-autofill {
+      -webkit-box-shadow: 0 0 0 40px #0b1830 inset !important;
+      -webkit-text-fill-color: var(--text-primary) !important;
+    }
+
+    /* === SCROLLBAR === */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-glass);
+      border-radius: 3px;
+    }
+  </style>
 </head>
+
 <body>
-<div class="auth-page">
-  <div class="auth-card" style="max-width:480px;">
-    <!-- Logo -->
-    <div class="auth-logo">
-      <img src="{{ url_for('static', filename='img/college_logo.png') }}" alt="College Logo" style="width: 80px; height: 80px; object-fit: contain; margin: 0 auto 12px; display: block;">
-      <h2 class="text-gradient">CSMSS ERP System</h2>
-      <p>Chh. Shahu College of Engineering</p>
-    </div>
 
-    <!-- Flash Messages -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
+  <!-- Background layers -->
+  <div class="bg-canvas"></div>
+  <div class="bg-grid"></div>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+  <div class="stars" id="stars"></div>
+
+  <div class="auth-wrap">
+    <div class="auth-card">
+
+      <!-- Logo -->
+      <div class="logo-section">
+        <div class="logo-ring">
+          <img src="{{ url_for('static', filename='img/college_logo.png') }}" alt="College Logo"
+            onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+          <div class="logo-placeholder" style="display:none">CS</div>
+        </div>
+        <h2><span>CSMSS</span> ERP System</h2>
+        <p>Chh. Shahu College of Engineering</p>
+      </div>
+
+      <!-- Flash Messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
-        {% for category, message in messages %}
-          <div class="alert-erp alert-{{ category if category in ['success','danger','warning','info'] else 'info' }}" style="margin-bottom:16px;">
-            <span>{{ message }}</span>
-            <button class="alert-close">×</button>
-          </div>
-        {% endfor %}
+      {% for category, message in messages %}
+      <div class="alert-erp alert-{{ category if category in ['success','danger','warning','info'] else 'info' }}">
+        <span>{{ message }}</span>
+        <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+      </div>
+      {% endfor %}
       {% endif %}
-    {% endwith %}
+      {% endwith %}
 
-    <!-- Demo Login Panel -->
-    <div class="demo-logins">
-      <h6><i class="fa-solid fa-bolt"></i> &nbsp;Quick Demo Login</h6>
-      <div>
-        <span class="demo-btn" data-email="principal@csmss.edu" data-pass="admin123" title="Super Admin">👑 Principal</span>
-        <span class="demo-btn" data-email="hod@csmss.edu" data-pass="admin123" title="HOD">🏫 HOD</span>
-        <span class="demo-btn" data-email="classteacher@csmss.edu" data-pass="admin123" title="Class Teacher">👨‍🏫 C. Teacher</span>
-        <span class="demo-btn" data-email="teacher@csmss.edu" data-pass="admin123" title="Teacher">📖 Teacher</span>
-        <span class="demo-btn" data-email="student@csmss.edu" data-pass="student123" title="Student">🧑‍🎓 Student</span>
-      </div>
-    </div>
-
-    <!-- Login Form -->
-    <form method="POST" action="{{ url_for('auth.login') }}" data-validate id="loginForm">
-      <div class="form-group-erp">
-        <label class="form-label-erp" for="email">Email Address</label>
-        <div class="input-group-erp">
-          <i class="fa-solid fa-envelope input-icon"></i>
-          <input type="email" id="email" name="email" class="form-control-erp"
-            placeholder="Enter your email" required autocomplete="email">
+      <!-- Demo Login -->
+      <div class="demo-panel">
+        <div class="demo-label">
+          <i class="fa-solid fa-bolt"></i>
+          Quick Demo Access
+        </div>
+        <div class="demo-grid">
+          <div class="demo-btn" data-role="principal" data-email="principal@csmss.edu" data-pass="admin123"
+            title="Super Admin">
+            <div class="demo-icon">👑</div>
+            <div class="demo-name">Principal</div>
+          </div>
+          <div class="demo-btn" data-role="hod" data-email="hod@csmss.edu" data-pass="admin123" title="HOD">
+            <div class="demo-icon">🏫</div>
+            <div class="demo-name">HOD</div>
+          </div>
+          <div class="demo-btn" data-role="classteacher" data-email="classteacher@csmss.edu" data-pass="admin123"
+            title="Class Teacher">
+            <div class="demo-icon">👨‍🏫</div>
+            <div class="demo-name">C. Teacher</div>
+          </div>
+          <div class="demo-btn" data-role="teacher" data-email="teacher@csmss.edu" data-pass="admin123" title="Teacher">
+            <div class="demo-icon">📖</div>
+            <div class="demo-name">Teacher</div>
+          </div>
+          <div class="demo-btn" data-role="student" data-email="student@csmss.edu" data-pass="student123"
+            title="Student">
+            <div class="demo-icon">🧑‍🎓</div>
+            <div class="demo-name">Student</div>
+          </div>
         </div>
       </div>
 
-      <div class="form-group-erp">
-        <label class="form-label-erp" for="password">Password</label>
-        <div class="input-group-erp">
-          <i class="fa-solid fa-lock input-icon"></i>
-          <input type="password" id="password" name="password" class="form-control-erp"
-            placeholder="Enter your password" required autocomplete="current-password"
-            style="padding-right:42px;">
-          <button type="button" id="togglePass"
-            style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;">
-            <i class="fa-solid fa-eye"></i>
-          </button>
+      <!-- Login Form -->
+      <form method="POST" action="{{ url_for('auth.login') }}" class="login-form" id="loginForm">
+
+        <div class="form-field">
+          <label class="form-label" for="email">Email Address</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-envelope input-icon"></i>
+            <input type="email" id="email" name="email" class="form-input" placeholder="you@csmss.edu" required
+              autocomplete="email">
+          </div>
         </div>
+
+        <div class="form-field">
+          <label class="form-label" for="password">Password</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-lock input-icon"></i>
+            <input type="password" id="password" name="password" class="form-input" placeholder="Enter your password"
+              required autocomplete="current-password" style="padding-right: 42px;">
+            <button type="button" class="toggle-pass" id="togglePass">
+              <i class="fa-solid fa-eye"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label class="remember-label">
+            <input type="checkbox" name="remember">
+            Remember me
+          </label>
+        </div>
+
+        <button type="submit" class="btn-login" id="submitBtn">
+          <div class="btn-inner">
+            <i class="fa-solid fa-right-to-bracket"></i>
+            Sign in to ERP
+            <span class="btn-arrow"><i class="fa-solid fa-arrow-right"></i></span>
+          </div>
+        </button>
+
+      </form>
+
+      <!-- Footer -->
+      <div class="footer-card">
+        <span class="badge-ai">
+          <span class="dot"></span>
+          AI-Enabled Smart ERP v1.0
+        </span>
+        <p class="footer-text">🏛️ CSMSS Chh. Shahu College of Engineering, Aurangabad</p>
       </div>
 
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);cursor:pointer;">
-          <input type="checkbox" name="remember" style="accent-color:var(--accent-blue);">
-          Remember me
-        </label>
-      </div>
-
-      <button type="submit" class="btn-erp btn-primary-erp" style="width:100%;justify-content:center;padding:12px;">
-        <i class="fa-solid fa-right-to-bracket"></i>
-        Sign In to ERP
-      </button>
-    </form>
-
-    <div class="divider"></div>
-
-    <p style="text-align:center;font-size:13px;color:var(--text-secondary);">
-      Don't have an account?
-      <a href="{{ url_for('auth.register') }}" style="color:var(--accent-blue);font-weight:600;text-decoration:none;">
-        Register here
-      </a>
-    </p>
-
-    <!-- College Info -->
-    <div style="text-align:center;margin-top:24px;padding-top:20px;border-top:1px solid var(--border-color);">
-      <p style="font-size:11px;color:var(--text-muted);">
-        🏛️ CSMSS Chh. Shahu College of Engineering, Aurangabad<br>
-        AI-Enabled Smart ERP System v1.0
-      </p>
     </div>
   </div>
-</div>
 
-<script src="{{ url_for('static', filename='js/main.js') }}"></script>
-<script>
-  // Password Toggle
-  document.getElementById('togglePass')?.addEventListener('click', function() {
-    const pwd = document.getElementById('password');
-    const icon = this.querySelector('i');
-    if (pwd.type === 'password') {
-      pwd.type = 'text';
-      icon.className = 'fa-solid fa-eye-slash';
-    } else {
-      pwd.type = 'password';
-      icon.className = 'fa-solid fa-eye';
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script>
+    // Stars
+    const starsEl = document.getElementById('stars');
+    for (let i = 0; i < 80; i++) {
+      const s = document.createElement('div');
+      const size = Math.random() * 2 + 0.5;
+      s.className = 'star';
+      s.style.cssText = `
+      width:${size}px; height:${size}px;
+      top:${Math.random() * 100}%; left:${Math.random() * 100}%;
+      --dur:${2 + Math.random() * 4}s;
+      --delay:-${Math.random() * 6}s;
+    `;
+      starsEl.appendChild(s);
     }
-  });
-</script>
+
+    // Password Toggle
+    document.getElementById('togglePass').addEventListener('click', function () {
+      const pwd = document.getElementById('password');
+      const icon = this.querySelector('i');
+      if (pwd.type === 'password') {
+        pwd.type = 'text';
+        icon.className = 'fa-solid fa-eye-slash';
+      } else {
+        pwd.type = 'password';
+        icon.className = 'fa-solid fa-eye';
+      }
+    });
+
+    // Demo Login Buttons
+    document.querySelectorAll('.demo-btn').forEach(btn => {
+      btn.addEventListener('click', function () {
+        const email = this.dataset.email;
+        const pass = this.dataset.pass;
+        document.getElementById('email').value = email;
+        document.getElementById('password').value = pass;
+
+        // Ripple effect on click
+        this.style.transition = 'none';
+        this.style.background = 'rgba(59,130,246,0.18)';
+        this.style.borderColor = 'rgba(59,130,246,0.4)';
+        setTimeout(() => {
+          this.style.transition = '';
+          this.style.background = '';
+          this.style.borderColor = '';
+        }, 300);
+
+        // Subtle pulse on inputs
+        ['email', 'password'].forEach(id => {
+          const el = document.getElementById(id);
+          el.style.transition = 'none';
+          el.style.borderColor = 'rgba(59,130,246,0.5)';
+          el.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)';
+          setTimeout(() => {
+            el.style.transition = '';
+            el.style.borderColor = '';
+            el.style.boxShadow = '';
+          }, 700);
+        });
+      });
+    });
+
+    // Submit loading state
+    document.getElementById('loginForm').addEventListener('submit', function () {
+      const btn = document.getElementById('submitBtn');
+      btn.innerHTML = `<div class="btn-inner"><i class="fa-solid fa-circle-notch fa-spin"></i> Signing in…</div>`;
+      btn.style.opacity = '0.85';
+      btn.style.pointerEvents = 'none';
+    });
+  </script>
 </body>
+
 </html>

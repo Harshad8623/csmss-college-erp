@@ -1,16 +1,31 @@
 {% extends "base.html" %}
 {% block title %}Student Directory{% endblock %}
 {% block content %}
-<div class="page-header">
-  <h1 class="page-title">
-    <div class="title-icon">🎓</div> Student Directory
-    <span style="font-size:14px;font-weight:500;color:var(--text-muted);margin-left:8px;">ECE – Semester V
-      (2025-26)</span>
-  </h1>
-  <a href="{{ url_for('admin.students', search=search, category=category, gender=gender, blood=blood) }}"
-    class="btn-erp btn-secondary-erp" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
-    <i class="fa-solid fa-rotate"></i> Reset
-  </a>
+<div class="page-header" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+  <div>
+    <h1 class="page-title"><div class="title-icon">🎓</div> Student Directory</h1>
+    <p class="page-subtitle">Manage and add student records</p>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+    <a href="{{ url_for('admin.students', search=search, category=category, gender=gender, blood=blood) }}"
+      class="btn-erp btn-secondary-erp" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
+      <i class="fa-solid fa-rotate"></i> Reset
+    </a>
+    {% if current_user.role in ['SUPER_ADMIN', 'HOD', 'CLASS_TEACHER'] %}
+    <button onclick="document.getElementById('addStudentModal').style.display='flex'"
+      class="btn-erp btn-primary-erp" id="btn-add-student">
+      <i class="fa-solid fa-user-graduate"></i> Add Student
+    </button>
+    <button onclick="document.getElementById('uploadStudentsModal').style.display='flex'"
+      class="btn-erp" style="background:linear-gradient(135deg,#38a169,#276749);color:#fff;display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-weight:600;">
+      <i class="fa-solid fa-file-excel"></i> Upload Excel
+    </button>
+    <a href="{{ url_for('admin.download_students_template') }}"
+      class="btn-erp btn-secondary-erp" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
+      <i class="fa-solid fa-download"></i> Format
+    </a>
+    {% endif %}
+  </div>
 </div>
 
 {# ── Stats Row ──────────────────────────────────────────────────────────── #}
@@ -268,6 +283,167 @@
         </div>
         <button type="submit" class="btn-erp btn-primary-erp"
           style="width:100%;justify-content:center;margin-top:10px;">Save</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Add Student Modal ════════════════════════════════════════════════════ -->
+<div id="addStudentModal"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:3000;align-items:center;justify-content:center;">
+  <div class="card-erp" style="max-width:600px;width:96%;padding:0;max-height:92vh;overflow-y:auto;">
+    <div class="card-header-erp" style="position:sticky;top:0;z-index:1;background:var(--bg-card);">
+      <h5><i class="fa-solid fa-user-graduate" style="color:var(--accent-blue);"></i> Add New Student</h5>
+      <button onclick="document.getElementById('addStudentModal').style.display='none'"
+        style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1;">×</button>
+    </div>
+    <div class="card-body-erp">
+      <form method="POST" action="{{ url_for('admin.add_student') }}">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+
+          <div class="form-group-erp" style="grid-column:span 2;">
+            <label class="form-label-erp">Full Name <span style="color:var(--danger-color);">*</span></label>
+            <div class="input-group-erp">
+              <i class="fa-solid fa-user input-icon"></i>
+              <input type="text" name="name" class="form-control-erp" placeholder="Student Full Name" required>
+            </div>
+          </div>
+
+          <div class="form-group-erp">
+            <label class="form-label-erp">Email <span style="color:var(--danger-color);">*</span></label>
+            <div class="input-group-erp">
+              <i class="fa-solid fa-envelope input-icon"></i>
+              <input type="email" name="email" class="form-control-erp" placeholder="student@csmss.edu" required>
+            </div>
+          </div>
+
+          <div class="form-group-erp">
+            <label class="form-label-erp">Phone</label>
+            <div class="input-group-erp">
+              <i class="fa-solid fa-phone input-icon"></i>
+              <input type="text" name="phone" class="form-control-erp" placeholder="9876543210">
+            </div>
+          </div>
+
+          <div class="form-group-erp">
+            <label class="form-label-erp">PRN</label>
+            <div class="input-group-erp">
+              <i class="fa-solid fa-id-card input-icon"></i>
+              <input type="text" name="prn" class="form-control-erp" placeholder="PRN2024001">
+            </div>
+          </div>
+
+          <div class="form-group-erp">
+            <label class="form-label-erp">Roll No</label>
+            <div class="input-group-erp">
+              <i class="fa-solid fa-list-ol input-icon"></i>
+              <input type="text" name="roll_no" class="form-control-erp" placeholder="01">
+            </div>
+          </div>
+
+          {% if current_user.role in ['SUPER_ADMIN', 'HOD'] %}
+          <div class="form-group-erp" style="grid-column:span 2;">
+            <label class="form-label-erp">Class</label>
+            <select name="class_id" class="form-control-erp">
+              <option value="">-- Select Class --</option>
+              {% for c in available_classes %}
+              <option value="{{ c.id }}">{{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endif %}
+
+          <div class="form-group-erp">
+            <label class="form-label-erp">Date of Birth</label>
+            <input type="text" name="dob" class="form-control-erp" placeholder="01-01-2004">
+          </div>
+
+          <div class="form-group-erp">
+            <label class="form-label-erp">Gender</label>
+            <select name="gender" class="form-control-erp">
+              <option value="">-- Select --</option>
+              <option value="M">Male</option>
+              <option value="F">Female</option>
+            </select>
+          </div>
+
+          <div class="form-group-erp">
+            <label class="form-label-erp">Category</label>
+            <select name="category" class="form-control-erp">
+              <option value="">-- Select --</option>
+              <option>OPEN</option><option>OBC</option><option>SC</option>
+              <option>ST</option><option>NT1</option><option>NT2</option>
+              <option>NT3</option><option>VJA</option><option>SBC</option>
+            </select>
+          </div>
+
+          <div class="form-group-erp">
+            <label class="form-label-erp">Mother's Name</label>
+            <input type="text" name="mother_name" class="form-control-erp" placeholder="Mother's Name">
+          </div>
+
+          <div class="form-group-erp" style="grid-column:span 2;">
+            <label class="form-label-erp">Password
+              <span style="font-size:11px;color:var(--text-muted);">(leave blank for default: csmss@123)</span>
+            </label>
+            <div class="input-group-erp">
+              <i class="fa-solid fa-lock input-icon"></i>
+              <input type="password" name="password" class="form-control-erp" placeholder="csmss@123 (default)">
+            </div>
+          </div>
+
+        </div>
+        <div style="display:flex;gap:10px;margin-top:6px;">
+          <button type="submit" class="btn-erp btn-primary-erp" style="flex:1;justify-content:center;">
+            <i class="fa-solid fa-plus"></i> Add Student
+          </button>
+          <button type="button" onclick="document.getElementById('addStudentModal').style.display='none'"
+            class="btn-erp btn-secondary-erp" style="flex:0 0 auto;">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Upload Students Excel Modal ══════════════════════════════════════════ -->
+<div id="uploadStudentsModal"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:3000;align-items:center;justify-content:center;">
+  <div class="card-erp" style="max-width:500px;width:96%;padding:0;">
+    <div class="card-header-erp">
+      <h5><i class="fa-solid fa-file-excel" style="color:#38a169;"></i> Upload Students via Excel</h5>
+      <button onclick="document.getElementById('uploadStudentsModal').style.display='none'"
+        style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1;">×</button>
+    </div>
+    <div class="card-body-erp">
+      <div style="background:rgba(56,161,105,.1);border:1px solid rgba(56,161,105,.3);border-radius:10px;padding:14px;margin-bottom:18px;">
+        <p style="font-size:13px;font-weight:600;color:#68d391;margin-bottom:8px;">
+          <i class="fa-solid fa-circle-info"></i> Required Excel Columns:
+        </p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          {% for col_name in ['name','email','phone','prn','roll_no','class_name','dob','gender','category','mother_name'] %}
+          <span style="background:rgba(56,161,105,.2);color:#9ae6b4;border-radius:4px;padding:2px 8px;font-size:11px;font-family:monospace;">{{ col_name }}</span>
+          {% endfor %}
+        </div>
+        <p style="font-size:11px;color:var(--text-muted);margin-top:8px;">
+          Default password for all uploaded students: <strong style="color:#9ae6b4;">csmss@123</strong><br>
+          <span style="color:var(--text-muted);">Only <strong>name</strong> and <strong>email</strong> are mandatory.</span>
+        </p>
+      </div>
+      <form method="POST" action="{{ url_for('admin.upload_students_excel') }}" enctype="multipart/form-data">
+        <div class="form-group-erp">
+          <label class="form-label-erp">Select Excel File (.xlsx)</label>
+          <input type="file" name="excel_file" accept=".xlsx,.xls" class="form-control-erp" required
+            style="padding:8px;">
+        </div>
+        <div style="display:flex;gap:10px;margin-top:4px;">
+          <button type="submit" class="btn-erp btn-primary-erp" style="flex:1;justify-content:center;">
+            <i class="fa-solid fa-upload"></i> Upload & Import
+          </button>
+          <a href="{{ url_for('admin.download_students_template') }}"
+            class="btn-erp btn-secondary-erp" style="text-decoration:none;flex:0 0 auto;">
+            <i class="fa-solid fa-download"></i> Get Format
+          </a>
+        </div>
       </form>
     </div>
   </div>
