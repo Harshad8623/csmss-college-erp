@@ -13,7 +13,22 @@ def create_app(config_class=Config):
     bcrypt.init_app(app)
     migrate.init_app(app, db)
 
-    # Ensure upload folder exists
+    # ── Enable WAL mode for SQLite (prevents "database is locked") ───────────
+    if 'sqlite' in app.config.get('SQLALCHEMY_DATABASE_URI', ''):
+        from sqlalchemy import event
+        from sqlalchemy.engine import Engine
+        import sqlite3
+
+        @event.listens_for(Engine, "connect")
+        def set_sqlite_pragma(dbapi_connection, connection_record):
+            if isinstance(dbapi_connection, sqlite3.Connection):
+                cursor = dbapi_connection.cursor()
+                cursor.execute("PRAGMA journal_mode=WAL;")
+                cursor.execute("PRAGMA busy_timeout=30000;")  # 30 seconds
+                cursor.execute("PRAGMA synchronous=NORMAL;")
+                cursor.close()
+
+
     os.makedirs(os.path.join(app.root_path, '..', app.config['UPLOAD_FOLDER']), exist_ok=True)
 
     # Register blueprints

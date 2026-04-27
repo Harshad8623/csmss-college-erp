@@ -43,8 +43,15 @@
     <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Female</div>
   </div>
   <div class="card-erp" style="padding:16px;text-align:center;">
-    <div style="font-size:28px;font-weight:800;color:#f6ad55;">3<sup style="font-size:14px;">rd</sup></div>
-    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Year / Sem V</div>
+    {% if year_filter %}
+    <div style="font-size:28px;font-weight:800;color:#f6ad55;">
+      {{ year_filter }}<sup style="font-size:14px;">{{ 'st' if year_filter==1 else ('nd' if year_filter==2 else ('rd' if year_filter==3 else 'th')) }}</sup>
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Year Selected</div>
+    {% else %}
+    <div style="font-size:22px;font-weight:800;color:#f6ad55;">All</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Years Shown</div>
+    {% endif %}
   </div>
 </div>
 
@@ -57,6 +64,19 @@
           <label style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Search</label>
           <input type="text" name="search" class="form-control-erp" placeholder="Name / PRN / Roll No…" value="{{ search }}" style="margin-top:4px;">
         </div>
+
+        {% if current_user.role in ['SUPER_ADMIN', 'HOD'] %}
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Year</label>
+          <select name="year" class="form-control-erp" style="margin-top:4px;" onchange="this.form.submit()">
+            <option value="">All Years</option>
+            <option value="1" {{ 'selected' if year_filter == 1 }}>1st Year (FE)</option>
+            <option value="2" {{ 'selected' if year_filter == 2 }}>2nd Year (SE)</option>
+            <option value="3" {{ 'selected' if year_filter == 3 }}>3rd Year (TE)</option>
+            <option value="4" {{ 'selected' if year_filter == 4 }}>4th Year (BE)</option>
+          </select>
+        </div>
+        {% endif %}
 
         {% if current_user.role == 'SUPER_ADMIN' %}
         <div>
@@ -420,7 +440,7 @@
           <i class="fa-solid fa-circle-info"></i> Required Excel Columns:
         </p>
         <div style="display:flex;flex-wrap:wrap;gap:6px;">
-          {% for col_name in ['name','email','phone','prn','roll_no','class_name','dob','gender','category','mother_name'] %}
+          {% for col_name in ['name','email','phone','prn','roll_no','dob','gender','category','mother_name'] %}
           <span style="background:rgba(56,161,105,.2);color:#9ae6b4;border-radius:4px;padding:2px 8px;font-size:11px;font-family:monospace;">{{ col_name }}</span>
           {% endfor %}
         </div>
@@ -430,6 +450,15 @@
         </p>
       </div>
       <form method="POST" action="{{ url_for('admin.upload_students_excel') }}" enctype="multipart/form-data">
+        <div class="form-group-erp" style="margin-bottom:12px;">
+          <label class="form-label-erp">Assign to Class</label>
+          <select name="class_id" class="form-control-erp" required>
+            <option value="">-- Select Class --</option>
+            {% for c in available_classes %}
+            <option value="{{ c.id }}">{{ c.name }} ({{ c.department.code if c.department else '' }})</option>
+            {% endfor %}
+          </select>
+        </div>
         <div class="form-group-erp">
           <label class="form-label-erp">Select Excel File (.xlsx)</label>
           <input type="file" name="excel_file" accept=".xlsx,.xls" class="form-control-erp" required

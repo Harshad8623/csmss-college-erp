@@ -10,6 +10,14 @@ class Config:
         db_uri = db_uri.replace("postgres://", "postgresql://", 1)
     SQLALCHEMY_DATABASE_URI = db_uri
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+    # ── SQLite: enable WAL mode + 30s timeout to prevent "database is locked" ──
+    # WAL allows concurrent reads while writing; timeout retries on lock
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "connect_args": {"timeout": 30, "check_same_thread": False},
+        "pool_pre_ping": True,
+    }
+
     UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'static/uploads')
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max upload
     COLLEGE_NAME = "CSMSS Chh. Shahu College of Engineering"

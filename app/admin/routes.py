@@ -95,6 +95,39 @@ def change_role(id):
     return redirect(url_for('admin.users'))
 
 
+@admin_bp.route('/users/<int:id>/unblock', methods=['POST'])
+@login_required
+@role_required(Roles.SUPER_ADMIN)
+def unblock_user(id):
+    user = User.query.get_or_404(id)
+    user.status = Status.ACTIVE
+    db.session.commit()
+    flash(f'{user.name} has been unblocked and is now active.', 'success')
+    return redirect(request.referrer or url_for('admin.users'))
+
+
+@admin_bp.route('/users/<int:id>/delete', methods=['POST'])
+@login_required
+@role_required(Roles.SUPER_ADMIN)
+def delete_user(id):
+    user = User.query.get_or_404(id)
+    # Prevent self-deletion
+    if user.id == current_user.id:
+        flash('You cannot delete your own account.', 'danger')
+        return redirect(url_for('admin.users'))
+    name = user.name
+    # Cascade delete related profiles
+    if user.student_profile:
+        db.session.delete(user.student_profile)
+    if user.teacher_profile:
+        db.session.delete(user.teacher_profile)
+    db.session.flush()
+    db.session.delete(user)
+    db.session.commit()
+    flash(f'User "{name}" has been permanently deleted.', 'danger')
+    return redirect(url_for('admin.users'))
+
+
 # ── Student Approvals ────────────────────────────────────────────────────────
 @admin_bp.route('/students/approve/<int:id>', methods=['POST'])
 @login_required
@@ -394,11 +427,12 @@ def students():
     blood         = request.args.get('blood', '')
     dept_filter   = request.args.get('department_id', type=int)
     class_filter  = request.args.get('class_id', type=int)
+    year_filter   = request.args.get('year', type=int)
     page          = request.args.get('page', 1, type=int)
 
     query = Student.query.join(User, Student.user_id == User.id)
 
-    available_depts = []
+    available_depts   = []
     available_classes = []
 
     # ── Row-Level Access Controls & Dropdown Data ──────────────────────────
@@ -429,19 +463,21 @@ def students():
     elif current_user.role == Roles.CLASS_TEACHER:
         cls = _ct_class()
         if cls:
-            class_filter = cls.id # Force lock class
+            class_filter = cls.id  # Force lock class
             query = query.filter(Student.class_id == cls.id)
         else:
             query = query.filter(Student.id == 0)
 
     elif current_user.role == Roles.TEACHER:
-        # TG sees only their assigned students
         tg_ids = [s.id for s in Student.query.filter_by(tg_id=current_user.id).all()]
         if tg_ids:
             query = query.filter(Student.id.in_(tg_ids))
         else:
             query = query.filter(Student.id == 0)
 
+    # ── Common Filters ─────────────────────────────────────────────────────
+    if year_filter:
+        query = query.filter(Student.current_year == year_filter)
     if search:
         query = query.filter(
             db.or_(
@@ -457,7 +493,7 @@ def students():
     if blood:
         query = query.filter(Student.blood_group == blood)
 
-    pagination = query.order_by(Student.roll_no).paginate(page=page, per_page=20, error_out=False)
+    pagination    = query.order_by(Student.roll_no).paginate(page=page, per_page=20, error_out=False)
     students_list = pagination.items
 
     total     = query.count()
@@ -477,13 +513,16 @@ def students():
     return render_template('admin/students.html',
         students=students_list, pagination=pagination,
         search=search, category=category, gender=gender, blood=blood,
-        dept_filter=dept_filter, class_filter=class_filter,
+        dept_filter=dept_filter, class_filter=class_filter, year_filter=year_filter,
         available_depts=available_depts, available_classes=available_classes,
         total=total, male_ct=male_ct, female_ct=female_ct,
         categories=[c[0] for c in categories],
         blood_groups=[b[0] for b in blood_groups],
         teachers=teachers,
     )
+
+
+
 
 
 @admin_bp.route('/students/<int:id>')
@@ -638,6 +677,15 @@ def upload_students_excel():
     hod_dept_id = _hod_dept_id() if current_user.role == Roles.HOD else None
     ct_class    = _ct_class()     if current_user.role == Roles.CLASS_TEACHER else None
 
+    form_class_id = request.form.get('class_id', type=int)
+
+    # Security check for HOD if form_class_id is provided
+    if form_class_id and current_user.role == Roles.HOD and hod_dept_id:
+        cls_chk = Class.query.get(form_class_id)
+        if not cls_chk or cls_chk.department_id != hod_dept_id:
+            flash("Invalid class selected for your department.", "danger")
+            return redirect(url_for('admin.students'))
+
     headers = [str(cell.value).strip().lower() if cell.value else '' for cell in ws[1]]
     required = ['name', 'email']
     for req in required:
@@ -684,7 +732,9 @@ def upload_students_excel():
 
         # Resolve class_id
         class_id = None
-        if current_user.role == Roles.CLASS_TEACHER and ct_class:
+        if form_class_id:
+            class_id = form_class_id
+        elif current_user.role == Roles.CLASS_TEACHER and ct_class:
             class_id = ct_class.id
         elif class_name:
             cls_obj = Class.query.filter(Class.name.ilike(class_name)).first()
@@ -701,7 +751,7 @@ def upload_students_excel():
         user = User(name=name, email=email, phone=phone or None,
                     password_hash=pw_hash, role=Roles.STUDENT, status=Status.ACTIVE)
         db.session.add(user)
-        db.session.flush()
+        db.session.flush()   # needed to get user.id for the FK
 
         student = Student(user_id=user.id, class_id=class_id,
                           prn=prn or None, roll_no=roll_no or None,
@@ -714,12 +764,19 @@ def upload_students_excel():
         db.session.add(student)
         added += 1
 
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Database error during upload: {str(e)}', 'danger')
+        return redirect(url_for('admin.students'))
+
     msg = f'✅ Excel upload complete: {added} student(s) added, {skipped} skipped.'
     if errors:
         msg += f' Issues: {"; ".join(errors[:5])}'
     flash(msg, 'success' if added > 0 else 'warning')
     return redirect(url_for('admin.students'))
+
 
 
 # ── Upload Teachers via Excel ────────────────────────────────────────────────

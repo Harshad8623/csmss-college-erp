@@ -79,18 +79,29 @@
           </td>
           <td style="font-size:12px;color:var(--text-muted);">{{ user.created_at.strftime('%d %b %Y') }}</td>
           <td>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
               {% if user.status == 'pending' %}
               <form method="POST" action="{{ url_for('admin.activate_user', id=user.id) }}" style="display:inline;">
                 <button type="submit" class="btn-erp btn-success-erp btn-sm-erp">✅ Activate</button>
               </form>
               {% endif %}
-              {% if user.status != 'blocked' and current_user.role == 'SUPER_ADMIN' %}
+
+              {% if user.status == 'blocked' and current_user.role == 'SUPER_ADMIN' %}
+              <form method="POST" action="{{ url_for('admin.unblock_user', id=user.id) }}" style="display:inline;">
+                <button type="submit" class="btn-erp btn-success-erp btn-sm-erp"
+                  style="background:rgba(56,161,105,.15);color:#68d391;border:1px solid rgba(56,161,105,.3);">
+                  🔓 Unblock
+                </button>
+              </form>
+              {% endif %}
+
+              {% if user.status == 'active' and current_user.role == 'SUPER_ADMIN' and user.id != current_user.id %}
               <form method="POST" action="{{ url_for('admin.block_user', id=user.id) }}" style="display:inline;">
                 <button type="submit" class="btn-erp btn-danger-erp btn-sm-erp"
                   data-confirm="Block {{ user.name }}?">🚫 Block</button>
               </form>
               {% endif %}
+
               {% if current_user.role == 'SUPER_ADMIN' %}
               <form method="POST" action="{{ url_for('admin.change_role', id=user.id) }}" style="display:inline;display:flex;gap:4px;align-items:center;">
                 <select name="role" class="form-control-erp" style="padding:5px 8px;font-size:11px;">
@@ -99,6 +110,16 @@
                   {% endfor %}
                 </select>
                 <button type="submit" class="btn-erp btn-outline-erp btn-sm-erp">Change</button>
+              </form>
+              {% endif %}
+
+              {% if current_user.role == 'SUPER_ADMIN' and user.id != current_user.id %}
+              <form method="POST" action="{{ url_for('admin.delete_user', id=user.id) }}" style="display:inline;"
+                onsubmit="return confirm('⚠️ Permanently delete {{ user.name }}?\nThis cannot be undone!')">
+                <button type="submit" class="btn-erp btn-sm-erp"
+                  style="background:rgba(220,38,38,.15);color:#fca5a5;border:1px solid rgba(220,38,38,.3);padding:4px 10px;font-size:12px;">
+                  🗑️ Delete
+                </button>
               </form>
               {% endif %}
             </div>
