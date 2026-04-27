@@ -130,12 +130,15 @@ def seed():
         teacher_u  = users["teacher@csmss.edu"]
         teacher2_u = users["teacher2@csmss.edu"]
         subjects_data = [
-            ("Digital Signal Processing",          "DSP",   te_ece.id, teacher_u.id,  4),
-            ("Microcontroller & Embedded Systems", "MES",   te_ece.id, teacher_u.id,  4),
-            ("Control Systems",                    "CS",    te_ece.id, teacher2_u.id, 3),
-            ("VLSI Design",                        "VLSI",  te_ece.id, teacher2_u.id, 3),
-            ("Communication Engineering",          "CE",    te_ece.id, teacher_u.id,  4),
-            ("Engineering Mathematics IV",         "EM4",   te_ece.id, teacher2_u.id, 3),
+            ("Internet of Things",          "IoT",   te_ece.id, teacher_u.id,  4),
+            ("Artificial Intelligence & Machine Learning", "AIML",   te_ece.id, teacher_u.id,  4),
+            ("Big Data Analytics",                    "BDA",    te_ece.id, teacher2_u.id, 3),
+            ("Android Programming",                        "AP",  te_ece.id, teacher2_u.id, 3),
+            ("Employability Skills and Development",          "ES",    te_ece.id, teacher_u.id,  4),
+            ("Software Testing",         "ST",   te_ece.id, teacher2_u.id, 3),
+            ("Practical: Internet of Things ","IoT_P",  te_ece.id, teacher_u.id, 2),
+            ("Practical: Artificial Intelligence & Machine Learning ","AIML_P",  te_ece.id, teacher_u.id, 2),
+
         ]
         subjects = []
         for name, code, cls_id, t_id, credits in subjects_data:
