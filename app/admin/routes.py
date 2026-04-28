@@ -748,48 +748,53 @@ def upload_students_excel():
         except (ValueError, IndexError):
             return ''
 
+    # ── Hash the default password ONCE outside the loop ───────────────────────
+    # bcrypt takes ~0.3s per call — hashing inside the loop for 100 students
+    # = 30 seconds → Gunicorn timeout → 500 error. Do it once here.
+    default_pw_hash = bcrypt.generate_password_hash('csmss@123').decode('utf-8')
+
+    # Pre-fetch existing emails and PRNs to avoid per-row DB queries
+    existing_emails = set(r[0] for r in db.session.query(User.email).all())
+    existing_prns   = set(r[0] for r in db.session.query(Student.prn).filter(Student.prn != None).all())
+
+    student_year     = resolved_class.year if resolved_class.year else 1
+    student_semester = (student_year * 2) - 1  # Year1→Sem1, Year2→Sem3, Year3→Sem5
+    BATCH_SIZE       = 50  # Commit every 50 rows to avoid giant transactions
+
     for row in ws.iter_rows(min_row=2):
         if all(cell.value is None for cell in row):
             continue
 
-        name     = col(row, 'name')
-        email    = col(row, 'email').lower()
-        phone    = col(row, 'phone')
-        prn      = col(row, 'prn')
-        roll_no  = col(row, 'roll_no')
-        class_name = col(row, 'class_name')
-        dob      = col(row, 'dob')
-        gender   = col(row, 'gender').upper()[:1]
-        category = col(row, 'category').upper()
+        name        = col(row, 'name')
+        email       = col(row, 'email').lower()
+        phone       = col(row, 'phone')
+        prn         = col(row, 'prn')
+        roll_no     = col(row, 'roll_no')
+        dob         = col(row, 'dob')
+        gender      = col(row, 'gender').upper()[:1]
+        category    = col(row, 'category').upper()
         mother_name = col(row, 'mother_name')
 
         if not name or not email:
             skipped += 1
             continue
 
-        if User.query.filter_by(email=email).first():
+        if email in existing_emails:
             errors.append(f'Skipped (email exists): {email}')
             skipped += 1
             continue
 
-        if prn and Student.query.filter_by(prn=prn).first():
+        if prn and prn in existing_prns:
             errors.append(f'Skipped (PRN exists): {prn}')
             skipped += 1
             continue
 
-        # class_id is always the validated form_class_id (resolved and scope-checked above)
-        class_id = form_class_id
-        # Derive academic year and semester from the assigned class
-        student_year = resolved_class.year if resolved_class.year else 1
-        student_semester = (student_year * 2) - 1  # Year 1→Sem1, Year 2→Sem3, Year 3→Sem5, Year 4→Sem7
-
-        pw_hash = bcrypt.generate_password_hash('csmss@123').decode('utf-8')
         user = User(name=name, email=email, phone=phone or None,
-                    password_hash=pw_hash, role=Roles.STUDENT, status=Status.ACTIVE)
+                    password_hash=default_pw_hash, role=Roles.STUDENT, status=Status.ACTIVE)
         db.session.add(user)
-        db.session.flush()   # needed to get user.id for the FK
+        db.session.flush()  # get user.id for FK
 
-        student = Student(user_id=user.id, class_id=class_id,
+        student = Student(user_id=user.id, class_id=form_class_id,
                           prn=prn or None, roll_no=roll_no or None,
                           approval_status=ApprovalStatus.APPROVED,
                           approved_by=current_user.id,
@@ -800,8 +805,21 @@ def upload_students_excel():
                           current_year=student_year,
                           semester=student_semester)
         db.session.add(student)
+        existing_emails.add(email)   # track in-memory to avoid re-query
+        if prn:
+            existing_prns.add(prn)
         added += 1
 
+        # Commit every BATCH_SIZE rows to keep transactions small
+        if added % BATCH_SIZE == 0:
+            try:
+                db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Database error at row ~{added}: {str(e)}', 'danger')
+                return redirect(url_for('admin.students'))
+
+    # Final commit for remaining rows
     try:
         db.session.commit()
     except Exception as e:
@@ -855,6 +873,11 @@ def upload_teachers_excel():
         except (ValueError, IndexError):
             return ''
 
+    # ── Hash password once outside loop (same fix as student upload) ──────────
+    default_pw_hash  = bcrypt.generate_password_hash('csmss@123').decode('utf-8')
+    existing_emails  = set(r[0] for r in db.session.query(User.email).all())
+    BATCH_SIZE       = 50
+
     for row in ws.iter_rows(min_row=2):
         if all(cell.value is None for cell in row):
             continue
@@ -870,7 +893,7 @@ def upload_teachers_excel():
             skipped += 1
             continue
 
-        if User.query.filter_by(email=email).first():
+        if email in existing_emails:
             errors.append(f'Skipped (email exists): {email}')
             skipped += 1
             continue
@@ -887,18 +910,32 @@ def upload_teachers_excel():
             if dept_obj:
                 dept_id = dept_obj.id
 
-        pw_hash = bcrypt.generate_password_hash('csmss@123').decode('utf-8')
         user = User(name=name, email=email, phone=phone or None,
-                    password_hash=pw_hash, role=role, status=Status.ACTIVE)
+                    password_hash=default_pw_hash, role=role, status=Status.ACTIVE)
         db.session.add(user)
         db.session.flush()
 
         teacher = Teacher(user_id=user.id, department_id=dept_id,
                           designation=designation or None, teacher_type='subject')
         db.session.add(teacher)
+        existing_emails.add(email)
         added += 1
 
-    db.session.commit()
+        if added % BATCH_SIZE == 0:
+            try:
+                db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Database error at row ~{added}: {str(e)}', 'danger')
+                return redirect(url_for('admin.users'))
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Database error during upload: {str(e)}', 'danger')
+        return redirect(url_for('admin.users'))
+
     msg = f'✅ Excel upload complete: {added} teacher(s) added, {skipped} skipped.'
     if errors:
         msg += f' Issues: {"; ".join(errors[:5])}'
