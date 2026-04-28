@@ -646,44 +646,7 @@ def add_student():
         cls = _ct_class()
         class_id = cls.id if cls else None
 
-    # HOD: must be within dept
-    if current_user.role == Roles.HOD and class_id:
-        dept_id = _hod_dept_id()
-        cls = Class.query.get(class_id)
-        if not cls or cls.department_id != dept_id:
-            abort(403)
-
-    if not name or not email:
-        flash('Name and Email are required.', 'danger')
-        return redirect(url_for('admin.students'))
-
-    if User.query.filter_by(email=email).first():
-        flash(f'Email {email} is already registered.', 'danger')
-        return redirect(url_for('admin.students'))
-
-    if prn and Student.query.filter_by(prn=prn).first():
-        flash(f'PRN {prn} already exists.', 'danger')
-        return redirect(url_for('admin.students'))
-
-    pw_hash = bcrypt.generate_password_hash(password).decode('utf-8')
-    user = User(name=name, email=email, phone=phone, password_hash=pw_hash,
-                role=Roles.STUDENT, status=Status.ACTIVE)
-    db.session.add(user)
-    db.session.flush()
-
-    student = Student(user_id=user.id, class_id=class_id,
-                      prn=prn or None, roll_no=roll_no or None,
-                      approval_status=ApprovalStatus.APPROVED,
-                      approved_by=current_user.id,
-                      dob=dob or None, gender=gender or None,
-                      category=category or None, mother_name=mother_name or None)
-    db.session.add(student)
-    db.session.commit()
-    flash(f'Student "{name}" added successfully! Default password: csmss@123', 'success')
-    return redirect(url_for('admin.students'))
-
-
-# ── Upload Students via Excel ────────────────────────────────────────────────
+  # ── Upload Students via Excel ────────────────────────────────────────────────
 @admin_bp.route('/students/upload-excel', methods=['POST'])
 @login_required
 @role_required(Roles.SUPER_ADMIN, Roles.HOD, Roles.CLASS_TEACHER)
@@ -700,15 +663,14 @@ def upload_students_excel():
         flash('Could not read the Excel file. Please use the correct format.', 'danger')
         return redirect(url_for('admin.students'))
 
-    added = 0
+    added   = 0
     skipped = 0
-    errors = []
+    errors  = []
 
-    # Determine scope for HOD / Class Teacher
+    # ── Determine scope & default class ──────────────────────────────────────
     hod_dept_id = _hod_dept_id() if current_user.role == Roles.HOD else None
     ct_class    = _ct_class()     if current_user.role == Roles.CLASS_TEACHER else None
 
-    # CLASS_TEACHER always uses their own class, ignore what the form sends
     if current_user.role == Roles.CLASS_TEACHER:
         if not ct_class:
             flash('You are not assigned as a Class Teacher for any class.', 'danger')
@@ -717,25 +679,47 @@ def upload_students_excel():
     else:
         form_class_id = request.form.get('class_id', type=int)
 
-    # Require a class to be selected (except CLASS_TEACHER already forced above)
     if not form_class_id:
-        flash('Please select a class before uploading the Excel file.', 'danger')
+        flash('Please select a default class before uploading the Excel file.', 'danger')
         return redirect(url_for('admin.students'))
 
-    # Validate the selected class and enforce scope
-    resolved_class = Class.query.get(form_class_id)
-    if not resolved_class:
+    default_class = Class.query.get(form_class_id)
+    if not default_class:
         flash('Selected class not found. Please try again.', 'danger')
         return redirect(url_for('admin.students'))
 
     if current_user.role == Roles.HOD and hod_dept_id:
-        if resolved_class.department_id != hod_dept_id:
-            flash("Invalid class selected for your department.", "danger")
+        if default_class.department_id != hod_dept_id:
+            flash('Invalid class selected for your department.', 'danger')
             return redirect(url_for('admin.students'))
 
+    # ── Build a scoped class lookup: {lowercase_name: class_obj} ────────────────
+    # This lets each Excel row override class via its class_name column.
+    # Only classes within the user's scope are included (security).
+    if current_user.role == Roles.SUPER_ADMIN:
+        scoped_classes = Class.query.all()
+    elif current_user.role == Roles.HOD and hod_dept_id:
+        scoped_classes = Class.query.filter_by(department_id=hod_dept_id).all()
+    elif current_user.role == Roles.CLASS_TEACHER and ct_class:
+        scoped_classes = [ct_class]
+    else:
+        scoped_classes = []
+
+    # Multiple lookup keys per class for flexible matching:
+    # e.g. "SE ECE", "se ece", "SE-ECE" all resolve to the same class
+    class_lookup = {}
+    for cls in scoped_classes:
+        keys = [
+            cls.name.strip().lower(),
+            cls.name.strip().lower().replace(' ', '-'),
+            cls.name.strip().lower().replace('-', ' '),
+        ]
+        for k in keys:
+            class_lookup[k] = cls
+
+    # ── Parse headers ────────────────────────────────────────────────────────
     headers = [str(cell.value).strip().lower() if cell.value else '' for cell in ws[1]]
-    required = ['name', 'email']
-    for req in required:
+    for req in ['name', 'email']:
         if req not in headers:
             flash(f'Excel is missing required column: "{req}". Download the format template.', 'danger')
             return redirect(url_for('admin.students'))
@@ -748,19 +732,13 @@ def upload_students_excel():
         except (ValueError, IndexError):
             return ''
 
-    # ── Hash the default password ONCE outside the loop ───────────────────────
-    # bcrypt takes ~0.3s per call — hashing inside the loop for 100 students
-    # = 30 seconds → Gunicorn timeout → 500 error. Do it once here.
+    # ── Performance: hash once, pre-fetch sets ──────────────────────────────────
     default_pw_hash = bcrypt.generate_password_hash('csmss@123').decode('utf-8')
-
-    # Pre-fetch existing emails and PRNs to avoid per-row DB queries
     existing_emails = set(r[0] for r in db.session.query(User.email).all())
     existing_prns   = set(r[0] for r in db.session.query(Student.prn).filter(Student.prn != None).all())
+    BATCH_SIZE      = 50
 
-    student_year     = resolved_class.year if resolved_class.year else 1
-    student_semester = (student_year * 2) - 1  # Year1→Sem1, Year2→Sem3, Year3→Sem5
-    BATCH_SIZE       = 50  # Commit every 50 rows to avoid giant transactions
-
+    # ── Process rows ───────────────────────────────────────────────────────────
     for row in ws.iter_rows(min_row=2):
         if all(cell.value is None for cell in row):
             continue
@@ -770,6 +748,7 @@ def upload_students_excel():
         phone       = col(row, 'phone')
         prn         = col(row, 'prn')
         roll_no     = col(row, 'roll_no')
+        class_name  = col(row, 'class_name')   # per-row class override
         dob         = col(row, 'dob')
         gender      = col(row, 'gender').upper()[:1]
         category    = col(row, 'category').upper()
@@ -789,12 +768,23 @@ def upload_students_excel():
             skipped += 1
             continue
 
+        # ── Resolve class for THIS row ───────────────────────────────────────
+        # Priority: class_name column > dropdown selection
+        resolved = class_lookup.get(class_name.strip().lower()) if class_name else None
+        if resolved is None:
+            # Fall back to the dropdown default
+            resolved = default_class
+
+        row_class_id = resolved.id
+        row_year     = resolved.year if resolved.year else 1
+        row_semester = (row_year * 2) - 1
+
         user = User(name=name, email=email, phone=phone or None,
                     password_hash=default_pw_hash, role=Roles.STUDENT, status=Status.ACTIVE)
         db.session.add(user)
         db.session.flush()  # get user.id for FK
 
-        student = Student(user_id=user.id, class_id=form_class_id,
+        student = Student(user_id=user.id, class_id=row_class_id,
                           prn=prn or None, roll_no=roll_no or None,
                           approval_status=ApprovalStatus.APPROVED,
                           approved_by=current_user.id,
@@ -802,15 +792,14 @@ def upload_students_excel():
                           gender=gender if gender in ['M', 'F'] else None,
                           category=category or None,
                           mother_name=mother_name or None,
-                          current_year=student_year,
-                          semester=student_semester)
+                          current_year=row_year,
+                          semester=row_semester)
         db.session.add(student)
-        existing_emails.add(email)   # track in-memory to avoid re-query
+        existing_emails.add(email)
         if prn:
             existing_prns.add(prn)
         added += 1
 
-        # Commit every BATCH_SIZE rows to keep transactions small
         if added % BATCH_SIZE == 0:
             try:
                 db.session.commit()
@@ -819,7 +808,6 @@ def upload_students_excel():
                 flash(f'Database error at row ~{added}: {str(e)}', 'danger')
                 return redirect(url_for('admin.students'))
 
-    # Final commit for remaining rows
     try:
         db.session.commit()
     except Exception as e:
@@ -832,7 +820,6 @@ def upload_students_excel():
         msg += f' Issues: {"; ".join(errors[:5])}'
     flash(msg, 'success' if added > 0 else 'warning')
     return redirect(url_for('admin.students'))
-
 
 
 # ── Upload Teachers via Excel ────────────────────────────────────────────────
@@ -965,9 +952,71 @@ def _make_template_wb(headers, sample_row, title):
 @login_required
 @role_required(Roles.SUPER_ADMIN, Roles.HOD, Roles.CLASS_TEACHER)
 def download_students_template():
-    headers    = ['name', 'email', 'phone', 'prn', 'roll_no', 'class_name', 'dob', 'gender', 'category', 'mother_name']
-    sample_row = ['John Doe', 'john@csmss.edu', '9876543210', 'PRN2024001', '01', 'SE-A', '01-01-2004', 'M', 'OPEN', 'Jane Doe']
-    wb = _make_template_wb(headers, sample_row, 'Students')
+    # ── Build scoped class list for the sample rows ─────────────────────────
+    if current_user.role == Roles.SUPER_ADMIN:
+        all_classes = Class.query.order_by(Class.name).limit(5).all()
+    elif current_user.role == Roles.HOD:
+        dept_id = _hod_dept_id()
+        all_classes = Class.query.filter_by(department_id=dept_id).order_by(Class.name).all() if dept_id else []
+    elif current_user.role == Roles.CLASS_TEACHER:
+        cls = _ct_class()
+        all_classes = [cls] if cls else []
+    else:
+        all_classes = []
+
+    headers = ['name', 'email', 'phone', 'prn', 'roll_no', 'class_name',
+               'dob', 'gender', 'category', 'mother_name']
+
+    # Generate sample rows using REAL class names so users copy them correctly
+    sample_rows = []
+    for i, cls in enumerate(all_classes[:3], start=1):
+        sample_rows.append([
+            f'Student Name {i}',
+            f'student{i}@csmss.edu',
+            f'98765432{i:02d}',
+            f'PRN2024{i:03d}',
+            f'{i:02d}',
+            cls.name,           # exact class name from DB
+            '01-01-2004',
+            'M' if i % 2 == 1 else 'F',
+            'OPEN',
+            f'Mother Name {i}',
+        ])
+    if not sample_rows:
+        sample_rows = [['John Doe', 'john@csmss.edu', '9876543210',
+                        'PRN2024001', '01', 'SE ECE',
+                        '01-01-2004', 'M', 'OPEN', 'Jane Doe']]
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Students'
+
+    from openpyxl.styles import Font, PatternFill, Alignment
+    header_font  = Font(bold=True, color='FFFFFF', size=11)
+    header_fill  = PatternFill('solid', fgColor='1A3C5E')
+    note_fill    = PatternFill('solid', fgColor='FFF2CC')   # yellow for class_name col
+    header_align = Alignment(horizontal='center', vertical='center')
+
+    for col_idx, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_idx, value=h)
+        cell.font      = header_font
+        cell.alignment = header_align
+        # Highlight class_name column in yellow so users notice it
+        cell.fill = note_fill if h == 'class_name' else header_fill
+        ws.column_dimensions[cell.column_letter].width = max(18, len(h) + 4)
+
+    for r_idx, sample in enumerate(sample_rows, start=2):
+        for c_idx, val in enumerate(sample, 1):
+            ws.cell(row=r_idx, column=c_idx, value=val)
+
+    # Add a note sheet listing all available class names
+    ws_note = wb.create_sheet(title='Available Classes')
+    ws_note.cell(row=1, column=1, value='Available class_name values (copy exactly into main sheet):')
+    ws_note.cell(row=1, column=1).font = Font(bold=True)
+    ws_note.column_dimensions['A'].width = 55
+    for i, cls in enumerate(all_classes, start=2):
+        ws_note.cell(row=i, column=1, value=cls.name)
+
     output = io.BytesIO()
     wb.save(output)
     output.seek(0)
