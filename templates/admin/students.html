@@ -514,7 +514,23 @@
           <input type="file" name="excel_file" accept=".xlsx,.xls" class="form-control-erp" required
             style="padding:8px;">
         </div>
- <!-- ═══ Move Class Modal ═══════════════════════════════════════════════════ -->
+        <div style="display:flex;gap:10px;margin-top:4px;">
+          <button type="submit" class="btn-erp btn-primary-erp" style="flex:1;justify-content:center;"
+            {% if not upload_classes %}disabled title="No classes available"{% endif %}>
+            <i class="fa-solid fa-upload"></i> Upload &amp; Import
+          </button>
+          <a href="{{ url_for('admin.download_students_template') }}"
+            class="btn-erp btn-secondary-erp" style="text-decoration:none;flex:0 0 auto;">
+            <i class="fa-solid fa-download"></i> Get Format
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Move Class Modal ═══════════════════════════════════════════════════ -->
+
 <div id="bulkMoveModal"
   style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:3000;align-items:center;justify-content:center;">
   <div class="card-erp" style="max-width:440px;width:96%;padding:0;">
@@ -593,7 +609,7 @@
     updateBulkBar();
   }
 
-  // TG Modal
+  // Single student TG
   function openAssignTGModal(studentId, currentTgId) {
     document.getElementById('assignTGSelect').value = currentTgId || '';
     document.getElementById('assignTGStudentIds').value = studentId;
@@ -601,13 +617,54 @@
     document.getElementById('assignTGModal').style.display = 'flex';
   }
 
+  // Bulk TG
   function openBulkAssignTGModal() {
     const ids = getSelectedIds();
     if (!ids.length) return;
     document.getElementById('assignTGSelect').value = '';
-    document.getElementById('assignTGStudentIds').value = selectedIds.join(',');
+    document.getElementById('assignTGStudentIds').value = ids.join(',');
     document.getElementById('assignTGForm').action = '/admin/students/bulk-assign-tg';
     document.getElementById('assignTGModal').style.display = 'flex';
   }
+
+  // Move Class
+  function openBulkMoveModal() {
+    const ids = getSelectedIds();
+    if (!ids.length) return;
+    document.getElementById('bulkMoveStudentIds').value = ids.join(',');
+    document.getElementById('bulkMoveModal').style.display = 'flex';
+  }
+
+  // Approve
+  function submitBulkAction(url) {
+    const ids = getSelectedIds();
+    if (!ids.length) return;
+    document.getElementById('bulkApproveIds').value = ids.join(',');
+    document.getElementById('bulkApproveForm').action = url;
+    document.getElementById('bulkApproveForm').submit();
+  }
+
+  // Export Excel
+  function submitBulkExport() {
+    const ids = getSelectedIds();
+    if (!ids.length) return;
+    document.getElementById('bulkExportIds').value = ids.join(',');
+    document.getElementById('bulkExportForm').submit();
+  }
+
+  // Delete with confirmation
+  function confirmBulkDelete() {
+    const ids = getSelectedIds();
+    if (!ids.length) return;
+    const count = ids.length;
+    if (!confirm('\u26a0\ufe0f Permanently delete ' + count + ' student' + (count > 1 ? 's' : '') + '?\n\nThis will also delete their user accounts and CANNOT be undone.')) return;
+    document.getElementById('bulkDeleteIds').value = ids.join(',');
+    document.getElementById('bulkDeleteForm').submit();
+  }
+
+  // Update bar on individual checkbox change
+  document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('student-checkbox')) updateBulkBar();
+  });
 </script>
 {% endblock %}
