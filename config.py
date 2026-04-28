@@ -11,12 +11,18 @@ class Config:
     SQLALCHEMY_DATABASE_URI = db_uri
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    # ── SQLite: enable WAL mode + 30s timeout to prevent "database is locked" ──
-    # WAL allows concurrent reads while writing; timeout retries on lock
-    SQLALCHEMY_ENGINE_OPTIONS = {
-        "connect_args": {"timeout": 30, "check_same_thread": False},
-        "pool_pre_ping": True,
-    }
+    # ── Engine options: SQLite vs PostgreSQL ──────────────────────────────────
+    if db_uri and 'sqlite' in db_uri:
+        SQLALCHEMY_ENGINE_OPTIONS = {
+            "connect_args": {"timeout": 30, "check_same_thread": False},
+            "pool_pre_ping": True,
+        }
+    else:
+        # PostgreSQL (Render) – no SQLite-specific connect_args
+        SQLALCHEMY_ENGINE_OPTIONS = {
+            "pool_pre_ping": True,
+            "pool_recycle": 300,
+        }
 
     UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'static/uploads')
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max upload
