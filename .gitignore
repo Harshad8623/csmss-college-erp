@@ -7,4 +7,6 @@ env/
 venv/
 .env
 instance/college_erp.db
+instance/college_erp.db-shm
+instance/college_erp.db-wal
 .DS_Store
