@@ -147,16 +147,44 @@
       <span class="badge-erp badge-info" style="font-size:11px;margin-left:8px;">Filtered</span>
       {% endif %}
     </h5>
-    <div style="display:flex;align-items:center;gap:12px;">
-      <button onclick="openBulkAssignTGModal()" class="btn-erp btn-primary-erp"
-        style="padding:4px 10px;font-size:12px;display:none;" id="bulkAssignBtn">
-        <i class="fa-solid fa-users"></i> Bulk Assign TG
-      </button>
-      <span style="font-size:13px;color:var(--text-muted);">
-        Showing {{ students|length }} of {{ pagination.total }} students
-      </span>
-    </div>
+    <span style="font-size:13px;color:var(--text-muted);">
+      Showing {{ students|length }} of {{ pagination.total }} students
+    </span>
   </div>
+
+  {# ── Floating Bulk Action Toolbar ── #}
+  <div id="bulkActionBar"
+    style="display:none;background:linear-gradient(135deg,#1a3c5e,#2a5298);border-radius:10px;
+           padding:10px 16px;margin:0 20px 14px;display:none;align-items:center;
+           gap:10px;flex-wrap:wrap;box-shadow:0 4px 20px rgba(42,82,152,.4);">
+    <span id="bulkCountLabel" style="color:#fff;font-weight:700;font-size:13px;flex:1;"></span>
+    {% if current_user.role in ['SUPER_ADMIN','HOD','CLASS_TEACHER'] %}
+    <button onclick="openBulkAssignTGModal()" class="btn-erp"
+      style="padding:5px 12px;font-size:12px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);">
+      <i class="fa-solid fa-user-tag"></i> Assign TG
+    </button>
+    <button onclick="openBulkMoveModal()" class="btn-erp"
+      style="padding:5px 12px;font-size:12px;background:rgba(246,173,85,.25);color:#f6ad55;border:1px solid rgba(246,173,85,.4);">
+      <i class="fa-solid fa-right-left"></i> Move Class
+    </button>
+    <button onclick="submitBulkAction('{{ url_for('admin.bulk_approve_students') }}')" class="btn-erp"
+      style="padding:5px 12px;font-size:12px;background:rgba(56,161,105,.25);color:#68d391;border:1px solid rgba(56,161,105,.4);">
+      <i class="fa-solid fa-check-double"></i> Approve
+    </button>
+    {% endif %}
+    <button onclick="submitBulkExport()" class="btn-erp"
+      style="padding:5px 12px;font-size:12px;background:rgba(99,179,237,.2);color:#90cdf4;border:1px solid rgba(99,179,237,.4);">
+      <i class="fa-solid fa-file-export"></i> Export Excel
+    </button>
+    {% if current_user.role in ['SUPER_ADMIN','HOD','CLASS_TEACHER'] %}
+    <button onclick="confirmBulkDelete()" class="btn-erp"
+      style="padding:5px 12px;font-size:12px;background:rgba(245,101,101,.25);color:#fc8181;border:1px solid rgba(245,101,101,.4);">
+      <i class="fa-solid fa-trash"></i> Delete
+    </button>
+    {% endif %}
+    <button onclick="clearSelection()" style="background:none;border:none;color:rgba(255,255,255,.5);font-size:18px;cursor:pointer;padding:0 4px;" title="Clear selection">×</button>
+  </div>
+
   <div style="overflow-x:auto;">
     <table class="table-erp" style="width:100%;min-width:900px;">
       <thead>
@@ -486,24 +514,86 @@
           <input type="file" name="excel_file" accept=".xlsx,.xls" class="form-control-erp" required
             style="padding:8px;">
         </div>
-        <div style="display:flex;gap:10px;margin-top:4px;">
-          <button type="submit" class="btn-erp btn-primary-erp" style="flex:1;justify-content:center;"
-            {% if not upload_classes %}disabled title="No classes available"{% endif %}>
-            <i class="fa-solid fa-upload"></i> Upload & Import
+ <!-- ═══ Move Class Modal ═══════════════════════════════════════════════════ -->
+<div id="bulkMoveModal"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:3000;align-items:center;justify-content:center;">
+  <div class="card-erp" style="max-width:440px;width:96%;padding:0;">
+    <div class="card-header-erp">
+      <h5><i class="fa-solid fa-right-left" style="color:#f6ad55;"></i> Move to Another Class</h5>
+      <button onclick="document.getElementById('bulkMoveModal').style.display='none'"
+        style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;">×</button>
+    </div>
+    <div class="card-body-erp">
+      <form method="POST" action="{{ url_for('admin.bulk_move_class') }}" id="bulkMoveForm">
+        <input type="hidden" name="student_ids" id="bulkMoveStudentIds" value="">
+        <div class="form-group-erp" style="margin-bottom:16px;">
+          <label class="form-label-erp">Select Target Class</label>
+          <select name="new_class_id" class="form-control-erp" required>
+            <option value="">-- Select Class --</option>
+            {% for c in upload_classes %}
+            <option value="{{ c.id }}">{{ c.name }}{% if c.department %} ({{ c.department.code }}){% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div style="background:rgba(245,101,101,.1);border:1px solid rgba(245,101,101,.3);border-radius:8px;padding:10px;margin-bottom:14px;font-size:12px;color:#fc8181;">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          Students' year and semester will be updated to match the target class.
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button type="submit" class="btn-erp btn-primary-erp" style="flex:1;justify-content:center;">
+            <i class="fa-solid fa-right-left"></i> Move Students
           </button>
-          <a href="{{ url_for('admin.download_students_template') }}"
-            class="btn-erp btn-secondary-erp" style="text-decoration:none;flex:0 0 auto;">
-            <i class="fa-solid fa-download"></i> Get Format
-          </a>
+          <button type="button" onclick="document.getElementById('bulkMoveModal').style.display='none'"
+            class="btn-erp btn-secondary-erp">Cancel</button>
         </div>
       </form>
     </div>
   </div>
 </div>
+
+<!-- Hidden forms for bulk actions -->
+<form id="bulkDeleteForm" method="POST" action="{{ url_for('admin.bulk_delete_students') }}" style="display:none;">
+  <input type="hidden" name="student_ids" id="bulkDeleteIds">
+</form>
+<form id="bulkApproveForm" method="POST" action="{{ url_for('admin.bulk_approve_students') }}" style="display:none;">
+  <input type="hidden" name="student_ids" id="bulkApproveIds">
+</form>
+<form id="bulkExportForm" method="POST" action="{{ url_for('admin.export_students_excel') }}" style="display:none;">
+  <input type="hidden" name="student_ids" id="bulkExportIds">
+</form>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
+  function getSelectedIds() {
+    return Array.from(document.querySelectorAll('.student-checkbox:checked')).map(cb => cb.value);
+  }
+
+  function updateBulkBar() {
+    const ids = getSelectedIds();
+    const bar = document.getElementById('bulkActionBar');
+    const label = document.getElementById('bulkCountLabel');
+    if (ids.length > 0) {
+      bar.style.display = 'flex';
+      label.textContent = ids.length + ' student' + (ids.length > 1 ? 's' : '') + ' selected';
+    } else {
+      bar.style.display = 'none';
+    }
+  }
+
+  function toggleAllStudents(source) {
+    document.querySelectorAll('.student-checkbox').forEach(cb => cb.checked = source.checked);
+    updateBulkBar();
+  }
+
+  function clearSelection() {
+    document.querySelectorAll('.student-checkbox').forEach(cb => cb.checked = false);
+    document.getElementById('selectAllStudents').checked = false;
+    updateBulkBar();
+  }
+
+  // TG Modal
   function openAssignTGModal(studentId, currentTgId) {
     document.getElementById('assignTGSelect').value = currentTgId || '';
     document.getElementById('assignTGStudentIds').value = studentId;
@@ -511,20 +601,9 @@
     document.getElementById('assignTGModal').style.display = 'flex';
   }
 
-  function toggleAllStudents(source) {
-    const checkboxes = document.querySelectorAll('.student-checkbox');
-    checkboxes.forEach(cb => cb.checked = source.checked);
-    updateBulkBtn();
-  }
-
-  function updateBulkBtn() {
-    const anyChecked = document.querySelectorAll('.student-checkbox:checked').length > 0;
-    document.getElementById('bulkAssignBtn').style.display = anyChecked ? 'inline-flex' : 'none';
-  }
-
   function openBulkAssignTGModal() {
-    const selectedIds = Array.from(document.querySelectorAll('.student-checkbox:checked')).map(cb => cb.value);
-    if (selectedIds.length === 0) return;
+    const ids = getSelectedIds();
+    if (!ids.length) return;
     document.getElementById('assignTGSelect').value = '';
     document.getElementById('assignTGStudentIds').value = selectedIds.join(',');
     document.getElementById('assignTGForm').action = '/admin/students/bulk-assign-tg';

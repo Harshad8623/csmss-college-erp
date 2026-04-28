@@ -196,7 +196,200 @@ def bulk_assign_tg():
     return redirect(request.referrer or url_for('admin.students'))
 
 
-# ── Departments ──────────────────────────────────────────────────────────────
+# ── Bulk Delete Students ──────────────────────────────────────────────────────
+@admin_bp.route('/students/bulk-delete', methods=['POST'])
+@login_required
+@role_required(Roles.SUPER_ADMIN, Roles.HOD, Roles.CLASS_TEACHER)
+def bulk_delete_students():
+    student_ids_str = request.form.get('student_ids', '')
+    if not student_ids_str:
+        flash('No students selected.', 'warning')
+        return redirect(request.referrer or url_for('admin.students'))
+
+    student_ids = [int(s.strip()) for s in student_ids_str.split(',') if s.strip().isdigit()]
+    if not student_ids:
+        flash('Invalid selection.', 'warning')
+        return redirect(request.referrer or url_for('admin.students'))
+
+    students = Student.query.filter(Student.id.in_(student_ids)).all()
+    deleted = 0
+    for student in students:
+        # Scope check
+        if current_user.role == Roles.HOD:
+            dept_id = _hod_dept_id()
+            cls = Class.query.get(student.class_id)
+            if not cls or cls.department_id != dept_id:
+                continue
+        elif current_user.role == Roles.CLASS_TEACHER:
+            cls = _ct_class()
+            if not cls or student.class_id != cls.id:
+                continue
+
+        user = User.query.get(student.user_id)
+        db.session.delete(student)
+        if user:
+            db.session.delete(user)
+        deleted += 1
+
+    db.session.commit()
+    flash(f'🗑️ {deleted} student(s) deleted successfully.', 'success')
+    return redirect(request.referrer or url_for('admin.students'))
+
+
+# ── Bulk Move Students to Another Class ──────────────────────────────────────
+@admin_bp.route('/students/bulk-move-class', methods=['POST'])
+@login_required
+@role_required(Roles.SUPER_ADMIN, Roles.HOD, Roles.CLASS_TEACHER)
+def bulk_move_class():
+    student_ids_str = request.form.get('student_ids', '')
+    new_class_id    = request.form.get('new_class_id', type=int)
+
+    if not student_ids_str or not new_class_id:
+        flash('Please select students and a target class.', 'warning')
+        return redirect(request.referrer or url_for('admin.students'))
+
+    # Validate target class is within scope
+    target_class = Class.query.get(new_class_id)
+    if not target_class:
+        flash('Target class not found.', 'danger')
+        return redirect(request.referrer or url_for('admin.students'))
+
+    if current_user.role == Roles.HOD:
+        dept_id = _hod_dept_id()
+        if target_class.department_id != dept_id:
+            flash('You can only move students within your department.', 'danger')
+            return redirect(request.referrer or url_for('admin.students'))
+    elif current_user.role == Roles.CLASS_TEACHER:
+        cls = _ct_class()
+        if not cls or target_class.id != cls.id:
+            flash('You can only assign students to your own class.', 'danger')
+            return redirect(request.referrer or url_for('admin.students'))
+
+    student_ids = [int(s.strip()) for s in student_ids_str.split(',') if s.strip().isdigit()]
+    students = Student.query.filter(Student.id.in_(student_ids)).all()
+    moved = 0
+    new_year     = target_class.year if target_class.year else 1
+    new_semester = (new_year * 2) - 1
+
+    for student in students:
+        # Scope check on source class
+        if current_user.role == Roles.HOD:
+            dept_id = _hod_dept_id()
+            src_cls = Class.query.get(student.class_id)
+            if not src_cls or src_cls.department_id != dept_id:
+                continue
+        elif current_user.role == Roles.CLASS_TEACHER:
+            src_cls = _ct_class()
+            if not src_cls or student.class_id != src_cls.id:
+                continue
+
+        student.class_id     = new_class_id
+        student.current_year = new_year
+        student.semester     = new_semester
+        moved += 1
+
+    db.session.commit()
+    flash(f'📦 {moved} student(s) moved to {target_class.name}.', 'success')
+    return redirect(request.referrer or url_for('admin.students'))
+
+
+# ── Bulk Approve Students ─────────────────────────────────────────────────────
+@admin_bp.route('/students/bulk-approve', methods=['POST'])
+@login_required
+@role_required(Roles.SUPER_ADMIN, Roles.HOD, Roles.CLASS_TEACHER)
+def bulk_approve_students():
+    student_ids_str = request.form.get('student_ids', '')
+    if not student_ids_str:
+        flash('No students selected.', 'warning')
+        return redirect(request.referrer or url_for('admin.students'))
+
+    student_ids = [int(s.strip()) for s in student_ids_str.split(',') if s.strip().isdigit()]
+    students = Student.query.filter(Student.id.in_(student_ids)).all()
+    approved = 0
+    for student in students:
+        if current_user.role == Roles.HOD:
+            dept_id = _hod_dept_id()
+            cls = Class.query.get(student.class_id)
+            if not cls or cls.department_id != dept_id:
+                continue
+        elif current_user.role == Roles.CLASS_TEACHER:
+            cls = _ct_class()
+            if not cls or student.class_id != cls.id:
+                continue
+
+        if student.approval_status != ApprovalStatus.APPROVED:
+            student.approval_status = ApprovalStatus.APPROVED
+            student.approved_by     = current_user.id
+            student.user.status     = Status.ACTIVE
+            approved += 1
+
+    db.session.commit()
+    flash(f'✅ {approved} student(s) approved.', 'success')
+    return redirect(request.referrer or url_for('admin.students'))
+
+
+# ── Export Selected Students to Excel ────────────────────────────────────────
+@admin_bp.route('/students/export-excel', methods=['POST'])
+@login_required
+@role_required(Roles.SUPER_ADMIN, Roles.HOD, Roles.CLASS_TEACHER, Roles.TEACHER)
+def export_students_excel():
+    student_ids_str = request.form.get('student_ids', '')
+    # If no specific selection, export all visible students using current filters
+    if student_ids_str:
+        student_ids = [int(s.strip()) for s in student_ids_str.split(',') if s.strip().isdigit()]
+        students = Student.query.filter(Student.id.in_(student_ids)).all()
+    else:
+        flash('No students selected for export.', 'warning')
+        return redirect(request.referrer or url_for('admin.students'))
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Students Export'
+
+    from openpyxl.styles import Font, PatternFill, Alignment
+    headers = ['Roll No', 'PRN', 'Name', 'Email', 'Phone',
+               'Class', 'Gender', 'Category', 'Blood Group',
+               'DOB', 'Mother Name', 'TG Name', 'Status']
+    header_font  = Font(bold=True, color='FFFFFF', size=11)
+    header_fill  = PatternFill('solid', fgColor='1A3C5E')
+    header_align = Alignment(horizontal='center', vertical='center')
+
+    for col_idx, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_idx, value=h)
+        cell.font      = header_font
+        cell.fill      = header_fill
+        cell.alignment = header_align
+        ws.column_dimensions[cell.column_letter].width = max(15, len(h) + 4)
+
+    for r_idx, s in enumerate(students, start=2):
+        cls = Class.query.get(s.class_id)
+        tg  = User.query.get(s.tg_id) if s.tg_id else None
+        ws.append([
+            s.roll_no or '',
+            s.prn or '',
+            s.user.name,
+            s.user.email,
+            s.user.phone or '',
+            cls.name if cls else '',
+            'Male' if s.gender == 'M' else ('Female' if s.gender == 'F' else ''),
+            s.category or '',
+            s.blood_group or '',
+            str(s.dob) if s.dob else '',
+            s.mother_name or '',
+            tg.name if tg else '',
+            s.approval_status or '',
+        ])
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return send_file(output,
+                     download_name='students_export.xlsx',
+                     as_attachment=True,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+
+
 @admin_bp.route('/departments')
 @login_required
 @role_required(Roles.SUPER_ADMIN)
