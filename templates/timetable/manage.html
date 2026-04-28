@@ -41,7 +41,7 @@
   </div>
   <div class="card-body-erp">
     <form method="POST" action="{{ url_for('timetable.manage', class_id=selected_class.id) }}"
-      style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;align-items:end;">
+      style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:14px;align-items:end;">
       <input type="hidden" name="action" value="add">
       <input type="hidden" name="class_id" value="{{ selected_class.id }}">
 
@@ -62,6 +62,24 @@
           {% for subj in subjects %}
           <option value="{{ subj.id }}">{{ subj.name }}</option>
           {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="form-label-erp">Type</label>
+        <select name="entry_type" id="addType" class="form-control-erp" onchange="toggleBatch('add')">
+          <option value="theory">📖 Theory</option>
+          <option value="practical">🔬 Practical</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="form-label-erp">Batch <span id="addBatchHint" style="color:var(--text-muted);font-size:10px;">(Practical only)</span></label>
+        <select name="batch" id="addBatch" class="form-control-erp" disabled>
+          <option value="">-- All / Theory --</option>
+          <option value="S1">S1</option>
+          <option value="S2">S2</option>
+          <option value="S3">S3</option>
         </select>
       </div>
 
@@ -95,7 +113,7 @@
       <input type="hidden" name="action" value="edit">
       <input type="hidden" name="class_id" value="{{ selected_class.id }}">
 
-      <div class="form-group-erp" style="margin-bottom:16px;">
+      <div class="form-group-erp" style="margin-bottom:14px;">
         <label class="form-label-erp">Day</label>
         <select name="day" id="editDay" class="form-control-erp" required>
           {% for day in days %}
@@ -104,13 +122,32 @@
         </select>
       </div>
 
-      <div class="form-group-erp" style="margin-bottom:16px;">
+      <div class="form-group-erp" style="margin-bottom:14px;">
         <label class="form-label-erp">Subject</label>
         <select name="subject_id" id="editSubject" class="form-control-erp" required>
           {% for subj in subjects %}
           <option value="{{ subj.id }}">{{ subj.name }}</option>
           {% endfor %}
         </select>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+        <div>
+          <label class="form-label-erp">Type</label>
+          <select name="entry_type" id="editType" class="form-control-erp" onchange="toggleBatch('edit')">
+            <option value="theory">📖 Theory</option>
+            <option value="practical">🔬 Practical</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label-erp">Batch</label>
+          <select name="batch" id="editBatch" class="form-control-erp">
+            <option value="">-- None --</option>
+            <option value="S1">S1</option>
+            <option value="S2">S2</option>
+            <option value="S3">S3</option>
+          </select>
+        </div>
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
@@ -145,6 +182,7 @@
         <tr>
           <th>Day</th>
           <th>Time</th>
+          <th>Type</th>
           <th>Subject</th>
           <th>Teacher</th>
           <th style="text-align:center;">Actions</th>
@@ -160,6 +198,20 @@
             {{ e.start_time }} – {{ e.end_time }}
           </td>
           <td>
+            {% if e.entry_type == 'practical' %}
+              <span class="badge-erp" style="background:rgba(245,158,11,.15);color:#f6ad55;">
+                🔬 Practical
+              </span>
+              {% if e.batch %}
+              <span class="badge-erp" style="background:rgba(99,179,237,.15);color:var(--accent-blue);margin-left:4px;">
+                {{ e.batch }}
+              </span>
+              {% endif %}
+            {% else %}
+              <span class="badge-erp" style="background:rgba(72,187,120,.12);color:#68d391;">📖 Theory</span>
+            {% endif %}
+          </td>
+          <td>
             <strong>{{ e.subject.name }}</strong><br>
             <span style="font-size:11px;color:var(--text-muted);">{{ e.subject.code or '' }}</span>
           </td>
@@ -169,7 +221,7 @@
           <td style="text-align:center;">
             <div style="display:flex;gap:8px;justify-content:center;">
               <button type="button"
-                onclick="openEditModal({{ e.id }}, '{{ e.day }}', '{{ e.subject_id }}', '{{ e.start_time }}', '{{ e.end_time }}')"
+                onclick="openEditModal({{ e.id }}, '{{ e.day }}', '{{ e.subject_id }}', '{{ e.start_time }}', '{{ e.end_time }}', '{{ e.entry_type or 'theory' }}', '{{ e.batch or '' }}')"
                 class="btn-erp"
                 style="padding:4px 10px;background:rgba(59,130,246,0.1);color:#60a5fa;border:1px solid rgba(59,130,246,0.3);"
                 title="Edit">
@@ -215,17 +267,30 @@
 
 {% block extra_js %}
 <script>
-  function openEditModal(id, day, subjectId, startTime, endTime) {
-    // Set form action dynamically
+  // Toggle batch dropdown enable/disable based on entry type
+  function toggleBatch(prefix) {
+    const typeEl  = document.getElementById(prefix + 'Type');
+    const batchEl = document.getElementById(prefix + 'Batch');
+    if (!typeEl || !batchEl) return;
+    const isPractical = typeEl.value === 'practical';
+    batchEl.disabled = !isPractical;
+    if (!isPractical) batchEl.value = '';
+  }
+
+  function openEditModal(id, day, subjectId, startTime, endTime, entryType, batch) {
     document.getElementById('editForm').action = '/timetable/edit/' + id;
-
-    // Set values
-    document.getElementById('editDay').value = day;
+    document.getElementById('editDay').value     = day;
     document.getElementById('editSubject').value = subjectId;
-    document.getElementById('editStart').value = startTime;
-    document.getElementById('editEnd').value = endTime;
+    document.getElementById('editStart').value   = startTime;
+    document.getElementById('editEnd').value     = endTime;
 
-    // Show modal
+    const typeEl  = document.getElementById('editType');
+    const batchEl = document.getElementById('editBatch');
+    typeEl.value  = entryType || 'theory';
+    batchEl.value = batch || '';
+    // Sync enable state
+    batchEl.disabled = (typeEl.value !== 'practical');
+
     const modal = document.getElementById('editModal');
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
@@ -236,14 +301,14 @@
     document.body.style.overflow = '';
   }
 
-  // Close modal on backdrop click
-  document.getElementById('editModal').addEventListener('click', function (e) {
+  document.getElementById('editModal').addEventListener('click', function(e) {
     if (e.target === this) closeEditModal();
   });
-
-  // Close on Escape key
-  document.addEventListener('keydown', function (e) {
+  document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeEditModal();
   });
+
+  // Init add-form batch state
+  toggleBatch('add');
 </script>
 {% endblock %}

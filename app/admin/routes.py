@@ -469,9 +469,21 @@ def students():
             query = query.filter(Student.id == 0)
 
     elif current_user.role == Roles.TEACHER:
-        tg_ids = [s.id for s in Student.query.filter_by(tg_id=current_user.id).all()]
-        if tg_ids:
-            query = query.filter(Student.id.in_(tg_ids))
+        # Collect class_ids from subjects this teacher is assigned to
+        taught_class_ids = [
+            s.class_id for s in Subject.query.filter_by(teacher_id=current_user.id).all()
+            if s.class_id
+        ]
+        # Also include classes where they are TG
+        tg_student_ids = [s.id for s in Student.query.filter_by(tg_id=current_user.id).all()]
+
+        if taught_class_ids or tg_student_ids:
+            query = query.filter(
+                db.or_(
+                    Student.class_id.in_(taught_class_ids),
+                    Student.id.in_(tg_student_ids)
+                )
+            )
         else:
             query = query.filter(Student.id == 0)
 
@@ -510,11 +522,24 @@ def students():
         User.role.in_([Roles.TEACHER, Roles.CLASS_TEACHER, Roles.HOD])
     ).all()
 
+    # ── Upload-modal class list: always the full scope, never affected by current filters ──
+    if current_user.role == Roles.SUPER_ADMIN:
+        upload_classes = Class.query.order_by(Class.name).all()
+    elif current_user.role == Roles.HOD:
+        _hd = _hod_dept_id()
+        upload_classes = Class.query.filter_by(department_id=_hd).order_by(Class.name).all() if _hd else []
+    elif current_user.role == Roles.CLASS_TEACHER:
+        _cc = _ct_class()
+        upload_classes = [_cc] if _cc else []
+    else:
+        upload_classes = []
+
     return render_template('admin/students.html',
         students=students_list, pagination=pagination,
         search=search, category=category, gender=gender, blood=blood,
         dept_filter=dept_filter, class_filter=class_filter, year_filter=year_filter,
         available_depts=available_depts, available_classes=available_classes,
+        upload_classes=upload_classes,
         total=total, male_ct=male_ct, female_ct=female_ct,
         categories=[c[0] for c in categories],
         blood_groups=[b[0] for b in blood_groups],
@@ -542,7 +567,13 @@ def student_detail(id):
         if not cls or student.class_id != cls.id:
             abort(403)
     elif current_user.role == Roles.TEACHER:
-        if student.tg_id != current_user.id:
+        taught_class_ids = [
+            s.class_id for s in Subject.query.filter_by(teacher_id=current_user.id).all()
+            if s.class_id
+        ]
+        is_tg = (student.tg_id == current_user.id)
+        in_class = (student.class_id in taught_class_ids)
+        if not is_tg and not in_class:
             abort(403)
 
     teachers = User.query.filter(
@@ -677,12 +708,28 @@ def upload_students_excel():
     hod_dept_id = _hod_dept_id() if current_user.role == Roles.HOD else None
     ct_class    = _ct_class()     if current_user.role == Roles.CLASS_TEACHER else None
 
-    form_class_id = request.form.get('class_id', type=int)
+    # CLASS_TEACHER always uses their own class, ignore what the form sends
+    if current_user.role == Roles.CLASS_TEACHER:
+        if not ct_class:
+            flash('You are not assigned as a Class Teacher for any class.', 'danger')
+            return redirect(url_for('admin.students'))
+        form_class_id = ct_class.id
+    else:
+        form_class_id = request.form.get('class_id', type=int)
 
-    # Security check for HOD if form_class_id is provided
-    if form_class_id and current_user.role == Roles.HOD and hod_dept_id:
-        cls_chk = Class.query.get(form_class_id)
-        if not cls_chk or cls_chk.department_id != hod_dept_id:
+    # Require a class to be selected (except CLASS_TEACHER already forced above)
+    if not form_class_id:
+        flash('Please select a class before uploading the Excel file.', 'danger')
+        return redirect(url_for('admin.students'))
+
+    # Validate the selected class and enforce scope
+    resolved_class = Class.query.get(form_class_id)
+    if not resolved_class:
+        flash('Selected class not found. Please try again.', 'danger')
+        return redirect(url_for('admin.students'))
+
+    if current_user.role == Roles.HOD and hod_dept_id:
+        if resolved_class.department_id != hod_dept_id:
             flash("Invalid class selected for your department.", "danger")
             return redirect(url_for('admin.students'))
 
@@ -730,22 +777,11 @@ def upload_students_excel():
             skipped += 1
             continue
 
-        # Resolve class_id
-        class_id = None
-        if form_class_id:
-            class_id = form_class_id
-        elif current_user.role == Roles.CLASS_TEACHER and ct_class:
-            class_id = ct_class.id
-        elif class_name:
-            cls_obj = Class.query.filter(Class.name.ilike(class_name)).first()
-            if cls_obj:
-                # HOD scope check
-                if current_user.role == Roles.HOD and hod_dept_id:
-                    if cls_obj.department_id != hod_dept_id:
-                        errors.append(f'Skipped (class out of dept): {class_name}')
-                        skipped += 1
-                        continue
-                class_id = cls_obj.id
+        # class_id is always the validated form_class_id (resolved and scope-checked above)
+        class_id = form_class_id
+        # Derive academic year and semester from the assigned class
+        student_year = resolved_class.year if resolved_class.year else 1
+        student_semester = (student_year * 2) - 1  # Year 1→Sem1, Year 2→Sem3, Year 3→Sem5, Year 4→Sem7
 
         pw_hash = bcrypt.generate_password_hash('csmss@123').decode('utf-8')
         user = User(name=name, email=email, phone=phone or None,
@@ -760,7 +796,9 @@ def upload_students_excel():
                           dob=dob or None,
                           gender=gender if gender in ['M', 'F'] else None,
                           category=category or None,
-                          mother_name=mother_name or None)
+                          mother_name=mother_name or None,
+                          current_year=student_year,
+                          semester=student_semester)
         db.session.add(student)
         added += 1
 

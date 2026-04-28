@@ -14,9 +14,16 @@
   {# ── Left: Identity Card ── #}
   <div>
     <div class="card-erp" style="text-align:center;padding:32px 24px;">
+      {% if student.user.profile_pic and student.user.profile_pic != 'default.png' %}
+      <img src="{{ url_for('static', filename='uploads/profiles/' + student.user.profile_pic) }}"
+           alt="{{ student.user.name }}"
+           style="width:90px;height:90px;border-radius:50%;object-fit:cover;margin:0 auto 16px;display:block;
+                  border:3px solid var(--primary-color);box-shadow:0 0 0 4px rgba(99,179,237,.2);">
+      {% else %}
       <div class="user-avatar" style="width:90px;height:90px;font-size:36px;margin:0 auto 16px;">
         {{ student.user.name[0] }}
       </div>
+      {% endif %}
       <h2 style="font-size:20px;font-weight:800;line-height:1.3;">{{ student.user.name }}</h2>
       <div style="margin:8px 0;display:flex;flex-wrap:wrap;justify-content:center;gap:6px;">
         <span class="badge-erp badge-info">{{ student.user.role.replace('_',' ') }}</span>
@@ -152,7 +159,14 @@
               {% for m in student.marks.all()[:10] %}
               <tr>
                 <td>{{ m.subject.name }}</td>
-                <td><span class="badge-erp badge-info" style="font-size:11px;">{{ m.exam_type.title() }}</span></td>
+                {% set _exam_labels = {
+                  'class_test_1':'CT-1','open_book_test_1':'OBT-1',
+                  'class_test_2':'CT-2','open_book_test_2':'OBT-2',
+                  'mid_sem_exam':'MSE','open_book_test_3':'OBT-3',
+                  'internal':'Internal','practical':'Practical',
+                  'external':'External','midterm':'Midterm'
+                } %}
+                <td><span class="badge-erp badge-info" style="font-size:11px;">{{ _exam_labels.get(m.exam_type, m.exam_type) }}</span></td>
                 <td>{{ m.marks }}/{{ m.max_marks|int }}</td>
                 <td><strong style="color:{{ '#48bb78' if m.grade in ['O','A+','A'] else '#f6ad55' if m.grade == 'B+' else '#f56565' }};">{{ m.grade }}</strong></td>
               </tr>

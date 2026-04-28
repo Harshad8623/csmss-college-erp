@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+{% block title %}Class Attendance — {{ cls.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ── Subject Card ──────────────────────────────────────────── */
+  .sub-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    margin-bottom: 24px;
+    overflow: hidden;
+    transition: box-shadow .2s;
+  }
+  .sub-card:hover { box-shadow: 0 6px 32px rgba(0,0,0,.18); }
+
+  .sub-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 16px 22px;
+    background: linear-gradient(135deg,rgba(99,179,237,.08),rgba(154,230,180,.06));
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    user-select: none;
+  }
+  .sub-card-header:hover { background: linear-gradient(135deg,rgba(99,179,237,.14),rgba(154,230,180,.10)); }
+
+  .sub-title { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+  .sub-code  { font-size: 11px; font-weight: 600; color: var(--accent-blue);
+               background: rgba(99,179,237,.15); padding: 2px 8px; border-radius: 5px; }
+
+  .sub-meta { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+
+  .stat-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  }
+  .pill-blue   { background: rgba(99,179,237,.15); color: var(--accent-blue); }
+  .pill-green  { background: rgba(72,187,120,.15);  color: #68d391; }
+  .pill-red    { background: rgba(245,101,101,.15);  color: #fc8181; }
+  .pill-yellow { background: rgba(246,173,85,.15);   color: #f6ad55; }
+
+  /* ── Pct ring ──────────────────────────────────────────────── */
+  .pct-ring {
+    width: 54px; height: 54px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 800; flex-shrink: 0;
+    border: 3px solid;
+  }
+  .pct-ring.good  { border-color: #68d391; color: #68d391; background: rgba(72,187,120,.1); }
+  .pct-ring.warn  { border-color: #f6ad55; color: #f6ad55; background: rgba(246,173,85,.1); }
+  .pct-ring.bad   { border-color: #fc8181; color: #fc8181; background: rgba(245,101,101,.1); }
+
+  /* ── Session table ─────────────────────────────────────────── */
+  .session-body { padding: 0; }
+  .session-body.collapsed { display: none; }
+
+  .session-table { width: 100%; border-collapse: collapse; }
+  .session-table th {
+    padding: 10px 16px; font-size: 11px; font-weight: 700; letter-spacing: .5px;
+    text-transform: uppercase; color: var(--text-muted);
+    background: rgba(255,255,255,.03); border-bottom: 1px solid var(--border-color);
+    text-align: left;
+  }
+  .session-table td {
+    padding: 11px 16px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,.04);
+    vertical-align: middle;
+  }
+  .session-table tr:last-child td { border-bottom: none; }
+  .session-table tr:hover td { background: rgba(255,255,255,.025); }
+
+  /* ── Mini progress bar ─────────────────────────────────────── */
+  .mini-bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,.08); width: 100%; min-width: 80px; }
+  .mini-bar-fill { height: 100%; border-radius: 3px; transition: width .4s; }
+
+  /* ── Stats grid ────────────────────────────────────────────── */
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr)); gap: 14px; margin-bottom: 24px; }
+  .stat-box { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px;
+              padding: 18px 20px; text-align: center; }
+  .stat-box .num { font-size: 30px; font-weight: 800; line-height: 1; }
+  .stat-box .lbl { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+  /* ── Class switcher ────────────────────────────────────────── */
+  .class-tab { padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+               color: var(--text-muted); text-decoration: none; border: 1px solid var(--border-color);
+               transition: all .2s; }
+  .class-tab:hover, .class-tab.active {
+    background: rgba(99,179,237,.15); color: var(--accent-blue);
+    border-color: rgba(99,179,237,.4); }
+
+  .chevron-icon { transition: transform .25s; font-size: 12px; color: var(--text-muted); }
+  .chevron-icon.open { transform: rotate(180deg); }
+
+  /* Empty state */
+  .no-sessions { padding: 30px; text-align: center; color: var(--text-muted); font-size: 13px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{# ── Page Header ──────────────────────────────────────────────── #}
+<div class="page-header" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px;align-items:flex-start;">
+  <div>
+    <h1 class="page-title">
+      <div class="title-icon">📅</div>
+      Class Attendance Registry
+    </h1>
+    <p class="page-subtitle">
+      <strong>{{ cls.name }}</strong>
+      {% if cls.department %} · {{ cls.department.name }}{% endif %}
+      &nbsp;·&nbsp; {{ subject_data|length }} subject{{ 's' if subject_data|length != 1 }}
+      &nbsp;·&nbsp; {{ students_count }} student{{ 's' if students_count != 1 }}
+    </p>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+    {# Class Teacher: Mark / Report shortcuts #}
+    <a href="{{ url_for('attendance.mark') }}" class="btn-erp btn-primary-erp">
+      <i class="fa-solid fa-pen-to-square"></i> Mark Attendance
+    </a>
+    <a href="{{ url_for('attendance.class_report', class_id=cls.id) }}" class="btn-erp btn-secondary-erp">
+      <i class="fa-solid fa-chart-bar"></i> Student Report
+    </a>
+  </div>
+</div>
+
+{# ── Class Switcher (HOD / SUPER_ADMIN) ──────────────────────── #}
+{% if all_classes|length > 1 %}
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;">
+  {% for c in all_classes %}
+  <a href="{{ url_for('attendance.ct_view', class_id=c.id) }}"
+     class="class-tab {{ 'active' if c.id == cls.id }}">
+    {{ c.name }}
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{# ── Summary Stats ─────────────────────────────────────────────── #}
+{% set total_lectures = subject_data | sum(attribute='total_lectures') %}
+<div class="stats-grid">
+  <div class="stat-box">
+    <div class="num" style="color:var(--accent-blue);">{{ subject_data|length }}</div>
+    <div class="lbl">Subjects</div>
+  </div>
+  <div class="stat-box">
+    <div class="num" style="color:var(--accent-green);">{{ students_count }}</div>
+    <div class="lbl">Students</div>
+  </div>
+  <div class="stat-box">
+    <div class="num" style="color:#f6ad55;">{{ total_lectures }}</div>
+    <div class="lbl">Total Sessions</div>
+  </div>
+  {% set good_count = subject_data | selectattr('avg_pct', 'ge', 75) | list | length %}
+  <div class="stat-box">
+    <div class="num" style="color:var(--accent-green);">{{ good_count }}</div>
+    <div class="lbl">Subjects ≥75%</div>
+  </div>
+  <div class="stat-box">
+    <div class="num" style="color:#fc8181;">{{ subject_data|length - good_count }}</div>
+    <div class="lbl">Subjects &lt;75%</div>
+  </div>
+</div>
+
+{# ── No subjects notice ────────────────────────────────────────── #}
+{% if not subject_data %}
+<div class="card-erp">
+  <div class="card-body-erp" style="text-align:center;padding:50px;">
+    <div style="font-size:48px;margin-bottom:16px;">📚</div>
+    <h5 style="margin-bottom:8px;">No Subjects Found</h5>
+    <p style="color:var(--text-muted);">No subjects are assigned to <strong>{{ cls.name }}</strong> yet.</p>
+    <a href="{{ url_for('admin.subjects') }}" class="btn-erp btn-primary-erp" style="margin-top:12px;">
+      <i class="fa-solid fa-plus"></i> Add Subjects
+    </a>
+  </div>
+</div>
+{% endif %}
+
+{# ── Subject Cards ─────────────────────────────────────────────── #}
+{% for sd in subject_data %}
+{% set sub = sd.subject %}
+{% set ring_cls = 'good' if sd.avg_pct >= 75 else ('warn' if sd.avg_pct >= 60 else 'bad') %}
+
+<div class="sub-card" id="subCard{{ sub.id }}">
+
+  {# Header (click to expand/collapse) #}
+  <div class="sub-card-header" onclick="toggleCard('{{ sub.id }}')" id="subHeader{{ sub.id }}">
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+
+      {# Percentage Ring #}
+      <div class="pct-ring {{ ring_cls }}">{{ sd.avg_pct }}%</div>
+
+      <div>
+        <div class="sub-title">
+          {{ sub.name }}
+          {% if sub.code %}<span class="sub-code">{{ sub.code }}</span>{% endif %}
+        </div>
+        <div class="sub-meta" style="margin-top:4px;">
+          {% if sd.teacher %}
+          <i class="fa-solid fa-chalkboard-user" style="font-size:11px;"></i>
+          {{ sd.teacher.name }}
+          &nbsp;·&nbsp;
+          {% endif %}
+          <i class="fa-solid fa-calendar-check" style="font-size:11px;"></i>
+          {{ sd.total_lectures }} session{{ 's' if sd.total_lectures != 1 }}
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span class="stat-pill pill-green"><i class="fa-solid fa-check"></i> Avg {{ sd.avg_pct }}%</span>
+      <span class="stat-pill pill-yellow"><i class="fa-solid fa-layer-group"></i> {{ sd.total_lectures }} Sessions</span>
+      {# Quick Mark link #}
+      <a href="{{ url_for('attendance.mark', subject_id=sub.id) }}"
+         class="btn-erp btn-primary-erp"
+         style="padding:5px 12px;font-size:12px;"
+         onclick="event.stopPropagation()">
+        <i class="fa-solid fa-plus"></i> New
+      </a>
+      <i class="fa-solid fa-chevron-down chevron-icon" id="chevron{{ sub.id }}"></i>
+    </div>
+  </div>
+
+  {# Sessions Table (collapsed by default for cards with many sessions) #}
+  <div class="session-body {{ 'collapsed' if sd.sessions|length > 10 }}" id="sessionBody{{ sub.id }}">
+    {% if sd.sessions %}
+    <table class="session-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th><i class="fa-solid fa-calendar"></i> Date</th>
+          <th style="text-align:center;"><i class="fa-solid fa-users"></i> Total</th>
+          <th style="text-align:center;"><i class="fa-solid fa-circle-check"></i> Present</th>
+          <th style="text-align:center;"><i class="fa-solid fa-circle-xmark"></i> Absent</th>
+          <th>Attendance %</th>
+          <th style="text-align:center;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for sess in sd.sessions %}
+        {% set bar_color = '#68d391' if sess.pct >= 75 else ('#f6ad55' if sess.pct >= 60 else '#fc8181') %}
+        <tr>
+          <td style="color:var(--text-muted);width:40px;">{{ loop.index }}</td>
+          <td>
+            <div style="font-weight:600;">{{ sess.date.strftime('%d %b %Y') }}</div>
+            <div style="font-size:11px;color:var(--text-muted);">{{ sess.date.strftime('%A') }}</div>
+          </td>
+          <td style="text-align:center;font-weight:700;">{{ sess.total }}</td>
+          <td style="text-align:center;">
+            <span style="font-weight:700;color:#68d391;">{{ sess.present }}</span>
+          </td>
+          <td style="text-align:center;">
+            <span style="font-weight:700;color:#fc8181;">{{ sess.absent }}</span>
+          </td>
+          <td style="min-width:130px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="mini-bar" style="flex:1;">
+                <div class="mini-bar-fill" style="width:{{ sess.pct }}%;background:{{ bar_color }};"></div>
+              </div>
+              <span style="font-size:12px;font-weight:700;color:{{ bar_color }};min-width:36px;">
+                {{ sess.pct }}%
+              </span>
+            </div>
+          </td>
+          <td style="text-align:center;">
+            <a href="{{ url_for('attendance.mark', subject_id=sub.id, date=sess.date.strftime('%Y-%m-%d')) }}"
+               class="btn-erp btn-secondary-erp"
+               style="padding:4px 10px;font-size:11px;gap:4px;"
+               title="Edit attendance for {{ sess.date.strftime('%d %b %Y') }}">
+              <i class="fa-solid fa-pen"></i> Edit
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="no-sessions">
+      <i class="fa-solid fa-calendar-xmark" style="font-size:28px;margin-bottom:8px;opacity:.4;display:block;"></i>
+      No sessions recorded yet for <strong>{{ sub.name }}</strong>.
+      <br>
+      <a href="{{ url_for('attendance.mark', subject_id=sub.id) }}" style="color:var(--accent-blue);font-weight:600;">
+        Mark first session →
+      </a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Expand/collapse subject cards
+function toggleCard(subId) {
+  const body    = document.getElementById('sessionBody' + subId);
+  const chevron = document.getElementById('chevron' + subId);
+  const isOpen  = !body.classList.contains('collapsed');
+
+  if (isOpen) {
+    body.classList.add('collapsed');
+    chevron.classList.remove('open');
+  } else {
+    body.classList.remove('collapsed');
+    chevron.classList.add('open');
+  }
+}
+
+// Auto-expand cards with few sessions (≤10) on page load
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.session-body').forEach(body => {
+    const rows = body.querySelectorAll('tbody tr').length;
+    const chevron = document.getElementById('chevron' + body.id.replace('sessionBody', ''));
+    if (!body.classList.contains('collapsed')) {
+      // already expanded (≤10 sessions threshold set in template)
+      if (chevron) chevron.classList.add('open');
+    }
+  });
+});
+</script>
+{% endblock %}

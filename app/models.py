@@ -28,10 +28,23 @@ class ApprovalStatus:
     REJECTED = 'rejected'
 
 class ExamType:
-    INTERNAL  = 'internal'
-    PRACTICAL = 'practical'
-    EXTERNAL  = 'external'
-    MIDTERM   = 'midterm'
+    CT1  = 'class_test_1'
+    OBT1 = 'open_book_test_1'
+    CT2  = 'class_test_2'
+    OBT2 = 'open_book_test_2'
+    MSE  = 'mid_sem_exam'
+    OBT3 = 'open_book_test_3'
+
+    ALL = [CT1, OBT1, CT2, OBT2, MSE, OBT3]
+
+    LABELS = {
+        CT1:  'CT-1 (Class Test 1)',
+        OBT1: 'OBT-1 (Open Book Test 1)',
+        CT2:  'CT-2 (Class Test 2)',
+        OBT2: 'OBT-2 (Open Book Test 2)',
+        MSE:  'MSE (Mid Sem Exam)',
+        OBT3: 'OBT-3 (Open Book Test 3)',
+    }
 
 class GrievanceType:
     MARKS      = 'marks'
@@ -71,10 +84,10 @@ class User(UserMixin, db.Model):
     __tablename__ = 'users'
     id            = db.Column(db.Integer, primary_key=True)
     name          = db.Column(db.String(120), nullable=False)
-    email         = db.Column(db.String(150), unique=True, nullable=False)
+    email         = db.Column(db.String(150), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(256), nullable=False)
-    role          = db.Column(db.String(30), nullable=False, default=Roles.STUDENT)
-    status        = db.Column(db.String(20), default=Status.PENDING)
+    role          = db.Column(db.String(30), nullable=False, default=Roles.STUDENT, index=True)
+    status        = db.Column(db.String(20), default=Status.PENDING, index=True)
     phone         = db.Column(db.String(15))
     profile_pic   = db.Column(db.String(200), default='default.png')
     created_at    = db.Column(db.DateTime, default=datetime.utcnow)
@@ -142,13 +155,13 @@ class Class(db.Model):
 class Student(db.Model):
     __tablename__ = 'students'
     id              = db.Column(db.Integer, primary_key=True)
-    user_id         = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    class_id        = db.Column(db.Integer, db.ForeignKey('classes.id'))
-    roll_no         = db.Column(db.String(20))
-    prn             = db.Column(db.String(30), unique=True)
-    approval_status = db.Column(db.String(20), default=ApprovalStatus.PENDING)
+    user_id         = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    class_id        = db.Column(db.Integer, db.ForeignKey('classes.id'), index=True)
+    roll_no         = db.Column(db.String(20), index=True)
+    prn             = db.Column(db.String(30), unique=True, index=True)
+    approval_status = db.Column(db.String(20), default=ApprovalStatus.PENDING, index=True)
     approved_by     = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    tg_id           = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True) # Teacher Guardian
+    tg_id           = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True) # Teacher Guardian
     created_at      = db.Column(db.DateTime, default=datetime.utcnow)
 
     tg = db.relationship('User', foreign_keys=[tg_id])
@@ -194,9 +207,9 @@ class Student(db.Model):
 class Teacher(db.Model):
     __tablename__ = 'teachers'
     id            = db.Column(db.Integer, primary_key=True)
-    user_id       = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id       = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     teacher_type  = db.Column(db.String(30))   # subject / lab / TG
-    department_id = db.Column(db.Integer, db.ForeignKey('departments.id'))
+    department_id = db.Column(db.Integer, db.ForeignKey('departments.id'), index=True)
     designation   = db.Column(db.String(100))
     created_at    = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -209,8 +222,8 @@ class Subject(db.Model):
     id         = db.Column(db.Integer, primary_key=True)
     name       = db.Column(db.String(120), nullable=False)
     code       = db.Column(db.String(20))
-    class_id   = db.Column(db.Integer, db.ForeignKey('classes.id'))
-    teacher_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    class_id   = db.Column(db.Integer, db.ForeignKey('classes.id'), index=True)
+    teacher_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
     credits    = db.Column(db.Integer, default=3)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -236,7 +249,16 @@ class Attendance(db.Model):
     marked_by  = db.Column(db.Integer, db.ForeignKey('users.id'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    __table_args__ = (db.UniqueConstraint('student_id', 'subject_id', 'date'),)
+    # Unique constraint + targeted indexes for the most common query patterns:
+    # 1. student_id + date   → "all attendance for student on date X"
+    # 2. subject_id + date   → "mark attendance for subject on date X"
+    # 3. subject_id + status → "count presents/absences per subject"
+    __table_args__ = (
+        db.UniqueConstraint('student_id', 'subject_id', 'date'),
+        db.Index('ix_att_student_date',  'student_id', 'date'),
+        db.Index('ix_att_subject_date',  'subject_id', 'date'),
+        db.Index('ix_att_subject_status','subject_id', 'status'),
+    )
     marker = db.relationship('User', foreign_keys=[marked_by])
 
 
@@ -261,7 +283,7 @@ class Marks(db.Model):
     subject_id  = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
     marks       = db.Column(db.Float, nullable=False)
     max_marks   = db.Column(db.Float, default=100)
-    exam_type   = db.Column(db.String(30), default=ExamType.INTERNAL)
+    exam_type   = db.Column(db.String(30), default=ExamType.CT1)
     uploaded_by = db.Column(db.Integer, db.ForeignKey('users.id'))
     created_at  = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at  = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -392,9 +414,11 @@ class Timetable(db.Model):
     id         = db.Column(db.Integer, primary_key=True)
     class_id   = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False)
     subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
-    day        = db.Column(db.String(10), nullable=False)  # Monday-Saturday
-    start_time = db.Column(db.String(10), nullable=False)  # HH:MM
+    day        = db.Column(db.String(10), nullable=False)   # Monday–Saturday
+    start_time = db.Column(db.String(10), nullable=False)   # HH:MM
     end_time   = db.Column(db.String(10), nullable=False)
+    entry_type = db.Column(db.String(20), default='theory') # theory | practical
+    batch      = db.Column(db.String(10), nullable=True)    # S1 | S2 | S3 | None
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SYSTEM MODELS
@@ -402,12 +426,12 @@ class Timetable(db.Model):
 class Notification(db.Model):
     __tablename__ = 'notifications'
     id         = db.Column(db.Integer, primary_key=True)
-    user_id    = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id    = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     message    = db.Column(db.String(500), nullable=False)
     type       = db.Column(db.String(30), default='info')   # info/warning/success/danger
     link       = db.Column(db.String(200))
-    is_read    = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_read    = db.Column(db.Boolean, default=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
 
 class Message(db.Model):

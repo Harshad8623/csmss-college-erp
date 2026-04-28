@@ -209,3 +209,104 @@ def chart_data(student_id):
         labels.append(sub.name)
         data.append(pct)
     return jsonify({'labels': labels, 'data': data})
+
+
+# ── Class Teacher: Full Date-wise Attendance View ────────────────────────────
+@attendance_bp.route('/ct-view')
+@login_required
+@role_required(Roles.CLASS_TEACHER, Roles.HOD, Roles.SUPER_ADMIN)
+def ct_view():
+    """Date-wise attendance view across all subjects for the class teacher's class."""
+    from app.utils.helpers import get_class_for_ct, get_dept_for_hod
+
+    # Resolve which class to show
+    if current_user.role == Roles.CLASS_TEACHER:
+        cls = get_class_for_ct(current_user.id)
+        if not cls:
+            flash('You are not assigned as a Class Teacher for any class.', 'warning')
+            return redirect(url_for('attendance.index'))
+    elif current_user.role == Roles.HOD:
+        # HOD picks via query param, defaults to first class in dept
+        dept_id = get_dept_for_hod(current_user.id)
+        class_id_param = request.args.get('class_id', type=int)
+        if class_id_param:
+            cls = Class.query.get_or_404(class_id_param)
+            if cls.department_id != dept_id:
+                abort(403)
+        else:
+            cls = Class.query.filter_by(department_id=dept_id).first()
+            if not cls:
+                flash('No classes found in your department.', 'warning')
+                return redirect(url_for('attendance.index'))
+    else:  # SUPER_ADMIN
+        class_id_param = request.args.get('class_id', type=int)
+        if class_id_param:
+            cls = Class.query.get_or_404(class_id_param)
+        else:
+            cls = Class.query.first()
+            if not cls:
+                flash('No classes found.', 'warning')
+                return redirect(url_for('attendance.index'))
+
+    subjects = Subject.query.filter_by(class_id=cls.id).order_by(Subject.name).all()
+    students_count = Student.query.filter_by(
+        class_id=cls.id, approval_status=ApprovalStatus.APPROVED
+    ).count()
+
+    # Build per-subject date-wise session data
+    subject_data = []
+    for sub in subjects:
+        # All distinct dates this subject has attendance records
+        sessions_raw = db.session.query(
+            Attendance.date,
+            db.func.count(Attendance.id).label('total'),
+            db.func.sum(db.case((Attendance.status == True, 1), else_=0)).label('present')
+        ).filter(
+            Attendance.subject_id == sub.id
+        ).group_by(Attendance.date).order_by(Attendance.date.desc()).all()
+
+        sessions = []
+        for row in sessions_raw:
+            absent = row.total - (row.present or 0)
+            pct = round(((row.present or 0) / row.total) * 100) if row.total else 0
+            sessions.append({
+                'date': row.date,
+                'total': row.total,
+                'present': row.present or 0,
+                'absent': absent,
+                'pct': pct,
+            })
+
+        # Overall stats for this subject
+        total_lectures = len(sessions)
+        if sessions:
+            all_total   = sum(s['total'] for s in sessions)
+            all_present = sum(s['present'] for s in sessions)
+            avg_pct = round((all_present / all_total) * 100) if all_total else 0
+        else:
+            avg_pct = 0
+
+        subject_data.append({
+            'subject': sub,
+            'sessions': sessions,
+            'total_lectures': total_lectures,
+            'avg_pct': avg_pct,
+            'teacher': User.query.get(sub.teacher_id) if sub.teacher_id else None,
+        })
+
+    # All classes (for HOD/SUPER_ADMIN switcher)
+    if current_user.role == Roles.HOD:
+        dept_id = get_dept_for_hod(current_user.id)
+        all_classes = Class.query.filter_by(department_id=dept_id).all()
+    elif current_user.role == Roles.SUPER_ADMIN:
+        all_classes = Class.query.all()
+    else:
+        all_classes = [cls]
+
+    return render_template('attendance/ct_attendance.html',
+        cls=cls,
+        subject_data=subject_data,
+        students_count=students_count,
+        all_classes=all_classes,
+    )
+

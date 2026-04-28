@@ -36,15 +36,5 @@ def seed():
         db.session.add(principal)
         db.session.commit()
 
-        print("\n" + "=" * 55)
-        print("✅  DATABASE SEEDED SUCCESSFULLY!")
-        print("=" * 55)
-        print("\n👑 PRINCIPAL LOGIN:")
-        print(f"   Email    : principal@csmss.edu")
-        print(f"   Password : admin123")
-        print("\n📌 All other users (HOD, Teachers, Students) must be")
-        print("   added by the Principal via the Admin Panel.")
-        print("\n🌐 Run: python run.py  →  http://localhost:5001\n")
-
 if __name__ == '__main__':
     seed()

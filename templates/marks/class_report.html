@@ -4,12 +4,13 @@
 <div class="page-header" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;">
   <div>
     <h1 class="page-title"><div class="title-icon">📊</div> Marks Report</h1>
-    <p class="page-subtitle">{{ class_.name }} — {{ exam_type.title() }} Examination</p>
+    <p class="page-subtitle">{{ class_.name }} — {{ exam_labels[exam_type] }}</p>
   </div>
-  <div class="page-actions">
+  <div class="page-actions" style="display:flex;flex-wrap:wrap;gap:6px;">
     {% for et in exam_types %}
     <a href="{{ url_for('marks.class_report', class_id=class_.id, exam_type=et) }}"
-      class="btn-erp {{ 'btn-primary-erp' if et==exam_type else 'btn-outline-erp' }}">{{ et.title() }}</a>
+      class="btn-erp {{ 'btn-primary-erp' if et==exam_type else 'btn-outline-erp' }}"
+      style="font-size:12px;padding:6px 12px;">{{ exam_labels[et] }}</a>
     {% endfor %}
   </div>
 </div>

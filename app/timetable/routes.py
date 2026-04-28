@@ -51,8 +51,14 @@ def manage():
         subject_id = request.form.get('subject_id')
         start_time = request.form.get('start_time')
         end_time   = request.form.get('end_time')
+        entry_type = request.form.get('entry_type', 'theory')
+        batch      = request.form.get('batch', '').strip() or None
+        # Only store batch for practical entries
+        if entry_type != 'practical':
+            batch = None
         entry = Timetable(class_id=class_id, subject_id=subject_id,
-                          day=day, start_time=start_time, end_time=end_time)
+                          day=day, start_time=start_time, end_time=end_time,
+                          entry_type=entry_type, batch=batch)
         db.session.add(entry)
         db.session.commit()
         flash('Timetable entry added!', 'success')
@@ -72,6 +78,9 @@ def edit(id):
     entry.subject_id = request.form.get('subject_id', entry.subject_id)
     entry.start_time = request.form.get('start_time', entry.start_time)
     entry.end_time   = request.form.get('end_time', entry.end_time)
+    entry.entry_type = request.form.get('entry_type', entry.entry_type or 'theory')
+    batch = request.form.get('batch', '').strip() or None
+    entry.batch = batch if entry.entry_type == 'practical' else None
     db.session.commit()
     flash('Timetable entry updated!', 'success')
     return redirect(url_for('timetable.manage', class_id=class_id))

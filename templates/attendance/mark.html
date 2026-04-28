@@ -81,7 +81,13 @@
             <td style="color:var(--text-muted);">{{ loop.index }}</td>
             <td>
               <div style="display:flex;align-items:center;gap:10px;">
+                {% if student.user.profile_pic and student.user.profile_pic != 'default.png' %}
+                <img src="{{ url_for('static', filename='uploads/profiles/' + student.user.profile_pic) }}"
+                     alt="{{ student.user.name }}"
+                     style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid var(--border-color);">
+                {% else %}
                 <div class="user-avatar" style="width:32px;height:32px;font-size:13px;">{{ student.user.name[0] }}</div>
+                {% endif %}
                 <span style="font-weight:600;">{{ student.user.name }}</span>
               </div>
             </td>

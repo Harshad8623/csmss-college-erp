@@ -4,7 +4,7 @@ from app.models import (
     Student, Teacher, Department, Class, Subject,
     Attendance, Marks, Grievance, User, Roles, ApprovalStatus, AbsenteeReason
 )
-from app.extensions import db
+from app.extensions import db, cache
 from sqlalchemy import func
 from datetime import date, timedelta, datetime
 from app.utils.helpers import get_dept_for_hod, get_class_for_ct, get_tg_student_ids
@@ -98,6 +98,7 @@ def index():
 # ═══════════════════════════════════════════════════════════════════════════
 @analytics_bp.route('/api/principal/summary')
 @login_required
+@cache.cached(timeout=120, key_prefix='principal_summary')
 def principal_summary():
     total_students = Student.query.filter_by(approval_status=ApprovalStatus.APPROVED).count()
     total_teachers = Teacher.query.count()
@@ -110,6 +111,7 @@ def principal_summary():
 
 @analytics_bp.route('/api/principal/dept-today')
 @login_required
+@cache.cached(timeout=120, key_prefix='principal_dept_today')
 def principal_dept_today():
     depts = Department.query.all()
     labels, present_d, absent_d, total_d = [], [], [], []
@@ -123,6 +125,7 @@ def principal_dept_today():
 
 @analytics_bp.route('/api/principal/weekwise')
 @login_required
+@cache.cached(timeout=300, key_prefix='principal_weekwise')
 def principal_weekwise():
     all_ids = [s.id for s in Student.query.filter_by(approval_status=ApprovalStatus.APPROVED).all()]
     labels, p, a = _week_trend(all_ids, 7)
@@ -130,6 +133,7 @@ def principal_weekwise():
 
 @analytics_bp.route('/api/principal/dept-overall')
 @login_required
+@cache.cached(timeout=300, key_prefix='principal_dept_overall')
 def principal_dept_overall():
     depts = Department.query.all()
     labels, data = [], []
@@ -142,6 +146,7 @@ def principal_dept_overall():
 
 @analytics_bp.route('/api/principal/classwise')
 @login_required
+@cache.cached(timeout=300, key_prefix='principal_classwise')
 def principal_classwise():
     classes = Class.query.all()
     labels, data = [], []
@@ -153,6 +158,7 @@ def principal_classwise():
 
 @analytics_bp.route('/api/principal/defaulters-dept')
 @login_required
+@cache.cached(timeout=300, key_prefix='principal_defaulters_dept')
 def principal_defaulters_dept():
     depts = Department.query.all()
     labels, safe_d, risk_d = [], [], []

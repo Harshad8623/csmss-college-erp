@@ -55,7 +55,7 @@ def upload():
 
     selected_subject = None
     students = []
-    exam_type = request.args.get('exam_type', ExamType.INTERNAL)
+    exam_type = request.args.get('exam_type', ExamType.CT1)
     subject_id = request.args.get('subject_id') or request.form.get('subject_id')
 
     if subject_id:
@@ -63,7 +63,7 @@ def upload():
         # Scope check — block access to out-of-scope subjects
         if selected_subject and selected_subject not in subjects:
             abort(403)
-        exam_type = request.args.get('exam_type', ExamType.INTERNAL) or request.form.get('exam_type', ExamType.INTERNAL)
+        exam_type = request.args.get('exam_type', ExamType.CT1) or request.form.get('exam_type', ExamType.CT1)
         if selected_subject:
             students = Student.query.filter_by(
                 class_id=selected_subject.class_id,
@@ -71,7 +71,7 @@ def upload():
             ).all()
 
     if request.method == 'POST' and selected_subject:
-        exam_type = request.form.get('exam_type', ExamType.INTERNAL)
+        exam_type = request.form.get('exam_type', ExamType.CT1)
         max_marks = float(request.form.get('max_marks', 100))
         count = 0
         for student in students:
@@ -117,9 +117,10 @@ def upload():
     return render_template('marks/upload.html',
         subjects=subjects, selected_subject=selected_subject,
         students=students, exam_type=exam_type,
-        existing_marks=existing_marks, exam_types=[
-            ExamType.INTERNAL, ExamType.PRACTICAL, ExamType.EXTERNAL, ExamType.MIDTERM
-        ])
+        existing_marks=existing_marks,
+        exam_types=ExamType.ALL,
+        exam_labels=ExamType.LABELS,
+    )
 
 @marks_bp.route('/report/<int:class_id>')
 @login_required
@@ -137,7 +138,7 @@ def class_report(class_id):
             abort(403)
     students = Student.query.filter_by(class_id=class_id, approval_status=ApprovalStatus.APPROVED).all()
     subjects = Subject.query.filter_by(class_id=class_id).all()
-    exam_type = request.args.get('exam_type', ExamType.INTERNAL)
+    exam_type = request.args.get('exam_type', ExamType.CT1)
 
     report = []
     for student in students:
@@ -160,21 +161,22 @@ def class_report(class_id):
 
     return render_template('marks/class_report.html',
         class_=class_, subjects=subjects, report=report, exam_type=exam_type,
-        exam_types=[ExamType.INTERNAL, ExamType.PRACTICAL, ExamType.EXTERNAL, ExamType.MIDTERM])
+        exam_types=ExamType.ALL,
+        exam_labels=ExamType.LABELS,
+    )
 
 @marks_bp.route('/api/performance/<int:student_id>')
 @login_required
 def performance_data(student_id):
     student = Student.query.get_or_404(student_id)
     subjects = Subject.query.filter_by(class_id=student.class_id).all()
-    labels = []
-    internal_data, practical_data = [], []
-    for sub in subjects:
-        labels.append(sub.name)
-        m_int = Marks.query.filter_by(student_id=student_id, subject_id=sub.id,
-                                       exam_type=ExamType.INTERNAL).first()
-        m_prc = Marks.query.filter_by(student_id=student_id, subject_id=sub.id,
-                                       exam_type=ExamType.PRACTICAL).first()
-        internal_data.append(m_int.percentage if m_int else 0)
-        practical_data.append(m_prc.percentage if m_prc else 0)
-    return jsonify({'labels': labels, 'internal': internal_data, 'practical': practical_data})
+    labels = [s.name for s in subjects]
+    datasets = {}
+    for et in ExamType.ALL:
+        datasets[et] = []
+        for sub in subjects:
+            m = Marks.query.filter_by(
+                student_id=student_id, subject_id=sub.id, exam_type=et
+            ).first()
+            datasets[et].append(m.percentage if m else 0)
+    return jsonify({'labels': labels, 'datasets': datasets, 'exam_labels': ExamType.LABELS})

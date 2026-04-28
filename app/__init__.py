@@ -1,6 +1,6 @@
 from flask import Flask
 from config import Config
-from app.extensions import db, login_manager, bcrypt, migrate
+from app.extensions import db, login_manager, bcrypt, migrate, cache, limiter
 import os
 
 def create_app(config_class=Config):
@@ -12,6 +12,8 @@ def create_app(config_class=Config):
     login_manager.init_app(app)
     bcrypt.init_app(app)
     migrate.init_app(app, db)
+    cache.init_app(app)
+    limiter.init_app(app)
 
     # ── Enable WAL mode for SQLite (prevents "database is locked") ───────────
     if 'sqlite' in app.config.get('SQLALCHEMY_DATABASE_URI', ''):
@@ -67,7 +69,13 @@ def create_app(config_class=Config):
         unread = 0
         if current_user.is_authenticated:
             from app.models import Notification
-            unread = Notification.query.filter_by(user_id=current_user.id, is_read=False).count()
+            # Use a single COUNT query (no ORM object hydration) for scale
+            unread = db.session.query(
+                db.func.count(Notification.id)
+            ).filter(
+                Notification.user_id == current_user.id,
+                Notification.is_read == False
+            ).scalar() or 0
         return dict(
             college_name=app.config['COLLEGE_NAME'],
             college_short=app.config['COLLEGE_SHORT'],

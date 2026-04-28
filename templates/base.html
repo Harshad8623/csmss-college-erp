@@ -115,6 +115,12 @@
       <i class="fa-solid fa-clipboard-check nav-icon"></i>
       <span class="nav-label">Mark Attendance</span>
     </a>
+    {% if current_user.role in ['CLASS_TEACHER','HOD','SUPER_ADMIN'] %}
+    <a href="{{ url_for('attendance.ct_view') }}" class="nav-item">
+      <i class="fa-solid fa-calendar-days nav-icon"></i>
+      <span class="nav-label">Attendance Registry</span>
+    </a>
+    {% endif %}
     <a href="{{ url_for('marks.upload') }}" class="nav-item">
       <i class="fa-solid fa-chart-simple nav-icon"></i>
       <span class="nav-label">Upload Marks</span>

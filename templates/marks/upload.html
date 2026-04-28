@@ -25,7 +25,7 @@
         <label class="form-label-erp">Exam Type *</label>
         <select name="exam_type" class="form-control-erp">
           {% for et in exam_types %}
-          <option value="{{ et }}" {{ 'selected' if et == exam_type }}>{{ et.title() }}</option>
+          <option value="{{ et }}" {{ 'selected' if et == exam_type }}>{{ exam_labels[et] }}</option>
           {% endfor %}
         </select>
       </div>
@@ -45,7 +45,7 @@
     <div class="card-header-erp">
       <h5>
         <i class="fa-solid fa-star" style="color:var(--accent-yellow);"></i>
-        {{ selected_subject.name }} — {{ exam_type.title() }} Marks
+        {{ selected_subject.name }} — {{ exam_labels[exam_type] }} Marks
       </h5>
       <div style="display:flex;align-items:center;gap:10px;">
         <label class="form-label-erp" style="margin:0;">Max Marks:</label>

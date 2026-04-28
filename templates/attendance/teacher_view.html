@@ -6,6 +6,11 @@
     <h1 class="page-title"><div class="title-icon">📋</div> Attendance Overview</h1>
     <p class="page-subtitle">Recent attendance sessions – click Edit to modify</p>
   </div>
+  {% if current_user.role in ['CLASS_TEACHER','HOD','SUPER_ADMIN'] %}
+  <a href="{{ url_for('attendance.ct_view') }}" class="btn-erp btn-primary-erp">
+    <i class="fa-solid fa-calendar-days"></i> Full Date-wise Registry
+  </a>
+  {% endif %}
 </div>
 
 {% if recent_sessions %}
