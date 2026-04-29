@@ -121,6 +121,10 @@
       <span class="nav-label">Attendance Registry</span>
     </a>
     {% endif %}
+    <a href="{{ url_for('sessions.index') }}" class="nav-item">
+      <i class="fa-solid fa-flask nav-icon"></i>
+      <span class="nav-label">Practicals & Events</span>
+    </a>
     <a href="{{ url_for('marks.upload') }}" class="nav-item">
       <i class="fa-solid fa-chart-simple nav-icon"></i>
       <span class="nav-label">Upload Marks</span>
@@ -141,6 +145,10 @@
     <a href="{{ url_for('attendance.index') }}" class="nav-item">
       <i class="fa-solid fa-clipboard-list nav-icon"></i>
       <span class="nav-label">My Attendance</span>
+    </a>
+    <a href="{{ url_for('sessions.student_view') }}" class="nav-item">
+      <i class="fa-solid fa-flask nav-icon"></i>
+      <span class="nav-label">Practicals & Events</span>
     </a>
     <a href="{{ url_for('marks.index') }}" class="nav-item">
       <i class="fa-solid fa-star nav-icon"></i>
@@ -287,6 +295,10 @@
     <a href="{{ url_for('attendance.mark') }}" class="mob-nav-item" id="mobnav-mark">
       <i class="fa-solid fa-clipboard-check"></i>
       <span>Attendance</span>
+    </a>
+    <a href="{{ url_for('sessions.index') }}" class="mob-nav-item" id="mobnav-sessions">
+      <i class="fa-solid fa-flask"></i>
+      <span>Sessions</span>
     </a>
     <a href="{{ url_for('marks.upload') }}" class="mob-nav-item" id="mobnav-marks">
       <i class="fa-solid fa-chart-simple"></i>
