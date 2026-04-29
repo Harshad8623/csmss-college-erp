@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Edit Event — {{ ev.name }}{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;align-items:center;">
+  <div>
+    <h1 class="page-title"><div class="title-icon">✏️</div> Edit Event Attendance</h1>
+    <p class="page-subtitle">{{ ev.class_.name if ev.class_ else '' }} · Originally on {{ ev.date.strftime('%d %B %Y') }}</p>
+  </div>
+  <a href="{{ url_for('sessions.event_detail', session_id=ev.id) }}" class="btn-erp btn-outline-erp">← Cancel</a>
+</div>
+
+<div style="max-width:860px;">
+<div class="card-erp">
+  <div class="card-header-erp"><h5>🎓 Event Details</h5></div>
+  <div class="card-body-erp">
+    <form method="POST" action="{{ url_for('sessions.edit_event', session_id=ev.id) }}">
+
+      <div class="grid-2col">
+        <div class="form-group-erp">
+          <label class="form-label-erp">Event Name *</label>
+          <input type="text" name="name" class="form-control-erp" required value="{{ ev.name }}">
+        </div>
+        <div class="form-group-erp">
+          <label class="form-label-erp">Event Type</label>
+          <select name="event_type" class="form-control-erp">
+            {% for val, label in event_types.items() %}
+            <option value="{{ val }}" {{ 'selected' if ev.event_type == val }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group-erp">
+          <label class="form-label-erp">Date</label>
+          <input type="date" name="date" class="form-control-erp"
+            value="{{ ev.date.isoformat() }}">
+        </div>
+        <div class="form-group-erp">
+          <label class="form-label-erp">Class</label>
+          <input type="text" class="form-control-erp"
+            value="{{ ev.class_.name if ev.class_ else '—' }}" disabled
+            style="opacity:0.6;cursor:not-allowed;">
+        </div>
+      </div>
+
+      <div class="form-group-erp">
+        <label class="form-label-erp">Description / Remarks</label>
+        <textarea name="description" class="form-control-erp" rows="2">{{ ev.description or '' }}</textarea>
+      </div>
+
+      {# ── Attendance checklist ── #}
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+        <div class="form-label-erp" style="margin:0;">
+          Mark Attendance
+          <span style="font-size:12px;color:var(--text-muted);font-weight:400;margin-left:6px;">
+            ({{ students|length }} students)
+          </span>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button type="button" onclick="selectAll(true)"  class="btn-erp btn-success-erp btn-sm-erp">✅ All Present</button>
+          <button type="button" onclick="selectAll(false)" class="btn-erp btn-danger-erp btn-sm-erp">❌ All Absent</button>
+        </div>
+      </div>
+
+      <div class="table-wrap-scroll" style="margin-bottom:20px;">
+      <table class="table-erp" id="ev-table">
+        <thead><tr>
+          <th>#</th><th>Roll No.</th><th>Student</th><th>Batch</th><th style="text-align:center;">Present</th>
+        </tr></thead>
+        <tbody>
+          {% for stu in students %}
+          {% set is_present = existing.get(stu.id, False) %}
+          <tr id="ev-row-{{ stu.id }}" style="{{ 'background:rgba(16,185,129,0.06);' if is_present else '' }}">
+            <td style="color:var(--text-muted);">{{ loop.index }}</td>
+            <td style="font-weight:600;">{{ stu.roll_no or '—' }}</td>
+            <td>{{ stu.user.name }}</td>
+            <td>
+              {% if stu.batch %}
+              <span class="badge-erp badge-purple" style="font-size:11px;">{{ stu.batch }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td style="text-align:center;">
+              <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+                <input type="checkbox" name="present" value="{{ stu.id }}"
+                  class="ev-check" data-sid="{{ stu.id }}"
+                  {{ 'checked' if is_present }}
+                  onchange="updateRow({{ stu.id }}, this.checked)"
+                  style="width:18px;height:18px;accent-color:var(--accent-green);cursor:pointer;">
+                <span class="ev-label" style="font-size:12px;font-weight:600;
+                  color:{{ 'var(--accent-green)' if is_present else 'var(--accent-red)' }};">
+                  {{ 'P' if is_present else 'A' }}
+                </span>
+              </label>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5">
+            <div class="empty-state"><p>No students found in this class.</p></div>
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;" id="count-display"></div>
+
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <button type="submit" class="btn-erp btn-primary-erp" data-loading-text="Saving…">
+          <i class="fa-solid fa-save"></i> Save Changes
+        </button>
+        <a href="{{ url_for('sessions.event_detail', session_id=ev.id) }}" class="btn-erp btn-outline-erp">Cancel</a>
+      </div>
+
+    </form>
+  </div>
+</div>
+</div>
+
+<script>
+function updateRow(id, present) {
+  const row = document.getElementById('ev-row-' + id);
+  const label = row.querySelector('.ev-label');
+  row.style.background = present ? 'rgba(16,185,129,0.06)' : '';
+  label.textContent = present ? 'P' : 'A';
+  label.style.color = present ? 'var(--accent-green)' : 'var(--accent-red)';
+  updateCount();
+}
+
+function selectAll(present) {
+  document.querySelectorAll('.ev-check').forEach(cb => {
+    cb.checked = present;
+    updateRow(cb.dataset.sid, present);
+  });
+}
+
+function updateCount() {
+  const total = document.querySelectorAll('.ev-check').length;
+  const present = document.querySelectorAll('.ev-check:checked').length;
+  const el = document.getElementById('count-display');
+  if (el) el.textContent = `${present} Present · ${total - present} Absent`;
+}
+
+// Initialize count on load
+updateCount();
+</script>
+{% endblock %}

@@ -6,7 +6,15 @@
     <h1 class="page-title"><div class="title-icon">🎓</div> {{ ev.name }}</h1>
     <p class="page-subtitle">{{ ev.event_type.replace('_',' ').title() }} · {{ ev.date.strftime('%d %B %Y') }} · {{ ev.class_.name if ev.class_ else '' }}</p>
   </div>
-  <a href="{{ url_for('sessions.index') }}" class="btn-erp btn-outline-erp btn-sm-erp">← Back</a>
+  <div style="display:flex;gap:8px;">
+    {% if current_user.role in ['SUPER_ADMIN','HOD','CLASS_TEACHER'] %}
+    <a href="{{ url_for('sessions.edit_event', session_id=ev.id) }}"
+       class="btn-erp btn-primary-erp btn-sm-erp">
+      <i class="fa-solid fa-pen-to-square"></i> Edit Attendance
+    </a>
+    {% endif %}
+    <a href="{{ url_for('sessions.index') }}" class="btn-erp btn-outline-erp btn-sm-erp">← Back</a>
+  </div>
 </div>
 
 <div class="stats-grid" style="margin-bottom:20px;">

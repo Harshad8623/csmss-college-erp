@@ -268,6 +268,63 @@ def event_detail(session_id):
                            present=present, absent=len(records) - present)
 
 
+@sessions_bp.route('/event/<int:session_id>/edit', methods=['GET', 'POST'])
+@login_required
+@role_required(Roles.CLASS_TEACHER, Roles.HOD, Roles.SUPER_ADMIN)
+def edit_event(session_id):
+    ev = EventSession.query.get_or_404(session_id)
+
+    # Scope check
+    classes = _scoped_classes()
+    class_ids = [c.id for c in classes]
+    if ev.class_id not in class_ids:
+        abort(403)
+
+    if request.method == 'POST':
+        # Update event metadata
+        ev.name        = request.form.get('name', ev.name).strip() or ev.name
+        ev.event_type  = request.form.get('event_type', ev.event_type)
+        ev.description = request.form.get('description', '').strip()
+        new_date       = request.form.get('date', '')
+        if new_date:
+            ev.date = date.fromisoformat(new_date)
+
+        present_ids = [int(x) for x in request.form.getlist('present')]
+
+        # Upsert attendance records for all class students
+        students = Student.query.filter_by(
+            class_id=ev.class_id, approval_status=ApprovalStatus.APPROVED
+        ).all()
+        for stu in students:
+            rec = EventRecord.query.filter_by(
+                session_id=ev.id, student_id=stu.id
+            ).first()
+            is_present = stu.id in present_ids
+            if rec:
+                rec.status = is_present
+            else:
+                db.session.add(EventRecord(
+                    session_id=ev.id,
+                    student_id=stu.id,
+                    status=is_present
+                ))
+
+        db.session.commit()
+        flash(f'Event "{ev.name}" attendance updated.', 'success')
+        return redirect(url_for('sessions.event_detail', session_id=ev.id))
+
+    # GET — load students with existing status
+    students = Student.query.filter_by(
+        class_id=ev.class_id, approval_status=ApprovalStatus.APPROVED
+    ).order_by(Student.roll_no).all()
+    existing = {r.student_id: r.status for r in ev.records.all()}
+
+    return render_template('sessions/edit_event.html',
+                           ev=ev, students=students,
+                           existing=existing,
+                           event_types=EventType.LABELS)
+
+
 # ════════════════════════════════════════════════════════════════════════════
 # STUDENT VIEW
 # ════════════════════════════════════════════════════════════════════════════
