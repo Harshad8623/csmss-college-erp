@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}Mark Practical Attendance{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;align-items:center;">
+  <div>
+    <h1 class="page-title"><div class="title-icon">🔬</div> Mark Practical Attendance</h1>
+    <p class="page-subtitle">Batch-wise lab session attendance — not counted in overall 75%</p>
+  </div>
+  <a href="{{ url_for('sessions.index') }}" class="btn-erp btn-outline-erp">← Sessions</a>
+</div>
+
+{# ── Filter Form ── #}
+<div class="card-erp" style="margin-bottom:20px;">
+  <div class="card-header-erp"><h5>Select Session Details</h5></div>
+  <div class="card-body-erp">
+    <form method="GET" action="{{ url_for('sessions.mark_practical') }}" data-no-loading>
+      <div class="grid-2col">
+        <div class="form-group-erp">
+          <label class="form-label-erp">Subject *</label>
+          <select name="subject_id" class="form-control-erp" required onchange="this.form.submit()">
+            <option value="">— Select Subject —</option>
+            {% for sub in subjects %}
+            <option value="{{ sub.id }}" {{ 'selected' if selected_subject and selected_subject.id == sub.id }}>
+              {{ sub.name }} ({{ sub.class_.name if sub.class_ else '' }})
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group-erp">
+          <label class="form-label-erp">Batch *</label>
+          <select name="batch" class="form-control-erp" onchange="this.form.submit()">
+            {% for b in batches %}
+            <option value="{{ b }}" {{ 'selected' if selected_batch == b }}>Batch {{ b }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group-erp">
+          <label class="form-label-erp">Date *</label>
+          <input type="date" name="date" class="form-control-erp"
+            value="{{ att_date }}" max="{{ today }}" onchange="this.form.submit()">
+        </div>
+        <div style="display:flex;align-items:flex-end;">
+          <button type="submit" class="btn-erp btn-primary-erp" style="width:100%;">
+            <i class="fa-solid fa-magnifying-glass"></i> Load Students
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if selected_subject and students %}
+{# ── Mark Attendance Form ── #}
+<div class="card-erp">
+  <div class="card-header-erp">
+    <div>
+      <h5>🔬 {{ selected_subject.name }} — Batch {{ selected_batch }}</h5>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">
+        {{ students|length }} students in this batch • {{ att_date }}
+        {% if existing_session %}<span class="badge-erp badge-warning" style="margin-left:8px;">⚠ Re-marking existing session</span>{% endif %}
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button type="button" onclick="selectAll(true)" class="btn-erp btn-success-erp btn-sm-erp">✅ All Present</button>
+      <button type="button" onclick="selectAll(false)" class="btn-erp btn-danger-erp btn-sm-erp">❌ All Absent</button>
+    </div>
+  </div>
+
+  <form method="POST" action="{{ url_for('sessions.mark_practical') }}">
+    <input type="hidden" name="subject_id" value="{{ selected_subject.id }}">
+    <input type="hidden" name="batch" value="{{ selected_batch }}">
+    <input type="hidden" name="date" value="{{ att_date }}">
+
+    <div class="card-body-erp" style="padding:16px 20px;border-bottom:1px solid var(--border-color);">
+      <div class="form-group-erp" style="margin-bottom:0;">
+        <label class="form-label-erp">Experiment / Practical Title</label>
+        <input type="text" name="title" class="form-control-erp"
+          placeholder="e.g. Experiment 3: RC Circuit Analysis"
+          value="{{ existing_session.title if existing_session else '' }}">
+      </div>
+    </div>
+
+    <div class="card-body-erp" style="padding:0;">
+      <div class="table-wrap-scroll">
+      <table class="table-erp" id="att-table">
+        <thead>
+          <tr>
+            <th style="width:50px;">#</th>
+            <th>Roll No.</th>
+            <th>Student Name</th>
+            <th>PRN</th>
+            <th style="text-align:center;">Present</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for stu in students %}
+          <tr id="row-{{ stu.id }}" class="{{ 'present-row' if existing.get(stu.id, False) else 'absent-row' }}"
+              style="transition:background 0.2s;">
+            <td style="color:var(--text-muted);">{{ loop.index }}</td>
+            <td style="font-weight:600;">{{ stu.roll_no or '—' }}</td>
+            <td>{{ stu.user.name }}</td>
+            <td style="font-size:12px;color:var(--text-muted);">{{ stu.prn or '—' }}</td>
+            <td style="text-align:center;">
+              <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+                <input type="checkbox" name="present" value="{{ stu.id }}"
+                  class="att-check"
+                  data-student="{{ stu.id }}"
+                  {{ 'checked' if existing.get(stu.id, False) }}
+                  onchange="updateRow({{ stu.id }}, this.checked)"
+                  style="width:18px;height:18px;accent-color:var(--accent-green);cursor:pointer;">
+                <span class="att-label" style="font-size:12px;font-weight:600;
+                  color:{{ 'var(--accent-green)' if existing.get(stu.id, False) else 'var(--accent-red)' }};">
+                  {{ 'P' if existing.get(stu.id, False) else 'A' }}
+                </span>
+              </label>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div>
+
+    <div class="card-body-erp" style="border-top:1px solid var(--border-color);display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+      <button type="submit" class="btn-erp btn-primary-erp" data-loading-text="Saving...">
+        <i class="fa-solid fa-save"></i> Save Practical Attendance
+      </button>
+      <a href="{{ url_for('sessions.index') }}" class="btn-erp btn-outline-erp">Cancel</a>
+      <span id="count-display" style="margin-left:auto;font-size:13px;color:var(--text-muted);"></span>
+    </div>
+  </form>
+</div>
+
+{% elif selected_subject and not students %}
+<div class="card-erp">
+  <div class="card-body-erp" style="text-align:center;padding:40px;">
+    <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
+    <div style="font-weight:600;margin-bottom:8px;">No Students in Batch {{ selected_batch }}</div>
+    <div style="font-size:13px;color:var(--text-muted);">
+      No approved students are assigned to Batch {{ selected_batch }} in this class yet.
+      Assign batches from the <a href="{{ url_for('admin.students') }}" style="color:var(--accent-blue);">Student Management</a> page.
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+const today = new Date().toISOString().split('T')[0];
+document.querySelector('[max]') && (document.querySelector('[max]').max = today);
+
+function updateRow(id, present) {
+  const row = document.getElementById('row-' + id);
+  const label = row.querySelector('.att-label');
+  row.className = present ? 'present-row' : 'absent-row';
+  row.style.background = present ? 'rgba(16,185,129,0.06)' : '';
+  label.textContent = present ? 'P' : 'A';
+  label.style.color = present ? 'var(--accent-green)' : 'var(--accent-red)';
+  updateCount();
+}
+
+function selectAll(present) {
+  document.querySelectorAll('.att-check').forEach(cb => {
+    cb.checked = present;
+    updateRow(cb.dataset.student, present);
+  });
+}
+
+function updateCount() {
+  const total = document.querySelectorAll('.att-check').length;
+  const present = document.querySelectorAll('.att-check:checked').length;
+  const el = document.getElementById('count-display');
+  if (el) el.textContent = `${present} Present / ${total - present} Absent`;
+}
+
+// Initialize row colors
+document.querySelectorAll('.att-check').forEach(cb => {
+  updateRow(cb.dataset.student, cb.checked);
+});
+updateCount();
+</script>
+{% endblock %}

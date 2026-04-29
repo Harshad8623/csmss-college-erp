@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Event — {{ ev.name }}{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;align-items:center;">
+  <div>
+    <h1 class="page-title"><div class="title-icon">🎓</div> {{ ev.name }}</h1>
+    <p class="page-subtitle">{{ ev.event_type.replace('_',' ').title() }} · {{ ev.date.strftime('%d %B %Y') }} · {{ ev.class_.name if ev.class_ else '' }}</p>
+  </div>
+  <a href="{{ url_for('sessions.index') }}" class="btn-erp btn-outline-erp btn-sm-erp">← Back</a>
+</div>
+
+<div class="stats-grid" style="margin-bottom:20px;">
+  <div class="stat-card">
+    <div class="stat-icon" style="background:rgba(16,185,129,0.15);color:var(--accent-green);">✅</div>
+    <div class="stat-value">{{ present }}</div>
+    <div class="stat-label">Present</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:rgba(239,68,68,0.15);color:var(--accent-red);">❌</div>
+    <div class="stat-value">{{ absent }}</div>
+    <div class="stat-label">Absent</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:rgba(59,130,246,0.15);color:var(--accent-blue);">📊</div>
+    <div class="stat-value">{{ ((present/(present+absent))*100)|round(1) if (present+absent)>0 else 0 }}%</div>
+    <div class="stat-label">Attendance Rate</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:rgba(245,158,11,0.15);color:#f59e0b;">📅</div>
+    <div class="stat-value">{{ ev.date.strftime('%d %b') }}</div>
+    <div class="stat-label">Date</div>
+  </div>
+</div>
+
+{% if ev.description %}
+<div class="card-erp" style="margin-bottom:16px;background:rgba(59,130,246,0.05);border-color:rgba(59,130,246,0.2);">
+  <div class="card-body-erp" style="padding:14px 20px;font-size:13px;color:var(--text-secondary);">
+    <i class="fa-solid fa-circle-info" style="color:var(--accent-blue);margin-right:8px;"></i>
+    {{ ev.description }}
+  </div>
+</div>
+{% endif %}
+
+<div class="card-erp">
+  <div class="card-body-erp" style="padding:0;">
+    <div class="table-wrap-scroll">
+    <table class="table-erp">
+      <thead><tr>
+        <th>#</th><th>Roll No.</th><th>Student</th><th>Batch</th><th>Status</th>
+      </tr></thead>
+      <tbody>
+        {% for rec in records %}
+        <tr>
+          <td style="color:var(--text-muted);">{{ loop.index }}</td>
+          <td style="font-weight:600;">{{ rec.student.roll_no or '—' }}</td>
+          <td>{{ rec.student.user.name }}</td>
+          <td><span class="badge-erp badge-purple" style="font-size:11px;">{{ rec.student.batch or '—' }}</span></td>
+          <td>
+            {% if rec.status %}
+            <span class="badge-erp badge-success">✅ Present</span>
+            {% else %}
+            <span class="badge-erp badge-danger">❌ Absent</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5"><div class="empty-state"><p>No records</p></div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+  <div class="card-body-erp" style="font-size:12px;color:var(--text-muted);border-top:1px solid var(--border-color);">
+    Marked by {{ ev.marker.name if ev.marker else '—' }} on {{ ev.created_at.strftime('%d %b %Y, %I:%M %p') }}
+    &nbsp;|&nbsp; <strong style="color:var(--accent-green);">Note:</strong> Event attendance IS counted in the overall 75% attendance percentage.
+  </div>
+</div>
+{% endblock %}

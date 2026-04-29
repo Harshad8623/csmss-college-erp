@@ -47,6 +47,7 @@ def create_app(config_class=Config):
     from app.admin.routes import admin_bp
     from app.notifications.routes import notifications_bp
     from app.leaves.routes import leaves_bp
+    from app.sessions.routes import sessions_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
@@ -61,6 +62,7 @@ def create_app(config_class=Config):
     app.register_blueprint(admin_bp)
     app.register_blueprint(notifications_bp)
     app.register_blueprint(leaves_bp)
+    app.register_blueprint(sessions_bp)
 
     # Inject globals into all templates
     @app.context_processor

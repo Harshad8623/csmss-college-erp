@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}Create Event Session{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;align-items:center;">
+  <div>
+    <h1 class="page-title"><div class="title-icon">🎓</div> Create Event Session</h1>
+    <p class="page-subtitle">Seminars, workshops, industrial visits, cultural & sports events — counted in 75%</p>
+  </div>
+  <a href="{{ url_for('sessions.index') }}" class="btn-erp btn-outline-erp">← Sessions</a>
+</div>
+
+<div style="max-width:780px;">
+<div class="card-erp">
+  <div class="card-header-erp"><h5>🎓 Event Details</h5></div>
+  <div class="card-body-erp">
+    <form method="POST" action="{{ url_for('sessions.create_event') }}" data-validate>
+
+      <div class="grid-2col">
+        <div class="form-group-erp">
+          <label class="form-label-erp">Event Name *</label>
+          <input type="text" name="name" class="form-control-erp" required
+            placeholder="e.g. National Seminar on AI & ML, Annual Sports Day">
+        </div>
+        <div class="form-group-erp">
+          <label class="form-label-erp">Event Type *</label>
+          <select name="event_type" class="form-control-erp" required>
+            {% for val, label in event_types.items() %}
+            <option value="{{ val }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group-erp">
+          <label class="form-label-erp">Class *</label>
+          <select name="class_id" class="form-control-erp" required id="class-select"
+            onchange="loadStudents(this.value)">
+            <option value="">— Select Class —</option>
+            {% for cls in classes %}
+            <option value="{{ cls.id }}" {{ 'selected' if preload_class and preload_class.id == cls.id }}>
+              {{ cls.name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group-erp">
+          <label class="form-label-erp">Date *</label>
+          <input type="date" name="date" class="form-control-erp" required
+            value="{{ today }}" max="{{ today }}">
+        </div>
+      </div>
+
+      <div class="form-group-erp">
+        <label class="form-label-erp">Description / Remarks</label>
+        <textarea name="description" class="form-control-erp" rows="2"
+          placeholder="Optional details about this event..."></textarea>
+      </div>
+
+      {# ── Student List ── #}
+      <div id="student-section" style="{{ '' if preload_students else 'display:none;' }}">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <div class="form-label-erp" style="margin:0;">Mark Attendance</div>
+          <div style="display:flex;gap:8px;">
+            <button type="button" onclick="selectAllEv(true)"  class="btn-erp btn-success-erp btn-sm-erp">✅ All Present</button>
+            <button type="button" onclick="selectAllEv(false)" class="btn-erp btn-danger-erp btn-sm-erp">❌ All Absent</button>
+          </div>
+        </div>
+        <div class="table-wrap-scroll">
+        <table class="table-erp" id="ev-table">
+          <thead><tr>
+            <th>#</th><th>Roll No.</th><th>Student</th><th>Batch</th><th style="text-align:center;">Present</th>
+          </tr></thead>
+          <tbody id="ev-tbody">
+            {% for stu in preload_students %}
+            <tr id="ev-row-{{ stu.id }}">
+              <td style="color:var(--text-muted);">{{ loop.index }}</td>
+              <td style="font-weight:600;">{{ stu.roll_no or '—' }}</td>
+              <td>{{ stu.user.name }}</td>
+              <td><span class="badge-erp badge-purple" style="font-size:11px;">{{ stu.batch or '—' }}</span></td>
+              <td style="text-align:center;">
+                <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+                  <input type="checkbox" name="present" value="{{ stu.id }}" class="ev-check"
+                    data-sid="{{ stu.id }}" checked onchange="updateEvRow({{ stu.id }}, this.checked)"
+                    style="width:18px;height:18px;accent-color:var(--accent-green);">
+                  <span class="ev-label" style="font-size:12px;font-weight:600;color:var(--accent-green);">P</span>
+                </label>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:8px;" id="ev-count"></div>
+      </div>
+
+      <div id="no-class-msg" style="{{ 'display:none;' if preload_students else '' }}
+        background:var(--bg-secondary);border-radius:var(--radius-sm);padding:16px;
+        text-align:center;font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+        Select a class above to load students for marking attendance.
+      </div>
+
+      <div style="display:flex;gap:12px;margin-top:20px;flex-wrap:wrap;">
+        <button type="submit" class="btn-erp btn-success-erp" data-loading-text="Saving...">
+          <i class="fa-solid fa-calendar-check"></i> Save Event Attendance
+        </button>
+        <a href="{{ url_for('sessions.index') }}" class="btn-erp btn-outline-erp">Cancel</a>
+      </div>
+
+    </form>
+  </div>
+</div>
+</div>
+
+<script>
+const today = new Date().toISOString().split('T')[0];
+const dateInput = document.querySelector('[name="date"]');
+if (dateInput) { dateInput.value = today; dateInput.max = today; }
+
+function updateEvRow(id, present) {
+  const row = document.getElementById('ev-row-' + id);
+  const label = row.querySelector('.ev-label');
+  if (!row) return;
+  row.style.background = present ? 'rgba(16,185,129,0.06)' : '';
+  label.textContent = present ? 'P' : 'A';
+  label.style.color = present ? 'var(--accent-green)' : 'var(--accent-red)';
+  updateEvCount();
+}
+
+function selectAllEv(present) {
+  document.querySelectorAll('.ev-check').forEach(cb => {
+    cb.checked = present;
+    updateEvRow(cb.dataset.sid, present);
+  });
+}
+
+function updateEvCount() {
+  const total = document.querySelectorAll('.ev-check').length;
+  const present = document.querySelectorAll('.ev-check:checked').length;
+  const el = document.getElementById('ev-count');
+  if (el) el.textContent = `${present} Present / ${total - present} Absent`;
+}
+
+function loadStudents(classId) {
+  if (!classId) {
+    document.getElementById('student-section').style.display = 'none';
+    document.getElementById('no-class-msg').style.display = 'block';
+    return;
+  }
+  fetch(`/sessions/api/class-students/${classId}`)
+    .then(r => r.json())
+    .then(students => {
+      const tbody = document.getElementById('ev-tbody');
+      tbody.innerHTML = '';
+      students.forEach((s, i) => {
+        tbody.innerHTML += `
+          <tr id="ev-row-${s.id}">
+            <td style="color:var(--text-muted);">${i+1}</td>
+            <td style="font-weight:600;">${s.roll_no || '—'}</td>
+            <td>${s.name}</td>
+            <td><span class="badge-erp badge-purple" style="font-size:11px;">${s.batch || '—'}</span></td>
+            <td style="text-align:center;">
+              <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+                <input type="checkbox" name="present" value="${s.id}" class="ev-check"
+                  data-sid="${s.id}" checked onchange="updateEvRow(${s.id},this.checked)"
+                  style="width:18px;height:18px;accent-color:var(--accent-green);">
+                <span class="ev-label" style="font-size:12px;font-weight:600;color:var(--accent-green);">P</span>
+              </label>
+            </td>
+          </tr>`;
+      });
+      document.getElementById('student-section').style.display = 'block';
+      document.getElementById('no-class-msg').style.display = 'none';
+      updateEvCount();
+    });
+}
+
+// Initialize
+document.querySelectorAll('.ev-check').forEach(cb => updateEvRow(cb.dataset.sid, cb.checked));
+updateEvCount();
+</script>
+{% endblock %}

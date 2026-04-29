@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}Sessions — Practical & Events{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;align-items:center;">
+  <div>
+    <h1 class="page-title"><div class="title-icon">🔬</div> Sessions</h1>
+    <p class="page-subtitle">Manage practical lab and event attendance separately from theory</p>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;">
+    {% if current_user.role != 'STUDENT' %}
+    <a href="{{ url_for('sessions.mark_practical') }}" class="btn-erp btn-primary-erp">
+      <i class="fa-solid fa-flask"></i> Mark Practical
+    </a>
+    {% if current_user.role in ['SUPER_ADMIN','HOD','CLASS_TEACHER'] %}
+    <a href="{{ url_for('sessions.create_event') }}" class="btn-erp btn-success-erp">
+      <i class="fa-solid fa-calendar-plus"></i> Add Event
+    </a>
+    {% endif %}
+    {% endif %}
+  </div>
+</div>
+
+{# ── Info Banner ── #}
+<div class="grid-2col" style="margin-bottom:20px;">
+  <div class="card-erp" style="background:rgba(139,92,246,0.07);border-color:rgba(139,92,246,0.25);">
+    <div class="card-body-erp" style="padding:16px 20px;display:flex;gap:14px;align-items:flex-start;">
+      <span style="font-size:28px;">🔬</span>
+      <div>
+        <div style="font-weight:700;font-size:14px;color:#a78bfa;margin-bottom:4px;">Practical Attendance</div>
+        <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.6;">
+          Batch-wise lab sessions (S1 / S2 / S3).<br>
+          <strong style="color:var(--text-primary);">Not counted</strong> in the overall 75% attendance. Has marks, not attendance %.
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card-erp" style="background:rgba(16,185,129,0.07);border-color:rgba(16,185,129,0.25);">
+    <div class="card-body-erp" style="padding:16px 20px;display:flex;gap:14px;align-items:flex-start;">
+      <span style="font-size:28px;">🎓</span>
+      <div>
+        <div style="font-weight:700;font-size:14px;color:#34d399;margin-bottom:4px;">Event Attendance</div>
+        <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.6;">
+          Seminars, workshops, industrial visits, cultural, sports.<br>
+          <strong style="color:var(--text-primary);">Counted</strong> in overall attendance percentage.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Tabs ── #}
+<div style="display:flex;gap:0;border-bottom:2px solid var(--border-color);margin-bottom:20px;" id="session-tabs">
+  <button class="tab-btn active" data-tab="practicals" onclick="switchTab('practicals',this)"
+    style="padding:10px 22px;background:none;border:none;border-bottom:2px solid var(--accent-blue);
+    margin-bottom:-2px;color:var(--accent-blue);font-weight:600;cursor:pointer;font-size:13.5px;">
+    🔬 Practicals
+  </button>
+  <button class="tab-btn" data-tab="events" onclick="switchTab('events',this)"
+    style="padding:10px 22px;background:none;border:none;border-bottom:2px solid transparent;
+    margin-bottom:-2px;color:var(--text-muted);font-weight:600;cursor:pointer;font-size:13.5px;">
+    🎓 Events
+  </button>
+</div>
+
+{# ── Practicals Tab ── #}
+<div id="tab-practicals">
+  <div class="card-erp">
+    <div class="card-header-erp">
+      <h5>Recent Practical Sessions</h5>
+      <a href="{{ url_for('sessions.mark_practical') }}" class="btn-erp btn-primary-erp btn-sm-erp">+ Mark New</a>
+    </div>
+    <div class="card-body-erp" style="padding:0;">
+      <div class="table-wrap-scroll">
+      <table class="table-erp">
+        <thead><tr>
+          <th>Date</th><th>Subject</th><th>Batch</th><th>Title</th>
+          <th>Class</th><th>Present</th><th>Actions</th>
+        </tr></thead>
+        <tbody>
+          {% for ps in recent_practicals %}
+          <tr>
+            <td style="white-space:nowrap;font-weight:600;">{{ ps.date.strftime('%d %b %Y') }}</td>
+            <td>{{ ps.subject.name }}</td>
+            <td><span class="badge-erp badge-purple">{{ ps.batch }}</span></td>
+            <td style="font-size:12px;color:var(--text-muted);">{{ ps.title or '—' }}</td>
+            <td style="font-size:12px;">{{ ps.class_.name if ps.class_ else '—' }}</td>
+            <td>
+              {% set total = ps.records.count() %}
+              {% set present = ps.records.filter_by(status=True).count() %}
+              <span style="font-weight:600;color:var(--accent-green);">{{ present }}</span>
+              <span style="color:var(--text-muted);font-size:12px;">/ {{ total }}</span>
+            </td>
+            <td>
+              <a href="{{ url_for('sessions.practical_detail', session_id=ps.id) }}"
+                 class="btn-erp btn-ghost-erp btn-sm-erp">View</a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7">
+            <div class="empty-state"><div class="empty-icon">🔬</div>
+              <p>No practical sessions yet</p>
+              <a href="{{ url_for('sessions.mark_practical') }}" class="btn-erp btn-primary-erp btn-sm-erp">Mark First Practical</a>
+            </div>
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Events Tab ── #}
+<div id="tab-events" style="display:none;">
+  <div class="card-erp">
+    <div class="card-header-erp">
+      <h5>Recent Event Sessions</h5>
+      {% if current_user.role in ['SUPER_ADMIN','HOD','CLASS_TEACHER'] %}
+      <a href="{{ url_for('sessions.create_event') }}" class="btn-erp btn-success-erp btn-sm-erp">+ Add Event</a>
+      {% endif %}
+    </div>
+    <div class="card-body-erp" style="padding:0;">
+      <div class="table-wrap-scroll">
+      <table class="table-erp">
+        <thead><tr>
+          <th>Date</th><th>Event</th><th>Type</th><th>Class</th>
+          <th>Present</th><th>Actions</th>
+        </tr></thead>
+        <tbody>
+          {% for ev in recent_events %}
+          <tr>
+            <td style="white-space:nowrap;font-weight:600;">{{ ev.date.strftime('%d %b %Y') }}</td>
+            <td style="font-weight:600;">{{ ev.name }}</td>
+            <td><span class="badge-erp badge-info">{{ ev.event_type.replace('_',' ').title() }}</span></td>
+            <td style="font-size:12px;">{{ ev.class_.name if ev.class_ else '—' }}</td>
+            <td>
+              {% set total = ev.records.count() %}
+              {% set present = ev.records.filter_by(status=True).count() %}
+              <span style="font-weight:600;color:var(--accent-green);">{{ present }}</span>
+              <span style="color:var(--text-muted);font-size:12px;">/ {{ total }}</span>
+            </td>
+            <td>
+              <a href="{{ url_for('sessions.event_detail', session_id=ev.id) }}"
+                 class="btn-erp btn-ghost-erp btn-sm-erp">View</a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6">
+            <div class="empty-state"><div class="empty-icon">🎓</div>
+              <p>No event sessions yet</p>
+              {% if current_user.role in ['SUPER_ADMIN','HOD','CLASS_TEACHER'] %}
+              <a href="{{ url_for('sessions.create_event') }}" class="btn-erp btn-success-erp btn-sm-erp">Add First Event</a>
+              {% endif %}
+            </div>
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchTab(name, btn) {
+  document.querySelectorAll('[id^="tab-"]').forEach(t => t.style.display = 'none');
+  document.getElementById('tab-' + name).style.display = 'block';
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.style.borderBottomColor = 'transparent';
+    b.style.color = 'var(--text-muted)';
+  });
+  btn.style.borderBottomColor = 'var(--accent-blue)';
+  btn.style.color = 'var(--accent-blue)';
+}
+</script>
+{% endblock %}

@@ -180,21 +180,44 @@ class Student(db.Model):
     pincode         = db.Column(db.String(10))
     current_year    = db.Column(db.Integer, default=3)  # 3rd Year
     semester        = db.Column(db.Integer, default=5)  # Semester V
+    batch           = db.Column(db.String(5), nullable=True)  # S1 | S2 | S3
 
     attendance     = db.relationship('Attendance', backref='student', lazy='dynamic')
     marks          = db.relationship('Marks', backref='student', lazy='dynamic')
     grievances     = db.relationship('Grievance', backref='student', lazy='dynamic')
     certificates   = db.relationship('Certificate', backref='student', lazy='dynamic')
     submissions    = db.relationship('AssignmentSubmission', backref='student', lazy='dynamic')
+    practical_records = db.relationship('PracticalRecord', backref='student', lazy='dynamic')
+    event_records     = db.relationship('EventRecord',     backref='student', lazy='dynamic')
 
     def attendance_percentage(self, subject_id=None):
+        """Overall attendance = theory + events. Practicals are excluded."""
         query = self.attendance
         if subject_id:
+            # Per-subject: only theory records
             query = query.filter_by(subject_id=subject_id)
-        total = query.count()
+            total   = query.count()
+            present = query.filter_by(status=True).count()
+            if total == 0:
+                return 0
+            return round((present / total) * 100, 2)
+
+        # Overall: theory + event attendance
+        theory_total   = query.count()
+        theory_present = query.filter_by(status=True).count()
+
+        # Event records for this student's class
+        event_q = EventRecord.query.join(EventSession).filter(
+            EventRecord.student_id == self.id,
+            EventSession.class_id  == self.class_id
+        )
+        event_total   = event_q.count()
+        event_present = event_q.filter(EventRecord.status == True).count()
+
+        total   = theory_total + event_total
+        present = theory_present + event_present
         if total == 0:
             return 0
-        present = query.filter_by(status=True).count()
         return round((present / total) * 100, 2)
 
     def is_defaulter(self):
@@ -454,3 +477,91 @@ class AuditLog(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     user = db.relationship('User', foreign_keys=[user_id])
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PRACTICAL SESSION MODELS  (batch-wise lab attendance — NOT in 75% calc)
+# ─────────────────────────────────────────────────────────────────────────────
+class PracticalSession(db.Model):
+    """One lab session for a specific batch on a given date."""
+    __tablename__ = 'practical_sessions'
+    id         = db.Column(db.Integer, primary_key=True)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False, index=True)
+    class_id   = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False, index=True)
+    batch      = db.Column(db.String(5), nullable=False)   # S1 | S2 | S3
+    date       = db.Column(db.Date, nullable=False, index=True)
+    title      = db.Column(db.String(200))                 # Experiment / practical name
+    marked_by  = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    subject = db.relationship('Subject', foreign_keys=[subject_id])
+    class_  = db.relationship('Class',   foreign_keys=[class_id])
+    marker  = db.relationship('User',    foreign_keys=[marked_by])
+    records = db.relationship('PracticalRecord', backref='session', lazy='dynamic',
+                              cascade='all, delete-orphan')
+
+
+class PracticalRecord(db.Model):
+    """Attendance record for one student in one practical session."""
+    __tablename__ = 'practical_records'
+    id         = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey('practical_sessions.id'),
+                           nullable=False, index=True)
+    student_id = db.Column(db.Integer, db.ForeignKey('students.id'),
+                           nullable=False, index=True)
+    status     = db.Column(db.Boolean, default=False)   # True = Present
+
+    __table_args__ = (db.UniqueConstraint('session_id', 'student_id'),)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# EVENT SESSION MODELS  (seminars, visits, cultural, etc. — counted in 75%)
+# ─────────────────────────────────────────────────────────────────────────────
+class EventType:
+    SEMINAR          = 'seminar'
+    WORKSHOP         = 'workshop'
+    INDUSTRIAL_VISIT = 'industrial_visit'
+    CULTURAL         = 'cultural'
+    SPORTS           = 'sports'
+    OTHER            = 'other'
+
+    ALL = [SEMINAR, WORKSHOP, INDUSTRIAL_VISIT, CULTURAL, SPORTS, OTHER]
+    LABELS = {
+        SEMINAR:          'Seminar',
+        WORKSHOP:         'Workshop',
+        INDUSTRIAL_VISIT: 'Industrial Visit',
+        CULTURAL:         'Cultural Event',
+        SPORTS:           'Sports / Games',
+        OTHER:            'Other Activity',
+    }
+
+
+class EventSession(db.Model):
+    """A college event/activity session for a class. Counts toward overall attendance."""
+    __tablename__ = 'event_sessions'
+    id          = db.Column(db.Integer, primary_key=True)
+    name        = db.Column(db.String(200), nullable=False)
+    event_type  = db.Column(db.String(30), nullable=False, default=EventType.OTHER)
+    class_id    = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False, index=True)
+    date        = db.Column(db.Date, nullable=False, index=True)
+    description = db.Column(db.Text)
+    marked_by   = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+
+    class_  = db.relationship('Class', foreign_keys=[class_id])
+    marker  = db.relationship('User',  foreign_keys=[marked_by])
+    records = db.relationship('EventRecord', backref='session', lazy='dynamic',
+                              cascade='all, delete-orphan')
+
+
+class EventRecord(db.Model):
+    """Attendance record for one student in one event session."""
+    __tablename__ = 'event_records'
+    id         = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey('event_sessions.id'),
+                           nullable=False, index=True)
+    student_id = db.Column(db.Integer, db.ForeignKey('students.id'),
+                           nullable=False, index=True)
+    status     = db.Column(db.Boolean, default=False)   # True = Present
+
+    __table_args__ = (db.UniqueConstraint('session_id', 'student_id'),)
