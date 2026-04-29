@@ -57,6 +57,8 @@ class Config:
     MAX_CONTENT_LENGTH    = 16 * 1024 * 1024  # 16 MB
     COLLEGE_NAME          = "CSMSS Chh. Shahu College of Engineering"
     COLLEGE_SHORT         = "CSMSS"
+    # Absolute site URL used in QR codes — set SITE_URL env var on Render
+    SITE_URL              = os.environ.get('SITE_URL', 'https://csmss-college-erp.onrender.com')
 
 
 class DevelopmentConfig(Config):

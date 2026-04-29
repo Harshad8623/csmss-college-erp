@@ -15,6 +15,7 @@ import io
 import hashlib
 from datetime import datetime
 
+from flask import url_for
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm, mm
 from reportlab.lib import colors
@@ -126,10 +127,23 @@ def generate_certificate_pdf(cert, app) -> bytes:
     :param app:   Flask application instance
     :return:      PDF as bytes
     """
-    secret     = app.config.get("SECRET_KEY", "csmss")
-    base_url   = app.config.get("SERVER_NAME") or "https://csmss-college-erp.onrender.com"
-    token      = _make_verification_token(cert.id, secret)
-    verify_url = f"{base_url}/certificate/verify/{cert.id}/{token}"
+    secret = app.config.get("SECRET_KEY", "csmss")
+    token  = _make_verification_token(cert.id, secret)
+
+    # Build the absolute verification URL using Flask's url_for so it always
+    # matches the actual server the app is running on (local dev OR Render).
+    # Falls back to the configured SITE_URL env var if outside a request context.
+    try:
+        verify_url = url_for(
+            'certificate.verify',
+            cert_id=cert.id,
+            token=token,
+            _external=True,
+        )
+    except RuntimeError:
+        # Outside request context (e.g. background job) — use env var fallback
+        site_url = app.config.get('SITE_URL', 'https://csmss-college-erp.onrender.com')
+        verify_url = f"{site_url.rstrip('/')}/certificate/verify/{cert.id}/{token}"
 
     buf = io.BytesIO()
     W, H = A4
@@ -240,7 +254,7 @@ def generate_certificate_pdf(cert, app) -> bytes:
     # ── 4. Serial / date row ─────────────────────────────────────────────────
     meta_row = Table(
         [[Paragraph(f"Cert. No.: {serial_no}", sMeta),
-          Paragraph(f"Date: {date_str}",       sMeta)]],
+          Paragraph(f"       Date: {date_str}",       sMeta)]],
         colWidths=[content_w * 0.5, content_w * 0.5],
     )
     meta_row.setStyle(TableStyle([
