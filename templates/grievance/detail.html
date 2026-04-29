@@ -1,39 +1,63 @@
 {% extends "base.html" %}
-{% block title %}Grievance Detail{% endblock %}
+{% block title %}Grievance #{{ grievance.id }}{% endblock %}
 {% block content %}
-<div class="page-header">
-  <h1 class="page-title"><div class="title-icon">📋</div> Grievance #{{ grievance.id }}</h1>
-</div>
-<div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;max-width:900px;">
+<div class="page-header" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;align-items:center;">
   <div>
-    <div class="card-erp" style="margin-bottom:20px;">
+    <h1 class="page-title"><div class="title-icon">📋</div> Grievance #{{ grievance.id }}</h1>
+    <p class="page-subtitle">Submitted by {{ grievance.student.user.name }}</p>
+  </div>
+  <a href="{{ url_for('grievance.index') }}" class="btn-erp btn-outline-erp">← Back to List</a>
+</div>
+
+<div class="responsive-profile-grid">
+
+  {# ── Left: Grievance Details ── #}
+  <div>
+    <div class="card-erp" style="margin-bottom:16px;">
       <div class="card-header-erp">
         <h5>Grievance Details</h5>
-        <span class="badge-erp {{ 'badge-warning' if grievance.status=='pending' else 'badge-success' if grievance.status=='approved' else 'badge-danger' }}">
-          {{ grievance.status.title() }}
+        <span class="badge-erp
+          {% if grievance.status == 'approved' %}badge-success
+          {% elif grievance.status == 'rejected' %}badge-danger
+          {% elif grievance.status == 'escalated' %}badge-warning
+          {% else %}badge-info{% endif %}">
+          {% if grievance.status == 'approved' %}✅ Approved
+          {% elif grievance.status == 'rejected' %}❌ Rejected
+          {% elif grievance.status == 'escalated' %}⬆️ Escalated
+          {% else %}⏳ Pending{% endif %}
         </span>
       </div>
       <div class="card-body-erp">
-        <div style="margin-bottom:16px;">
-          <div class="form-label-erp">Student</div>
-          <div style="font-weight:600;font-size:15px;">{{ grievance.student.user.name }}</div>
+
+        <div class="grid-2col" style="margin-bottom:20px;">
+          <div style="background:var(--bg-secondary);padding:14px;border-radius:var(--radius-sm);">
+            <div class="form-label-erp">Student</div>
+            <div style="font-weight:600;">{{ grievance.student.user.name }}</div>
+            <div style="font-size:12px;color:var(--text-muted);">{{ grievance.student.class_.name if grievance.student.class_ else '' }}</div>
+          </div>
+          <div style="background:var(--bg-secondary);padding:14px;border-radius:var(--radius-sm);">
+            <div class="form-label-erp">Type</div>
+            <span class="badge-erp badge-purple">{{ grievance.type.replace('_',' ').title() }}</span>
+          </div>
         </div>
-        <div style="margin-bottom:16px;">
-          <div class="form-label-erp">Type</div>
-          <span class="badge-erp badge-purple">{{ grievance.type.title() }}</span>
-        </div>
+
         <div style="margin-bottom:16px;">
           <div class="form-label-erp">Description</div>
-          <div style="background:var(--bg-secondary);padding:14px;border-radius:var(--radius-sm);font-size:14px;line-height:1.7;">
-            {{ grievance.description }}
-          </div>
+          <div style="background:var(--bg-secondary);padding:16px;border-radius:var(--radius-sm);font-size:14px;line-height:1.75;white-space:pre-wrap;">{{ grievance.description }}</div>
         </div>
+
         {% if grievance.comment %}
         <div style="margin-bottom:16px;">
-          <div class="form-label-erp">Staff Comment</div>
-          <div style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.15);padding:14px;border-radius:var(--radius-sm);font-size:14px;">
+          <div class="form-label-erp">Staff Response</div>
+          <div style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);padding:14px;border-radius:var(--radius-sm);font-size:14px;line-height:1.6;">
             {{ grievance.comment }}
           </div>
+        </div>
+        {% endif %}
+
+        {% if grievance.assignee %}
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">
+          Reviewed by: <strong>{{ grievance.assignee.name }}</strong>
         </div>
         {% endif %}
         <div style="font-size:12px;color:var(--text-muted);">
@@ -41,33 +65,59 @@
         </div>
       </div>
     </div>
-    <a href="{{ url_for('grievance.index') }}" class="btn-erp btn-outline-erp">← Back to List</a>
   </div>
 
-  {% if current_user.role != 'STUDENT' %}
+  {# ── Right: Action Panel (staff only) ── #}
+  {% if current_user.role != 'STUDENT' and grievance.status == 'pending' %}
   <div class="card-erp">
-    <div class="card-header-erp"><h5>Review Action</h5></div>
+    <div class="card-header-erp">
+      <h5>Review Action</h5>
+    </div>
     <div class="card-body-erp">
-      <form method="POST" action="{{ url_for('grievance.detail', id=grievance.id) }}" data-validate>
+      <form method="POST" action="{{ url_for('grievance.detail', id=grievance.id) }}">
         <div class="form-group-erp">
           <label class="form-label-erp">Comment / Reason</label>
           <textarea name="comment" class="form-control-erp" rows="4"
-            placeholder="Add a comment or explanation...">{{ grievance.comment or '' }}</textarea>
+            placeholder="Add your response or explanation...">{{ grievance.comment or '' }}</textarea>
         </div>
-        <div style="display:flex;flex-direction:column;gap:8px;">
-          <button type="submit" name="action" value="approve" class="btn-erp btn-success-erp" style="justify-content:center;">
-            ✅ Approve
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <button type="submit" name="action" value="approve"
+            class="btn-erp btn-success-erp" style="justify-content:center;"
+            data-loading-text="Approving...">
+            ✅ Approve Grievance
           </button>
-          <button type="submit" name="action" value="reject" class="btn-erp btn-danger-erp" style="justify-content:center;">
-            ❌ Reject
+          <button type="submit" name="action" value="reject"
+            class="btn-erp btn-danger-erp" style="justify-content:center;"
+            data-loading-text="Rejecting...">
+            ❌ Reject Grievance
           </button>
-          <button type="submit" name="action" value="escalate" class="btn-erp btn-warning-erp" style="justify-content:center;">
+          <button type="submit" name="action" value="escalate"
+            class="btn-erp btn-warning-erp" style="justify-content:center;"
+            data-loading-text="Escalating...">
             ⬆️ Escalate to HOD
           </button>
         </div>
       </form>
     </div>
   </div>
+
+  {% elif grievance.status != 'pending' %}
+  <div class="card-erp">
+    <div class="card-body-erp" style="text-align:center;padding:32px 20px;">
+      <div style="font-size:40px;margin-bottom:12px;">
+        {% if grievance.status == 'approved' %}✅
+        {% elif grievance.status == 'rejected' %}❌
+        {% else %}⬆️{% endif %}
+      </div>
+      <div style="font-weight:600;font-size:15px;margin-bottom:6px;">
+        Grievance {{ grievance.status.title() }}
+      </div>
+      <div style="font-size:13px;color:var(--text-muted);">
+        This grievance has already been reviewed.
+      </div>
+    </div>
+  </div>
   {% endif %}
+
 </div>
 {% endblock %}
