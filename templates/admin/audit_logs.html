@@ -3,7 +3,8 @@
 {% block content %}
 <div class="page-header"><h1 class="page-title"><div class="title-icon">🛡️</div> Audit Logs</h1></div>
 <div class="card-erp">
-  <div class="card-body-erp" style="padding:0;overflow-x:auto;">
+  <div class="card-body-erp" style="padding:0;">
+    <div class="table-wrap-scroll">
     <table class="table-erp">
       <thead><tr><th>User</th><th>Action</th><th>Details</th><th>IP</th><th>Time</th></tr></thead>
       <tbody>
@@ -20,6 +21,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </div>
 </div>
 {% endblock %}

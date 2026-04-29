@@ -9,7 +9,7 @@
   </a>
 </div>
 
-<div style="display:grid;grid-template-columns:320px 1fr;gap:24px;align-items:start;">
+<div class="responsive-profile-grid">
 
   {# ── Left: Identity Card ── #}
   <div>
@@ -92,7 +92,7 @@
 
         {# Personal Tab #}
         <div id="tab-personal" class="tab-pane active">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="grid-2col">
             {% set fields = [
               ('Full Name',    student.user.name),
               ('Date of Birth', student.dob),
@@ -113,7 +113,7 @@
 
         {# Contact Tab #}
         <div id="tab-contact" class="tab-pane" style="display:none;">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="grid-2col">
             {% set fields = [
               ('Email',    student.user.email),
               ('Mobile',   student.user.phone),
@@ -134,7 +134,7 @@
 
         {# Academic Tab #}
         <div id="tab-academic" class="tab-pane" style="display:none;">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+          <div class="grid-2col" style="margin-bottom:20px;">
             {% set fields = [
               ('Class',        student.class_.name if student.class_ else '—'),
               ('Department',   student.class_.department.name if student.class_ and student.class_.department else '—'),
@@ -153,6 +153,7 @@
           {# Marks summary if any #}
           {% if student.marks.count() > 0 %}
           <h6 style="font-size:13px;color:var(--text-muted);font-weight:600;text-transform:uppercase;margin-bottom:12px;">Marks Summary</h6>
+          <div class="table-wrap-scroll">
           <table class="table-erp" style="width:100%;">
             <thead><tr><th>Subject</th><th>Type</th><th>Marks</th><th>Grade</th></tr></thead>
             <tbody>
@@ -173,6 +174,7 @@
               {% endfor %}
             </tbody>
           </table>
+          </div>
           {% endif %}
         </div>
 
@@ -197,6 +199,17 @@
   background: var(--primary-color);
   color: #fff;
   border-color: var(--primary-color);
+}
+.responsive-profile-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 991px) {
+  .responsive-profile-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
 <script>

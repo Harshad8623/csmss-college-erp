@@ -14,6 +14,7 @@
     <span class="badge-erp badge-warning">{{ pending_count }} Pending</span>
   </div>
   <div class="card-body-erp" style="padding:0;">
+    <div class="table-wrap-scroll">
     <table class="table-erp">
       <thead>
         <tr><th>Student</th><th>Type</th><th>Description</th><th>Status</th><th>Date</th><th>Action</th></tr>
@@ -44,6 +45,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </div>
 </div>
 {% endblock %}

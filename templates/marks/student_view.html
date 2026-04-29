@@ -10,6 +10,7 @@
       <h5><i class="fa-solid fa-book" style="color:var(--accent-blue);"></i> {{ item.subject.name }}</h5>
     </div>
     <div class="card-body-erp" style="padding:0;">
+      <div class="table-wrap-scroll">
       <table class="table-erp">
         <thead><tr><th>Exam Type</th><th>Marks</th><th>Max</th><th>Percentage</th><th>Grade</th></tr></thead>
         <tbody>
@@ -34,6 +35,7 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
     </div>
   </div>
   {% endfor %}

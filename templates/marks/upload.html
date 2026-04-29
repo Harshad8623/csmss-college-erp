@@ -52,49 +52,51 @@
         <input type="number" name="max_marks" class="form-control-erp" value="100" min="1" style="width:80px;">
       </div>
     </div>
-    <div class="card-body-erp" style="padding:0;">
-      <table class="table-erp">
-        <thead>
-          <tr>
-            <th>#</th><th>Student</th><th>Roll No</th><th>Previous Marks</th>
-            <th style="width:160px;">Enter Marks</th><th>Grade</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for student in students %}
-          {% set prev = existing_marks.get(student.id) %}
-          <tr>
-            <td style="color:var(--text-muted);">{{ loop.index }}</td>
-            <td>
-              <div style="display:flex;align-items:center;gap:10px;">
-                <div class="user-avatar" style="width:30px;height:30px;font-size:12px;">{{ student.user.name[0] }}</div>
-                <span style="font-weight:600;">{{ student.user.name }}</span>
-              </div>
-            </td>
-            <td style="color:var(--text-muted);">{{ student.roll_no or '—' }}</td>
-            <td>
-              {% if prev %}
-              <span style="font-weight:700;">{{ prev.marks }}/{{ prev.max_marks|int }}</span>
-              <span class="badge-erp badge-info" style="margin-left:4px;">{{ prev.grade }}</span>
-              {% else %}
-              <span style="color:var(--text-muted);">Not entered</span>
-              {% endif %}
-            </td>
-            <td>
-              <input type="number" name="marks_{{ student.id }}" class="form-control-erp marks-input"
-                value="{{ prev.marks if prev else '' }}"
-                placeholder="0–100" min="0" max="100" step="0.5"
-                data-student="{{ student.id }}"
-                style="width:100%;">
-            </td>
-            <td>
-              <div class="grade-pill" id="grade_{{ student.id }}">—</div>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+  <div class="card-body-erp" style="padding:0;">
+    <div class="table-wrap-scroll">
+    <table class="table-erp">
+      <thead>
+        <tr>
+          <th>#</th><th>Student</th><th>Roll No</th><th>Previous Marks</th>
+          <th style="width:160px;">Enter Marks</th><th>Grade</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for student in students %}
+        {% set prev = existing_marks.get(student.id) %}
+        <tr>
+          <td style="color:var(--text-muted);">{{ loop.index }}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="user-avatar" style="width:30px;height:30px;font-size:12px;">{{ student.user.name[0] }}</div>
+              <span style="font-weight:600;">{{ student.user.name }}</span>
+            </div>
+          </td>
+          <td style="color:var(--text-muted);">{{ student.roll_no or '—' }}</td>
+          <td>
+            {% if prev %}
+            <span style="font-weight:700;">{{ prev.marks }}/{{ prev.max_marks|int }}</span>
+            <span class="badge-erp badge-info" style="margin-left:4px;">{{ prev.grade }}</span>
+            {% else %}
+            <span style="color:var(--text-muted);">Not entered</span>
+            {% endif %}
+          </td>
+          <td>
+            <input type="number" name="marks_{{ student.id }}" class="form-control-erp marks-input"
+              value="{{ prev.marks if prev else '' }}"
+              placeholder="0–100" min="0" max="100" step="0.5"
+              data-student="{{ student.id }}"
+              style="width:100%;">
+          </td>
+          <td>
+            <div class="grade-pill" id="grade_{{ student.id }}">—</div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
     </div>
+  </div>
     <div style="padding:18px 22px;border-top:1px solid var(--border-color);display:flex;gap:12px;">
       <button type="submit" class="btn-erp btn-primary-erp">
         <i class="fa-solid fa-upload"></i> Upload Marks
