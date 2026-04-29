@@ -1,9 +1,10 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file
+from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file, current_app
 from flask_login import login_required, current_user
 from app.extensions import db
 from app.models import Certificate, Student, User, Roles, ApprovalStatus, CertificateType
 from app.utils.decorators import role_required
 from app.utils.helpers import send_notification
+from app.utils.certificate_pdf import generate_certificate_pdf
 from datetime import datetime
 import io
 
@@ -45,23 +46,23 @@ def apply():
         cert = Certificate(student_id=student.id, type=cert_type, reason=reason,
                            status=ApprovalStatus.PENDING)
         db.session.add(cert)
-        db.session.commit()
 
         # Notify admins
-        admins = User.query.filter(User.role.in_([Roles.SUPER_ADMIN, Roles.HOD])).all()
+        admins = User.query.filter(User.role.in_([Roles.SUPER_ADMIN, Roles.HOD, Roles.CLASS_TEACHER])).all()
         for admin in admins:
             send_notification(admin.id,
                 f'📜 Certificate request: {cert_type} from {current_user.name}',
                 'info', url_for('certificate.index'))
 
+        db.session.commit()
         flash('Certificate application submitted successfully!', 'success')
         return redirect(url_for('certificate.index'))
 
     return render_template('certificate/apply.html', cert_types=[
-        (CertificateType.BONAFIDE, 'Bonafide Certificate'),
-        (CertificateType.LEAVING, 'Leaving Certificate'),
+        (CertificateType.BONAFIDE,  'Bonafide Certificate'),
+        (CertificateType.LEAVING,   'Leaving Certificate'),
         (CertificateType.CHARACTER, 'Character Certificate'),
-        (CertificateType.TRANSFER, 'Transfer Certificate'),
+        (CertificateType.TRANSFER,  'Transfer Certificate'),
     ])
 
 @certificate_bp.route('/<int:id>/action', methods=['POST'])
@@ -69,22 +70,55 @@ def apply():
 @role_required(Roles.SUPER_ADMIN, Roles.HOD, Roles.CLASS_TEACHER)
 def action(id):
     cert = Certificate.query.get_or_404(id)
-    action = request.form.get('action')
+    act  = request.form.get('action')
     notes = request.form.get('notes', '').strip()
 
-    if action == 'approve':
-        cert.status = ApprovalStatus.APPROVED
+    if act == 'approve':
+        cert.status      = ApprovalStatus.APPROVED
         cert.approved_by = current_user.id
-        cert.notes = notes
-        msg = f'✅ Your {cert.type.title()} Certificate has been approved!'
+        cert.notes       = notes
+        msg       = f'✅ Your {cert.type.title()} Certificate has been approved! The staff will hand it to you after signing.'
         notif_type = 'success'
     else:
         cert.status = ApprovalStatus.REJECTED
-        cert.notes = notes
-        msg = f'❌ Your {cert.type.title()} Certificate was rejected. Reason: {notes}'
-        notif_type = 'danger'
+        cert.notes  = notes
+        msg         = f'❌ Your {cert.type.title()} Certificate was rejected. Reason: {notes}'
+        notif_type  = 'danger'
 
-    db.session.commit()
     send_notification(cert.student.user_id, msg, notif_type, url_for('certificate.index'))
+    db.session.commit()
     flash(f'Certificate {cert.status}.', 'success')
     return redirect(url_for('certificate.index'))
+
+
+@certificate_bp.route('/<int:id>/download')
+@login_required
+@role_required(Roles.SUPER_ADMIN, Roles.HOD, Roles.CLASS_TEACHER)
+def download_pdf(id):
+    """
+    Generate and stream the certificate PDF on demand.
+    Only accessible by Class Teacher, HOD, and Super Admin.
+    Students CANNOT access this route — they receive the physical signed copy.
+    """
+    cert = Certificate.query.get_or_404(id)
+
+    if cert.status != ApprovalStatus.APPROVED:
+        flash('Certificate must be approved before a PDF can be generated.', 'warning')
+        return redirect(url_for('certificate.index'))
+
+    try:
+        pdf_bytes = generate_certificate_pdf(cert, current_app._get_current_object())
+    except Exception as e:
+        flash(f'PDF generation failed: {e}', 'danger')
+        return redirect(url_for('certificate.index'))
+
+    student_name = cert.student.user.name.replace(' ', '_')
+    cert_type    = cert.type.title().replace(' ', '_')
+    filename     = f"{cert_type}_Certificate_{student_name}_{cert.id}.pdf"
+
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        as_attachment=True,
+        download_name=filename,
+        mimetype='application/pdf',
+    )
