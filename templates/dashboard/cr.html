@@ -5,12 +5,13 @@
   <h1 class="page-title"><div class="title-icon">🎖️</div> Class Representative</h1>
   <p class="page-subtitle">Class: <strong>{{ class_.name if class_ else 'N/A' }}</strong></p>
 </div>
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+<div class="grid-2col">
   <div class="card-erp">
     <div class="card-header-erp">
       <h5><i class="fa-solid fa-users" style="color:var(--accent-blue);"></i> Class Students ({{ students|length }})</h5>
     </div>
     <div class="card-body-erp" style="padding:0;">
+      <div class="table-wrap-scroll">
       <table class="table-erp">
         <thead><tr><th>Name</th><th>Roll</th><th>Attendance</th></tr></thead>
         <tbody>
@@ -28,6 +29,7 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
     </div>
   </div>
   <div class="card-erp">
@@ -35,6 +37,7 @@
       <h5><i class="fa-solid fa-bullhorn" style="color:var(--accent-purple);"></i> Recent Notices</h5>
     </div>
     <div class="card-body-erp" style="padding:0;">
+      <div class="table-wrap-scroll">
       <table class="table-erp">
         <thead><tr><th>Title</th><th>Date</th></tr></thead>
         <tbody>
@@ -48,6 +51,7 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
     </div>
   </div>
 </div>

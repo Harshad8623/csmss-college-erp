@@ -615,7 +615,83 @@ select.form-control-erp { cursor: pointer; }
   background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
 }
 
-/* ── Responsive ──────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   COMPREHENSIVE MOBILE RESPONSIVE SYSTEM
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Responsive Grid Utility Classes ──────────────────────────────────────── */
+.grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.grid-3col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.grid-auto { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+.grid-21   { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+.grid-12   { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; }
+
+/* ── Responsive Table Wrapper ─────────────────────────────────────────────── */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Bottom Mobile Navigation Bar ────────────────────────────────────────── */
+.mobile-bottom-nav {
+  display: none;
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 1050;
+  background: rgba(2, 6, 23, 0.97);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border-color);
+  padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+  height: auto;
+}
+.mobile-bottom-nav .mob-nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  max-width: 480px;
+  margin: 0 auto;
+}
+.mob-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  text-decoration: none;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  transition: var(--transition);
+  min-width: 52px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  letter-spacing: 0.3px;
+}
+.mob-nav-item i { font-size: 19px; line-height: 1; }
+.mob-nav-item:hover, .mob-nav-item.active {
+  color: var(--accent-blue);
+}
+.mob-nav-item.active i { 
+  filter: drop-shadow(0 0 6px rgba(59,130,246,0.6));
+}
+.mob-nav-badge {
+  position: relative;
+}
+.mob-nav-badge::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  width: 8px;
+  height: 8px;
+  background: var(--accent-red);
+  border-radius: 50%;
+  border: 2px solid var(--bg-primary);
+}
+
+/* ── Tablet Breakpoint (≤991px) ──────────────────────────────────────────── */
 @media (max-width: 991px) {
   .sidebar {
     transform: translateX(-100%);
@@ -626,17 +702,262 @@ select.form-control-erp { cursor: pointer; }
   }
   .sidebar-overlay { display: block; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
   .sidebar.mobile-open ~ .sidebar-overlay { opacity: 1; pointer-events: all; }
-  .main-content { margin-left: 0 !important; padding: 16px; }
+
+  .main-content {
+    margin-left: 0 !important;
+    padding: 16px;
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+
   .navbar-search { display: none; }
   .navbar-brand .brand-full { display: none; }
   .navbar-brand .brand-short { display: inline; }
+  .mobile-bottom-nav { display: block; }
+
+  /* Grid collapses */
+  .grid-21,
+  .grid-12 { grid-template-columns: 1fr; }
 }
 
-@media (max-width: 575px) {
-  .page-title { font-size: 18px; }
-  .stat-value { font-size: 24px; }
-  .quick-actions { grid-template-columns: repeat(2, 1fr); }
+/* ── Mobile Breakpoint (≤768px) ──────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Navbar */
+  .navbar-erp { padding: 0 12px; gap: 8px; }
+  .user-avatar-btn { padding: 4px 8px 4px 4px; }
+
+  /* Grid layouts collapse to single column */
+  .grid-2col,
+  .grid-3col,
+  .grid-21,
+  .grid-12 { grid-template-columns: 1fr; }
+
+  /* Inline style grid overrides — force single column via universal override */
+  div[style*="grid-template-columns:1fr 1fr"],
+  div[style*="grid-template-columns: 1fr 1fr"],
+  div[style*="grid-template-columns:2fr 1fr"],
+  div[style*="grid-template-columns: 2fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Page header */
+  .page-header { margin-bottom: 16px; }
+  .page-title { font-size: 18px; gap: 8px; }
+  .page-title .title-icon { width: 36px; height: 36px; font-size: 16px; }
+  .page-subtitle { font-size: 13px; margin-top: 2px; }
+  .page-actions { flex-wrap: wrap; }
+
+  /* Stat cards */
+  .stat-card { padding: 16px; gap: 12px; }
+  .stat-icon { width: 44px; height: 44px; font-size: 18px; }
+  .stat-value { font-size: 26px; }
+  .stat-label { font-size: 12px; }
+
+  /* Cards */
+  .card-header-erp { padding: 14px 16px; flex-wrap: wrap; gap: 8px; }
+  .card-body-erp { padding: 16px; }
+
+  /* Tables — horizontal scroll */
+  .table-erp thead th { padding: 10px 12px; font-size: 10px; }
+  .table-erp tbody td { padding: 10px 12px; font-size: 13px; }
+
+  /* Buttons */
+  .btn-erp { padding: 8px 14px; font-size: 13px; }
+  .btn-sm-erp { padding: 5px 10px; font-size: 11px; }
+
+  /* Forms */
+  .form-control-erp { padding: 10px 12px; font-size: 14px; }
+
+  /* Quick actions — 4 per row on small tablet, 3 on phone */
+  .quick-actions { grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .quick-action { padding: 14px 8px; gap: 6px; }
+  .quick-action .qa-icon { font-size: 20px; }
+  .quick-action .qa-label { font-size: 11px; }
+
+  /* Mark attendance summary bar */
+  div[style*="gap:24px;font-size:13px"] { 
+    gap: 12px !important; 
+    flex-wrap: wrap !important; 
+  }
+
+  /* Timetable */
+  .timetable-grid { overflow-x: auto; }
+
+  /* Auth */
+  .auth-card { padding: 24px 20px; }
+}
+
+/* ── Small Mobile Breakpoint (≤480px) ────────────────────────────────────── */
+@media (max-width: 480px) {
+  .navbar-erp { height: 56px; }
+  :root { --navbar-height: 56px; }
+
+  .main-content { padding: 12px; padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+
+  /* Stat cards — 2 per row */
+  div[style*="minmax(180px,1fr)"],
+  div[style*="minmax(200px,1fr)"],
+  div[style*="minmax(140px,1fr)"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .stat-card { padding: 14px 12px; gap: 10px; }
+  .stat-icon { width: 38px; height: 38px; font-size: 15px; }
+  .stat-value { font-size: 22px; }
+  .stat-card::before { height: 2px; }
+
+  /* Page title compact */
+  .page-title { font-size: 16px; gap: 8px; }
+  .page-title .title-icon { width: 32px; height: 32px; font-size: 14px; }
+  .page-subtitle { font-size: 12px; }
+
+  /* Quick actions grid — 3 per row */
+  .quick-actions { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .quick-action { padding: 12px 6px; border-radius: 10px; }
+  .quick-action .qa-icon { font-size: 18px; }
+  .quick-action .qa-label { font-size: 10px; }
+
+  /* Buttons full-width on tiny screens */
+  .btn-erp-block { width: 100%; justify-content: center; }
+
+  /* Cards */
+  .card-header-erp { padding: 12px 14px; }
+  .card-body-erp { padding: 12px; }
+
+  /* Table cells smaller */
+  .table-erp thead th { padding: 8px 10px; font-size: 9px; }
+  .table-erp tbody td { padding: 8px 10px; font-size: 12px; }
+
+  /* Attendance page filter form — stack vertically */
+  form[style*="display:flex;gap:14px"] {
+    flex-direction: column !important;
+  }
+  form[style*="display:flex;gap:14px"] > div,
+  form[style*="display:flex;gap:14px"] > button {
+    width: 100% !important;
+    min-width: unset !important;
+  }
+
+  /* Attendance mark - Present/Absent row actions */
+  .att-btn { width: 40px; height: 40px; }
+
+  /* Card header with buttons — wrap nicely */
+  .card-header-erp h5 { font-size: 13px; }
+  .card-header-erp > div[style*="display:flex;gap:8px"] { 
+    gap: 6px !important; 
+  }
+
+  /* Page header actions wrap */
+  div[style*="display:flex;align-items:flex-start;justify-content:space-between"] {
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+
+  /* Form row inline to stacked */
+  div[style*="display:flex;gap:8px;"] form {
+    width: 100%;
+  }
+
+  /* Absentee reason form */
+  form[style*="display:flex; gap:8px"] {
+    flex-direction: column !important;
+  }
+  form[style*="display:flex; gap:8px"] input {
+    width: 100% !important;
+  }
+
+  /* Auth card */
+  .auth-card { padding: 20px 14px; }
+  .auth-logo h2 { font-size: 18px; }
+
+  /* Notices / timeline */
+  .timeline { padding-left: 20px; }
+
+  /* Hidden user info in navbar */
   .user-info { display: none; }
+
+  /* Notification bell */
+  .notif-btn { width: 36px; height: 36px; font-size: 14px; }
+}
+
+/* ── Extra Small (≤360px) ────────────────────────────────────────────────── */
+@media (max-width: 360px) {
+  .main-content { padding: 10px; }
+  .stat-value { font-size: 20px; }
+  .quick-actions { grid-template-columns: repeat(2, 1fr); }
+  .page-title { font-size: 14px; }
+  .page-title .title-icon { width: 28px; height: 28px; font-size: 12px; }
+}
+
+/* ── Table Mobile Card View (for attendance registry) ──────────────────────── */
+@media (max-width: 640px) {
+  .table-wrap-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 0 0 var(--radius) var(--radius);
+    scrollbar-width: thin;
+  }
+  /* Minimum column widths so tables are still readable */
+  .session-table { min-width: 560px; }
+  .table-erp { min-width: 480px; }
+
+  /* Attendance mark table — tighter */
+  #attendanceForm .table-erp { min-width: 400px; }
+}
+
+/* ── CT Attendance Mobile Fixes ──────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .sub-card-header {
+    padding: 12px 14px !important;
+    gap: 8px !important;
+  }
+  .sub-card-header > div:first-child {
+    gap: 10px !important;
+  }
+  .sub-card-header > div:last-child {
+    gap: 6px !important;
+    flex-wrap: wrap !important;
+  }
+  .stat-pill { padding: 3px 8px; font-size: 11px; }
+  .pct-ring { width: 44px; height: 44px; font-size: 12px; }
+  .sub-title { font-size: 14px; }
+  .stats-grid { grid-template-columns: repeat(3, 1fr) !important; gap: 10px; }
+  .stat-box { padding: 12px 10px; }
+  .stat-box .num { font-size: 22px; }
+  .stat-box .lbl { font-size: 10px; }
+  .class-tab { padding: 5px 10px; font-size: 12px; }
+  /* Hide action buttons label on mobile for space */
+  .sub-card-header .btn-erp span { display: none; }
+}
+
+@media (max-width: 480px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .sub-card-header > div:last-child > .stat-pill { display: none; }
+}
+
+/* ── Mark Attendance Page Mobile ─────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .att-checkbox-wrap { gap: 6px; }
+  .att-btn { width: 38px; height: 38px; font-size: 13px; }
+
+  /* Summary bar stacks */
+  div[id="presentCount"],
+  div[id="absentCount"] { font-size: 12px; }
+
+  /* Form footer buttons full width */
+  div[style*="padding:18px 22px;border-top"] {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  div[style*="padding:18px 22px;border-top"] .btn-erp {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+}
+
+/* ── Page Header Action Buttons Mobile ───────────────────────────────────── */
+@media (max-width: 480px) {
+  .page-actions .btn-erp { font-size: 12px; padding: 7px 12px; }
+  .page-actions { gap: 6px; }
 }
 
 /* ── Login Page ──────────────────────────────────────────────────────────── */

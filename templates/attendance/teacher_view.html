@@ -15,7 +15,8 @@
 
 {% if recent_sessions %}
 <div class="card-erp" style="margin-top:20px;">
-  <div class="card-body-erp" style="padding:0;overflow-x:auto;">
+  <div class="card-body-erp" style="padding:0;">
+    <div class="table-wrap-scroll">
     <table class="table-erp">
       <thead>
         <tr>
@@ -42,6 +43,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </div>
 </div>
 {% else %}

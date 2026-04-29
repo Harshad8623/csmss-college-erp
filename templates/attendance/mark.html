@@ -58,16 +58,17 @@
 
     <div class="card-body-erp" style="padding:0;">
       <!-- Summary bar -->
-      <div style="padding:16px 22px;background:rgba(59,130,246,0.06);border-bottom:1px solid var(--border-color);display:flex;gap:24px;font-size:13px;">
+      <div style="padding:14px 18px;background:rgba(59,130,246,0.06);border-bottom:1px solid var(--border-color);display:flex;gap:20px;font-size:13px;flex-wrap:wrap;">
         <span id="presentCount" style="color:var(--accent-green);font-weight:700;">✅ Present: 0</span>
         <span id="absentCount" style="color:var(--accent-red);font-weight:700;">❌ Absent: 0</span>
         <span style="color:var(--text-muted);">Total: {{ students|length }}</span>
       </div>
 
+      <div class="table-wrap-scroll">
       <table class="table-erp">
         <thead>
           <tr>
-            <th style="width:50px;">#</th>
+            <th style="width:40px;">#</th>
             <th>Student Name</th>
             <th>Roll No</th>
             <th>PRN</th>
@@ -113,6 +114,7 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
     </div>
 
     <div style="padding:18px 22px;border-top:1px solid var(--border-color);display:flex;gap:12px;">

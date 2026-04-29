@@ -37,13 +37,14 @@
   </div>
 </div>
 
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+<div class="grid-2col">
   <!-- Pending Student Approvals -->
   <div class="card-erp">
     <div class="card-header-erp">
       <h5><i class="fa-solid fa-user-clock" style="color:var(--accent-yellow);"></i> Pending Student Approvals</h5>
     </div>
     <div class="card-body-erp" style="padding:0;">
+      <div class="table-wrap-scroll">
       <table class="table-erp">
         <thead><tr><th>Student</th><th>Class</th><th>Actions</th></tr></thead>
         <tbody>
@@ -70,6 +71,7 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
     </div>
   </div>
 
@@ -79,6 +81,7 @@
       <h5><i class="fa-solid fa-chalkboard" style="color:var(--accent-blue);"></i> Department Classes</h5>
     </div>
     <div class="card-body-erp" style="padding:0;">
+      <div class="table-wrap-scroll">
       <table class="table-erp">
         <thead><tr><th>Class</th><th>Students</th><th>Actions</th></tr></thead>
         <tbody>
@@ -100,6 +103,7 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
     </div>
   </div>
 </div>

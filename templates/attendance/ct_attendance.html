@@ -226,6 +226,7 @@
   {# Sessions Table (collapsed by default for cards with many sessions) #}
   <div class="session-body {{ 'collapsed' if sd.sessions|length > 10 }}" id="sessionBody{{ sub.id }}">
     {% if sd.sessions %}
+    <div class="table-wrap-scroll">
     <table class="session-table">
       <thead>
         <tr>
@@ -276,6 +277,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
     {% else %}
     <div class="no-sessions">
       <i class="fa-solid fa-calendar-xmark" style="font-size:28px;margin-bottom:8px;opacity:.4;display:block;"></i>

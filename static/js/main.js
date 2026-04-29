@@ -31,12 +31,28 @@ document.addEventListener('DOMContentLoaded', function () {
 
   applySidebarState();
 
+  function openMobileSidebar() {
+    if (!sidebar) return;
+    sidebar.classList.add('mobile-open');
+    if (sidebarOverlay) {
+      sidebarOverlay.style.opacity = '1';
+      sidebarOverlay.style.pointerEvents = 'all';
+    }
+  }
+
+  function closeMobileSidebar() {
+    if (!sidebar) return;
+    sidebar.classList.remove('mobile-open');
+    if (sidebarOverlay) {
+      sidebarOverlay.style.opacity = '0';
+      sidebarOverlay.style.pointerEvents = 'none';
+    }
+  }
+
   if (sidebarToggle) {
     sidebarToggle.addEventListener('click', function () {
       if (isMobile()) {
-        sidebar.classList.toggle('mobile-open');
-        sidebarOverlay.style.opacity = sidebar.classList.contains('mobile-open') ? '1' : '0';
-        sidebarOverlay.style.pointerEvents = sidebar.classList.contains('mobile-open') ? 'all' : 'none';
+        sidebar.classList.contains('mobile-open') ? closeMobileSidebar() : openMobileSidebar();
       } else {
         sidebarCollapsed = !sidebarCollapsed;
         localStorage.setItem('sidebarCollapsed', sidebarCollapsed);
@@ -45,24 +61,57 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  if (sidebarOverlay) {
-    sidebarOverlay.addEventListener('click', function () {
-      sidebar.classList.remove('mobile-open');
-      sidebarOverlay.style.opacity = '0';
-      sidebarOverlay.style.pointerEvents = 'none';
+  // Mobile bottom nav sidebar button
+  const mobNavSidebarBtn = document.getElementById('mobNavSidebarBtn');
+  if (mobNavSidebarBtn) {
+    mobNavSidebarBtn.addEventListener('click', function () {
+      sidebar.classList.contains('mobile-open') ? closeMobileSidebar() : openMobileSidebar();
     });
+  }
+
+  if (sidebarOverlay) {
+    sidebarOverlay.addEventListener('click', closeMobileSidebar);
   }
 
   window.addEventListener('resize', applySidebarState);
 
-  // ── Active Nav Item ────────────────────────────────────────────
+  // ── Swipe to close sidebar on mobile ──────────────────────────────────────
+  let touchStartX = 0;
+  let touchEndX = 0;
+  document.addEventListener('touchstart', function(e) {
+    touchStartX = e.changedTouches[0].screenX;
+  }, { passive: true });
+  document.addEventListener('touchend', function(e) {
+    touchEndX = e.changedTouches[0].screenX;
+    if (isMobile() && sidebar && sidebar.classList.contains('mobile-open')) {
+      // Swipe left to close (drag at least 80px left)
+      if (touchStartX - touchEndX > 80) {
+        closeMobileSidebar();
+      }
+    }
+    // Swipe right from edge (within 30px of left) to open
+    if (isMobile() && sidebar && !sidebar.classList.contains('mobile-open')) {
+      if (touchStartX < 30 && touchEndX - touchStartX > 80) {
+        openMobileSidebar();
+      }
+    }
+  }, { passive: true });
+
+  // ── Active Nav Item (sidebar + bottom nav) ─────────────────────────────────
   const currentPath = window.location.pathname;
   document.querySelectorAll('.nav-item').forEach(item => {
     const href = item.getAttribute('href');
-    if (href && (currentPath === href || currentPath.startsWith(href) && href !== '/')) {
+    if (href && (currentPath === href || (currentPath.startsWith(href) && href !== '/'))) {
       item.classList.add('active');
     }
   });
+  document.querySelectorAll('.mob-nav-item[href]').forEach(item => {
+    const href = item.getAttribute('href');
+    if (href && (currentPath === href || (currentPath.startsWith(href) && href !== '/'))) {
+      item.classList.add('active');
+    }
+  });
+
 
   // ── Dropdown Menus ─────────────────────────────────────────────
   document.querySelectorAll('[data-dropdown]').forEach(trigger => {

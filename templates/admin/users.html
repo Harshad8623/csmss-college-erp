@@ -54,7 +54,8 @@
   <div class="card-header-erp">
     <h5><i class="fa-solid fa-users" style="color:var(--accent-blue);"></i> {{ users|length }} Users</h5>
   </div>
-  <div class="card-body-erp" style="padding:0;overflow-x:auto;">
+  <div class="card-body-erp" style="padding:0;">
+    <div class="table-wrap-scroll">
     <table class="table-erp">
       <thead>
         <tr><th>User</th><th>Role</th><th>Status</th><th>Joined</th><th>Actions</th></tr>
@@ -136,6 +137,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </div>
 </div>
 
