@@ -4,11 +4,37 @@ from app.extensions import db
 from app.models import Certificate, Student, User, Roles, ApprovalStatus, CertificateType
 from app.utils.decorators import role_required
 from app.utils.helpers import send_notification
-from app.utils.certificate_pdf import generate_certificate_pdf
+from app.utils.certificate_pdf import generate_certificate_pdf, _make_verification_token
 from datetime import datetime
 import io
 
 certificate_bp = Blueprint('certificate', __name__, url_prefix='/certificate')
+
+
+@certificate_bp.route('/verify/<int:cert_id>/<string:token>')
+def verify(cert_id, token):
+    """
+    PUBLIC route — no login required.
+    QR code on the printed certificate links here.
+    Shows verification status and student details so anyone can confirm authenticity.
+    """
+    cert = Certificate.query.get(cert_id)
+
+    if not cert:
+        return render_template('certificate/verify.html',
+                               valid=False, error="Certificate not found.")
+
+    expected = _make_verification_token(cert_id, current_app.config.get("SECRET_KEY", "csmss"))
+    if token != expected:
+        return render_template('certificate/verify.html',
+                               valid=False, error="Invalid or tampered QR code.")
+
+    if cert.status != ApprovalStatus.APPROVED:
+        return render_template('certificate/verify.html',
+                               valid=False, error="This certificate has not been approved.")
+
+    return render_template('certificate/verify.html', valid=True, cert=cert)
+
 
 @certificate_bp.route('/')
 @login_required

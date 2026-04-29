@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Certificate Verification — CSMSS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+    .card {
+      background: rgba(15,23,42,0.9);
+      border: 1px solid rgba(148,163,184,0.15);
+      border-radius: 16px;
+      padding: 40px 36px;
+      max-width: 560px;
+      width: 100%;
+      text-align: center;
+    }
+    .logo { font-size: 48px; margin-bottom: 16px; }
+    .college { font-size: 13px; color: #94a3b8; margin-bottom: 28px; line-height: 1.5; }
+    .college strong { color: #e2e8f0; display: block; font-size: 15px; margin-bottom: 4px; }
+
+    /* Valid state */
+    .valid-icon { font-size: 64px; margin-bottom: 16px; }
+    .valid-title { font-size: 22px; font-weight: 700; color: #10b981; margin-bottom: 8px; }
+    .invalid-title { font-size: 22px; font-weight: 700; color: #ef4444; margin-bottom: 8px; }
+    .subtitle { font-size: 13px; color: #94a3b8; margin-bottom: 28px; }
+
+    /* Detail rows */
+    .details { text-align: left; background: rgba(255,255,255,0.04);
+               border-radius: 10px; padding: 20px 24px; margin-bottom: 24px; }
+    .detail-row { display: flex; justify-content: space-between; align-items: baseline;
+                  padding: 8px 0; border-bottom: 1px solid rgba(148,163,184,0.1); gap:12px; }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-label { font-size: 11px; font-weight: 600; color: #94a3b8;
+                    text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+    .detail-value { font-size: 13px; font-weight: 600; color: #e2e8f0; text-align: right; }
+
+    /* Badge */
+    .badge { display: inline-block; padding: 4px 14px; border-radius: 20px;
+             font-size: 12px; font-weight: 700; letter-spacing: 0.5px; }
+    .badge-approved { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
+    .badge-type { background: rgba(139,92,246,0.15); color: #a78bfa; border: 1px solid rgba(139,92,246,0.3); }
+
+    .divider { border: none; border-top: 1px solid rgba(148,163,184,0.12); margin: 20px 0; }
+    .footer-note { font-size: 11px; color: #64748b; line-height: 1.6; }
+    .error-box { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25);
+                 border-radius: 8px; padding: 16px 20px; margin-bottom: 20px;
+                 font-size: 13px; color: #fca5a5; }
+    .home-link { color: #3b82f6; font-size: 13px; text-decoration: none; }
+    .home-link:hover { text-decoration: underline; }
+
+    @media (max-width: 480px) {
+      .card { padding: 28px 20px; }
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">📜</div>
+  <div class="college">
+    <strong>CSMSS Chh. Shahu College of Engineering</strong>
+    Kanchanwadi, Aurangabad – 431 002 (M.S.)<br>
+    Certificate Verification Portal
+  </div>
+
+  {% if valid %}
+  {# ── Valid certificate ── #}
+  {% set student = cert.student %}
+  {% set cls = student.class_ %}
+  {% set dept = cls.department if cls else None %}
+  {% set year_map = {1:'First Year (F.E.)', 2:'Second Year (S.E.)', 3:'Third Year (T.E.)', 4:'Fourth Year (B.E.)'} %}
+
+  <div class="valid-icon">✅</div>
+  <div class="valid-title">Certificate is Authentic</div>
+  <p class="subtitle">This certificate has been officially issued and approved by CSMSS.</p>
+
+  <div class="details">
+    <div class="detail-row">
+      <span class="detail-label">Student Name</span>
+      <span class="detail-value">{{ student.user.name.upper() }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">PRN No.</span>
+      <span class="detail-value">{{ student.prn or '—' }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Roll No.</span>
+      <span class="detail-value">{{ student.roll_no or '—' }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Class / Year</span>
+      <span class="detail-value">{{ cls.name if cls else '—' }} ({{ year_map.get(cls.year, '—') if cls else '—' }})</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Department</span>
+      <span class="detail-value">{{ dept.name if dept else '—' }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Certificate Type</span>
+      <span class="detail-value">
+        <span class="badge badge-type">{{ cert.type.replace('_',' ').title() }}</span>
+      </span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Certificate No.</span>
+      <span class="detail-value">CSMSS/{{ cert.created_at.year }}/{{ '%04d' % cert.id }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Approved By</span>
+      <span class="detail-value">{{ cert.approver.name if cert.approver else 'Dr. G. B. Dongre' }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Approved On</span>
+      <span class="detail-value">{{ cert.updated_at.strftime('%d %b %Y') }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Status</span>
+      <span class="detail-value">
+        <span class="badge badge-approved">✅ Officially Approved</span>
+      </span>
+    </div>
+  </div>
+
+  <hr class="divider">
+  <p class="footer-note">
+    This verification confirms the certificate details are genuine and on record with
+    CSMSS Chh. Shahu College of Engineering. A physically signed and stamped copy
+    was issued to the student. For further queries, contact
+    <strong>principal@csmss.ac.in</strong>.
+  </p>
+
+  {% else %}
+  {# ── Invalid / not found ── #}
+  <div class="valid-icon">❌</div>
+  <div class="invalid-title">Verification Failed</div>
+  <p class="subtitle">This certificate could not be verified.</p>
+  <div class="error-box">
+    <strong>Reason:</strong> {{ error }}
+  </div>
+  <p class="footer-note">
+    If you believe this is an error, please contact the college at
+    <strong>principal@csmss.ac.in</strong> with the certificate number.
+  </p>
+  {% endif %}
+
+  <hr class="divider">
+  <a href="/" class="home-link">← Return to ERP Login</a>
+</div>
+</body>
+</html>
