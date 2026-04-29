@@ -15,7 +15,9 @@
   <div>
     <div class="card-erp" style="text-align:center;padding:32px 24px;">
       {% if student.user.profile_pic and student.user.profile_pic != 'default.png' %}
-      <img src="{{ url_for('static', filename='uploads/profiles/' + student.user.profile_pic) }}"
+      {% set _p = profile_pic_url(student.user.profile_pic) %}
+      {% if _p %}
+      <img src="{{ _p }}"
            alt="{{ student.user.name }}"
            style="width:90px;height:90px;border-radius:50%;object-fit:cover;margin:0 auto 16px;display:block;
                   border:3px solid var(--primary-color);box-shadow:0 0 0 4px rgba(99,179,237,.2);">

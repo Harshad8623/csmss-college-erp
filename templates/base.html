@@ -60,7 +60,12 @@
   <div class="dropdown-erp" id="userDropdown">
     <div class="user-avatar-btn" data-dropdown>
       {% if current_user.profile_pic and current_user.profile_pic != 'default.png' %}
-        <img src="{{ url_for('static', filename='uploads/profiles/' + current_user.profile_pic) }}" class="user-avatar" style="object-fit:cover;">
+        {% set _pic = profile_pic_url(current_user.profile_pic) %}
+        {% if _pic %}
+        <img src="{{ _pic }}" class="user-avatar" style="object-fit:cover;">
+        {% else %}
+        <div class="user-avatar">{{ current_user.name[0].upper() }}</div>
+        {% endif %}
       {% else %}
         <div class="user-avatar">{{ current_user.name[0].upper() }}</div>
       {% endif %}
@@ -231,7 +236,12 @@
 
   <div class="sidebar-footer">
     {% if current_user.profile_pic and current_user.profile_pic != 'default.png' %}
-      <img src="{{ url_for('static', filename='uploads/profiles/' + current_user.profile_pic) }}" class="user-avatar" style="width:36px;height:36px;margin-bottom:8px;object-fit:cover;">
+      {% set _spic = profile_pic_url(current_user.profile_pic) %}
+      {% if _spic %}
+      <img src="{{ _spic }}" class="user-avatar" style="width:36px;height:36px;margin-bottom:8px;object-fit:cover;">
+      {% else %}
+      <div class="user-avatar" style="width:36px;height:36px;margin-bottom:8px;">{{ current_user.name[0].upper() }}</div>
+      {% endif %}
     {% else %}
       <div class="user-avatar" style="width:36px;height:36px;margin-bottom:8px;font-size:14px;">
         {{ current_user.name[0].upper() }}

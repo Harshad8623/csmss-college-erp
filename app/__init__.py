@@ -85,10 +85,10 @@ def create_app(config_class=Config):
     @app.context_processor
     def inject_globals():
         from flask_login import current_user
+        from app.utils.cloudinary_upload import get_profile_pic_url
         unread = 0
         if current_user.is_authenticated:
             from app.models import Notification
-            # Use a single COUNT query (no ORM object hydration) for scale
             unread = db.session.query(
                 db.func.count(Notification.id)
             ).filter(
@@ -98,7 +98,8 @@ def create_app(config_class=Config):
         return dict(
             college_name=app.config['COLLEGE_NAME'],
             college_short=app.config['COLLEGE_SHORT'],
-            unread_notifications=unread
+            unread_notifications=unread,
+            profile_pic_url=get_profile_pic_url,  # callable in templates
         )
 
     return app

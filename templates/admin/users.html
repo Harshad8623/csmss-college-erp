@@ -66,7 +66,9 @@
           <td>
             <div style="display:flex;align-items:center;gap:12px;">
               {% if user.profile_pic and user.profile_pic != 'default.png' %}
-              <img src="{{ url_for('static', filename='uploads/profiles/' + user.profile_pic) }}"
+              {% set _up = profile_pic_url(user.profile_pic) %}
+              {% if _up %}
+              <img src="{{ _up }}"
                    alt="{{ user.name }}"
                    style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid var(--border-color);">
               {% else %}

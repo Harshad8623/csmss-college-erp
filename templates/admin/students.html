@@ -211,7 +211,9 @@
           <td>
             <div style="display:flex;align-items:center;gap:10px;">
               {% if s.user.profile_pic and s.user.profile_pic != 'default.png' %}
-              <img src="{{ url_for('static', filename='uploads/profiles/' + s.user.profile_pic) }}"
+              {% set _sp = profile_pic_url(s.user.profile_pic) %}
+              {% if _sp %}
+              <img src="{{ _sp }}"
                    alt="{{ s.user.name }}"
                    style="width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid var(--border-color);">
               {% else %}

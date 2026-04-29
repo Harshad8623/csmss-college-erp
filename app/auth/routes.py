@@ -65,17 +65,18 @@ def profile():
         # Handle Profile Picture Upload
         profile_file = request.files.get('profile_pic')
         if profile_file and profile_file.filename:
-            # Use current_app.static_folder so the path matches what url_for('static') serves
             allowed_ext = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
             ext = os.path.splitext(profile_file.filename)[1].lower()
             if ext not in allowed_ext:
                 flash('Only image files (JPG, PNG, WEBP, GIF) are allowed.', 'danger')
                 return redirect(url_for('auth.profile'))
-            filename = secure_filename(f"{current_user.id}_{profile_file.filename}")
-            upload_folder = os.path.join(current_app.static_folder, 'uploads', 'profiles')
-            os.makedirs(upload_folder, exist_ok=True)
-            profile_file.save(os.path.join(upload_folder, filename))
-            current_user.profile_pic = filename
+
+            from app.utils.cloudinary_upload import upload_profile_picture
+            result = upload_profile_picture(profile_file, current_user.id)
+            if result:
+                current_user.profile_pic = result
+            else:
+                flash('Photo upload failed. Please try again.', 'warning')
 
         # ── Student extended profile fields ─────────────────────────────────
         if student:
