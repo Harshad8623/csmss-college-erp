@@ -62,8 +62,18 @@ class Config:
     MAX_CONTENT_LENGTH    = 16 * 1024 * 1024  # 16 MB
     COLLEGE_NAME          = "CSMSS Chh. Shahu College of Engineering"
     COLLEGE_SHORT         = "CSMSS"
-    # Absolute site URL used in QR codes — set SITE_URL env var on Render
     SITE_URL              = os.environ.get('SITE_URL', 'https://csmss-college-erp.onrender.com')
+
+    # ── CSRF Protection (Flask-WTF) ───────────────────────────────────────────
+    WTF_CSRF_ENABLED      = True
+    WTF_CSRF_TIME_LIMIT   = 3600   # CSRF token expires in 1 hour
+
+    # ── Session Security ──────────────────────────────────────────────────────
+    from datetime import timedelta
+    PERMANENT_SESSION_LIFETIME = timedelta(hours=8)   # Auto-logout after 8h
+    SESSION_COOKIE_HTTPONLY    = True    # JS cannot read session cookie
+    SESSION_COOKIE_SAMESITE    = 'Lax'  # CSRF mitigation
+    # SESSION_COOKIE_SECURE = True  # Uncomment when running on HTTPS (Render)
 
 
 class DevelopmentConfig(Config):

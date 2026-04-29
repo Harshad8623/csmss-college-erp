@@ -1,6 +1,6 @@
-from flask import Flask
+from flask import Flask, session, redirect, url_for, request
 from config import Config
-from app.extensions import db, login_manager, bcrypt, migrate, cache, limiter
+from app.extensions import db, login_manager, bcrypt, migrate, cache, limiter, csrf
 import os
 
 def create_app(config_class=Config):
@@ -14,6 +14,23 @@ def create_app(config_class=Config):
     migrate.init_app(app, db)
     cache.init_app(app)
     limiter.init_app(app)
+    csrf.init_app(app)
+
+    # ── Session: make permanent so PERMANENT_SESSION_LIFETIME applies ────────
+    @app.before_request
+    def make_session_permanent():
+        session.permanent = True
+
+    # ── Force password change for new users ──────────────────────────────────
+    @app.before_request
+    def check_must_change_password():
+        from flask_login import current_user
+        # Only intercept authenticated users who still have default password
+        if current_user.is_authenticated and getattr(current_user, 'must_change_password', False):
+            # Allow the change-password page and logout — nothing else
+            allowed = ('auth.change_password', 'auth.logout', 'static')
+            if request.endpoint not in allowed:
+                return redirect(url_for('auth.change_password'))
 
     # ── Enable WAL mode for SQLite (prevents "database is locked") ───────────
     if 'sqlite' in app.config.get('SQLALCHEMY_DATABASE_URI', ''):

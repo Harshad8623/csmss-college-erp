@@ -90,6 +90,7 @@ class User(UserMixin, db.Model):
     status        = db.Column(db.String(20), default=Status.PENDING, index=True)
     phone         = db.Column(db.String(15))
     profile_pic   = db.Column(db.String(200), default='default.png')
+    must_change_password = db.Column(db.Boolean, default=False, nullable=False)  # Force pw change on first login
     created_at    = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at    = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

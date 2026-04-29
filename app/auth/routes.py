@@ -96,3 +96,33 @@ def profile():
         return redirect(url_for('auth.profile'))
 
     return render_template('auth/profile.html', student=student)
+
+
+@auth_bp.route('/change-password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    """Mandatory password change for users created with default password."""
+    if request.method == 'POST':
+        new_pw     = request.form.get('new_password', '').strip()
+        confirm_pw = request.form.get('confirm_password', '').strip()
+
+        if len(new_pw) < 8:
+            flash('Password must be at least 8 characters.', 'danger')
+            return render_template('auth/change_password.html')
+
+        if new_pw != confirm_pw:
+            flash('Passwords do not match.', 'danger')
+            return render_template('auth/change_password.html')
+
+        # Don't allow keeping the default password
+        if new_pw in ('csmss@123', 'csmss123', 'password', '12345678'):
+            flash('Please choose a stronger password — do not use the default.', 'danger')
+            return render_template('auth/change_password.html')
+
+        current_user.password_hash       = bcrypt.generate_password_hash(new_pw).decode('utf-8')
+        current_user.must_change_password = False
+        db.session.commit()
+        flash('✅ Password changed successfully! Welcome to CSMSS ERP.', 'success')
+        return redirect(url_for('dashboard.index'))
+
+    return render_template('auth/change_password.html')

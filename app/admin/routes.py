@@ -835,7 +835,7 @@ def add_teacher():
 
     pw_hash = bcrypt.generate_password_hash(password).decode('utf-8')
     user = User(name=name, email=email, phone=phone, password_hash=pw_hash,
-                role=role, status=Status.ACTIVE)
+                role=role, status=Status.ACTIVE, must_change_password=True)
     db.session.add(user)
     db.session.flush()
 
@@ -1003,7 +1003,8 @@ def upload_students_excel():
         row_semester = (row_year * 2) - 1
 
         user = User(name=name, email=email, phone=phone or None,
-                    password_hash=default_pw_hash, role=Roles.STUDENT, status=Status.ACTIVE)
+                    password_hash=default_pw_hash, role=Roles.STUDENT,
+                    status=Status.ACTIVE, must_change_password=True)
         db.session.add(user)
         db.session.flush()  # get user.id for FK
 
@@ -1121,7 +1122,8 @@ def upload_teachers_excel():
                 dept_id = dept_obj.id
 
         user = User(name=name, email=email, phone=phone or None,
-                    password_hash=default_pw_hash, role=role, status=Status.ACTIVE)
+                    password_hash=default_pw_hash, role=role,
+                    status=Status.ACTIVE, must_change_password=True)
         db.session.add(user)
         db.session.flush()
 

@@ -4,6 +4,32 @@
 
 document.addEventListener('DOMContentLoaded', function () {
 
+  // ── CSRF: auto-inject token into all POST forms ───────────────
+  const csrfMeta  = document.querySelector('meta[name="csrf-token"]');
+  const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
+  if (csrfToken) {
+    // Inject hidden field into every existing POST form that doesn't already have one
+    document.querySelectorAll('form[method="post"], form[method="POST"]').forEach(form => {
+      if (!form.querySelector('input[name="csrf_token"]')) {
+        const input = document.createElement('input');
+        input.type  = 'hidden';
+        input.name  = 'csrf_token';
+        input.value = csrfToken;
+        form.appendChild(input);
+      }
+    });
+
+    // Patch fetch() globally to add X-CSRFToken header on all POST requests
+    const _origFetch = window.fetch;
+    window.fetch = function(url, opts = {}) {
+      if (opts.method && opts.method.toUpperCase() === 'POST') {
+        opts.headers = opts.headers || {};
+        opts.headers['X-CSRFToken'] = csrfToken;
+      }
+      return _origFetch(url, opts);
+    };
+  }
+
   // ── Sidebar Toggle ────────────────────────────────────────────
   const sidebar = document.getElementById('sidebar');
   const mainContent = document.getElementById('mainContent');

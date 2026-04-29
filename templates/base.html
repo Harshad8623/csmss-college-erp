@@ -17,6 +17,9 @@
   <!-- Custom CSS -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 
+  <!-- CSRF token for JS form submissions -->
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+
   {% block extra_css %}{% endblock %}
 </head>
 <body>
