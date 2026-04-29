@@ -335,4 +335,38 @@ document.addEventListener('DOMContentLoaded', function () {
       return g;
     }
   };
+
+  // ── Global Form Submit Loading Spinner ─────────────────────────
+  // Shows a spinner on any submit button immediately on click so
+  // users know the form was received (prevents double-clicks too).
+  document.querySelectorAll('form').forEach(form => {
+    form.addEventListener('submit', function (e) {
+      // Don't block forms with data-no-loading attribute
+      if (form.dataset.noLoading !== undefined) return;
+
+      const btn = form.querySelector('[type="submit"]');
+      if (!btn || btn.disabled) return;
+
+      // Store original content and disable immediately
+      const originalHTML = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<span class="btn-spinner"></span> ${btn.dataset.loadingText || 'Please wait…'}`;
+
+      // Safety net: re-enable after 15s in case of network error
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+      }, 15000);
+    });
+  });
+
+  // ── Double-click guard for anchor buttons ───────────────────────
+  document.querySelectorAll('a.btn-erp[href]:not([href="#"])').forEach(link => {
+    link.addEventListener('click', function () {
+      if (this.dataset.clicked) return;
+      this.dataset.clicked = 'true';
+      setTimeout(() => delete this.dataset.clicked, 3000);
+    });
+  });
+
 });

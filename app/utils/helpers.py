@@ -2,7 +2,7 @@ from app.models import Notification
 from app.extensions import db
 
 def send_notification(user_id, message, notif_type='info', link=None):
-    """Create an in-app notification for a user."""
+    """Create an in-app notification. Caller is responsible for db.session.commit()."""
     try:
         notif = Notification(
             user_id=user_id,
@@ -11,20 +11,19 @@ def send_notification(user_id, message, notif_type='info', link=None):
             link=link
         )
         db.session.add(notif)
-        db.session.commit()
+        # NOTE: No commit here — caller commits everything in one round-trip.
     except Exception as e:
-        db.session.rollback()
         print(f"Notification error: {e}")
 
 def send_bulk_notification(user_ids, message, notif_type='info', link=None):
-    """Send notification to multiple users."""
+    """Queue notifications for multiple users. Caller is responsible for db.session.commit()."""
     try:
         for uid in user_ids:
             notif = Notification(user_id=uid, message=message, type=notif_type, link=link)
             db.session.add(notif)
-        db.session.commit()
+        # NOTE: No commit here — caller commits everything in one round-trip.
     except Exception as e:
-        db.session.rollback()
+        print(f"Bulk notification error: {e}")
 
 def calculate_attendance_percentage(student_id, subject_id=None):
     from app.models import Attendance

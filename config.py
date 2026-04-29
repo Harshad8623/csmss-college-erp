@@ -7,6 +7,9 @@ load_dotenv()
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-prod')
 
+    # ── Bcrypt: 10 rounds = ~80ms per hash (12 rounds = ~300ms, no security gain at this scale)
+    BCRYPT_LOG_ROUNDS = 10
+
     # ── Database URI (fix legacy postgres:// scheme for SQLAlchemy 2.x) ──────
     db_uri = os.environ.get('DATABASE_URL') or os.environ.get('SQLALCHEMY_DATABASE_URI', 'sqlite:///college_erp.db')
     if db_uri and db_uri.startswith("postgres://"):
