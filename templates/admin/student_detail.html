@@ -148,6 +148,30 @@
               <div style="margin-top:6px;font-weight:600;">{{ val }}</div>
             </div>
             {% endfor %}
+
+            {# ── Batch Assignment ── #}
+            <div style="padding:14px;background:var(--bg-tertiary);border-radius:8px;">
+              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:8px;">Practical Batch</div>
+              {% if current_user.role in ['SUPER_ADMIN','HOD','CLASS_TEACHER'] %}
+              <form method="POST" action="{{ url_for('admin.update_batch', id=student.id) }}"
+                    style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <select name="batch" class="form-control-erp" style="flex:1;min-width:80px;font-size:13px;padding:6px 10px;">
+                  <option value="" {{ 'selected' if not student.batch }}>— None —</option>
+                  <option value="S1" {{ 'selected' if student.batch == 'S1' }}>Batch S1</option>
+                  <option value="S2" {{ 'selected' if student.batch == 'S2' }}>Batch S2</option>
+                  <option value="S3" {{ 'selected' if student.batch == 'S3' }}>Batch S3</option>
+                </select>
+                <button type="submit" class="btn-erp btn-primary-erp btn-sm-erp"
+                  data-loading-text="Saving…">Save</button>
+              </form>
+              {% else %}
+              <div style="font-weight:600;margin-top:4px;">
+                {% if student.batch %}
+                <span class="badge-erp badge-purple">{{ student.batch }}</span>
+                {% else %}—{% endif %}
+              </div>
+              {% endif %}
+            </div>
           </div>
 
           {# Marks summary if any #}

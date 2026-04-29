@@ -775,6 +775,36 @@ def student_detail(id):
     return render_template('admin/student_detail.html', student=student, teachers=teachers)
 
 
+@admin_bp.route('/students/<int:id>/update-batch', methods=['POST'])
+@login_required
+@role_required(Roles.SUPER_ADMIN, Roles.HOD, Roles.CLASS_TEACHER)
+def update_batch(id):
+    student = Student.query.get_or_404(id)
+
+    # Scope check
+    if current_user.role == Roles.HOD:
+        dept_id = _hod_dept_id()
+        cls = Class.query.get(student.class_id)
+        if not cls or cls.department_id != dept_id:
+            abort(403)
+    elif current_user.role == Roles.CLASS_TEACHER:
+        cls = _ct_class()
+        if not cls or student.class_id != cls.id:
+            abort(403)
+
+    new_batch = request.form.get('batch', '').strip().upper() or None
+    if new_batch and new_batch not in ['S1', 'S2', 'S3']:
+        flash('Invalid batch. Choose S1, S2, or S3.', 'danger')
+        return redirect(url_for('admin.student_detail', id=id))
+
+    student.batch = new_batch
+    db.session.commit()
+
+    batch_label = f'Batch {new_batch}' if new_batch else 'No batch'
+    flash(f'{student.user.name} assigned to {batch_label}.', 'success')
+    return redirect(url_for('admin.student_detail', id=id) + '#tab-academic')
+
+
 # ── Add Teacher (Manual) ─────────────────────────────────────────────────────
 @admin_bp.route('/teachers/add', methods=['POST'])
 @login_required
