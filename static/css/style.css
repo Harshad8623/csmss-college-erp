@@ -661,7 +661,7 @@ select.form-control-erp { cursor: pointer; }
   -webkit-backdrop-filter: blur(20px);
   border-top: 1px solid var(--border-color);
   padding: 8px 0 max(8px, env(safe-area-inset-bottom));
-  height: auto;
+  min-height: 68px;
 }
 .mobile-bottom-nav .mob-nav-inner {
   display: flex;
@@ -725,7 +725,7 @@ select.form-control-erp { cursor: pointer; }
   .main-content {
     margin-left: 0 !important;
     padding: 16px;
-    padding-bottom: calc(72px + env(safe-area-inset-bottom));
+    padding-bottom: calc(90px + env(safe-area-inset-bottom));
   }
 
   .navbar-search { display: none; }
@@ -810,7 +810,7 @@ select.form-control-erp { cursor: pointer; }
   .navbar-erp { height: 56px; }
   :root { --navbar-height: 56px; }
 
-  .main-content { padding: 12px; padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+  .main-content { padding: 12px; padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
 
   /* Stat cards — 2 per row */
   div[style*="minmax(180px,1fr)"],
