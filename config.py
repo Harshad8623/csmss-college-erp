@@ -5,7 +5,12 @@ load_dotenv()
 
 
 class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-prod')
+    # ── CRITICAL: Set SECRET_KEY as an env var on Render — never use default in prod ──
+    _sk = os.environ.get('SECRET_KEY')
+    if not _sk and os.environ.get('FLASK_ENV', 'production') == 'production':
+        import secrets
+        _sk = secrets.token_hex(32)   # auto-generate if missing (safe fallback)
+    SECRET_KEY = _sk or 'dev-secret-key-local-only'
 
     # ── Bcrypt: 10 rounds = ~80ms per hash (12 rounds = ~300ms, no security gain at this scale)
     BCRYPT_LOG_ROUNDS = 10
