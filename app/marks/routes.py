@@ -138,16 +138,13 @@ def export_template(subject_id, exam_type):
     ws = wb.active
     ws.title = f"Marks_{exam_type}"
     
-    headers = ['Roll No', 'PRN', 'Name', 'Max Marks', 'Marks Obtained']
+    headers = ['Roll No', 'PRN', 'Student Name', 'Max Marks', 'Marks Obtained']
     ws.append(headers)
     
-    header_fill = PatternFill(start_color="1E3A8A", end_color="1E3A8A", fill_type="solid")
-    header_font = Font(color="FFFFFF", bold=True)
     for col in range(1, 6):
         cell = ws.cell(row=1, column=col)
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = Alignment(horizontal="center")
+        cell.font = Font(bold=True)
+        cell.fill = PatternFill(start_color="E0E0E0", end_color="E0E0E0", fill_type="solid")
     
     ws.column_dimensions['A'].width = 15
     ws.column_dimensions['B'].width = 20
@@ -158,8 +155,8 @@ def export_template(subject_id, exam_type):
     for student in students:
         ws.append([
             student.roll_no or '',
-            student.prn,
-            student.user.name,
+            student.prn or '',
+            student.user.name if student.user else 'Unknown',
             100,  # Default Max Marks
             ''    # Marks Obtained to be filled by teacher
         ])
