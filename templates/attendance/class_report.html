@@ -40,10 +40,17 @@
           {% set d = row.subjects.get(sub.id, {}) %}
           <td style="text-align:center;">
             {% if d %}
-            <div style="font-size:12px;font-weight:700;color:{{ 'var(--accent-red)' if d.pct < 75 else 'var(--accent-green)' }};">
-              {{ d.pct }}%
-            </div>
-            <div style="font-size:10px;color:var(--text-muted);">{{ d.present }}/{{ d.total }}</div>
+              {% if d.pct == '-' %}
+              <div style="font-size:12px;font-weight:700;color:var(--text-muted);">
+                -
+              </div>
+              <div style="font-size:10px;color:var(--text-muted);">-</div>
+              {% else %}
+              <div style="font-size:12px;font-weight:700;color:{{ 'var(--accent-red)' if d.pct < 75 else 'var(--accent-green)' }};">
+                {{ d.pct }}%
+              </div>
+              <div style="font-size:10px;color:var(--text-muted);">{{ d.present }}/{{ d.total }}</div>
+              {% endif %}
             {% else %}
             <span style="color:var(--text-muted);">—</span>
             {% endif %}
