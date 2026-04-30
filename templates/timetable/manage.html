@@ -34,80 +34,70 @@
 
 {% if selected_class %}
 
-{# ── Action Buttons ──────────────────────────────────────────────────────── #}
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-  <h4 style="margin:0;font-size:16px;font-weight:700;">
-    📅 {{ selected_class.name }} — Weekly Schedule
-  </h4>
-  <button type="button" class="btn-erp btn-primary-erp" onclick="openAddModal('', '', '')">
-    <i class="fa-solid fa-plus"></i> Add New Entry
-  </button>
-</div>
-
-{# ── Add Modal ─────────────────────────────────────────────────────────── #}
-<div id="addModal"
-  style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
-  <div class="card-erp" style="width:100%;max-width:480px;margin:auto;padding:24px;position:relative;">
-    <button type="button" onclick="closeAddModal()"
-      style="position:absolute;top:12px;right:16px;background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">✕</button>
-    <h5 style="margin-bottom:20px;font-weight:700;"><i class="fa-solid fa-plus"></i> Add Entry</h5>
-    <form method="POST" action="{{ url_for('timetable.manage', class_id=selected_class.id) }}" id="addForm">
+{# ── Add New Entry ──────────────────────────────────────────────────────── #}
+<div class="card-erp" style="margin-bottom:24px;">
+  <div class="card-header-erp">
+    <h5>➕ Add Timetable Entry — {{ selected_class.name }}</h5>
+  </div>
+  <div class="card-body-erp">
+    <form method="POST" action="{{ url_for('timetable.manage', class_id=selected_class.id) }}"
+      style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:14px;align-items:end;">
       <input type="hidden" name="action" value="add">
       <input type="hidden" name="class_id" value="{{ selected_class.id }}">
 
-      <div class="form-group-erp" style="margin-bottom:14px;">
+      <div>
         <label class="form-label-erp">Day</label>
         <select name="day" id="addDay" class="form-control-erp" required>
-          <option value="">-- Select Day --</option>
+          <option value="">-- Day --</option>
           {% for day in days %}
           <option value="{{ day }}">{{ day }}</option>
           {% endfor %}
         </select>
       </div>
 
-      <div class="form-group-erp" style="margin-bottom:14px;">
+      <div>
         <label class="form-label-erp">Subject</label>
         <select name="subject_id" id="addSubject" class="form-control-erp" required>
-          <option value="">-- Select Subject --</option>
+          <option value="">-- Subject --</option>
           {% for subj in subjects %}
           <option value="{{ subj.id }}">{{ subj.name }}</option>
           {% endfor %}
         </select>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
-        <div>
-          <label class="form-label-erp">Type</label>
-          <select name="entry_type" id="addType" class="form-control-erp" onchange="toggleBatch('add')">
-            <option value="theory">📖 Theory</option>
-            <option value="practical">🔬 Practical</option>
-          </select>
-        </div>
-        <div>
-          <label class="form-label-erp">Batch</label>
-          <select name="batch" id="addBatch" class="form-control-erp" disabled>
-            <option value="">-- All / Theory --</option>
-            <option value="S1">S1</option>
-            <option value="S2">S2</option>
-            <option value="S3">S3</option>
-          </select>
-        </div>
+      <div>
+        <label class="form-label-erp">Type</label>
+        <select name="entry_type" id="addType" class="form-control-erp" onchange="toggleBatch('add')">
+          <option value="theory">📖 Theory</option>
+          <option value="practical">🔬 Practical</option>
+        </select>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
-        <div>
-          <label class="form-label-erp">Start Time</label>
-          <input type="time" name="start_time" id="addStart" class="form-control-erp" required>
-        </div>
-        <div>
-          <label class="form-label-erp">End Time</label>
-          <input type="time" name="end_time" id="addEnd" class="form-control-erp" required>
-        </div>
+      <div>
+        <label class="form-label-erp">Batch <span id="addBatchHint" style="color:var(--text-muted);font-size:10px;">(Practical only)</span></label>
+        <select name="batch" id="addBatch" class="form-control-erp" disabled>
+          <option value="">-- All / Theory --</option>
+          <option value="S1">S1</option>
+          <option value="S2">S2</option>
+          <option value="S3">S3</option>
+        </select>
       </div>
 
-      <button type="submit" class="btn-erp btn-primary-erp" style="width:100%;">
-        <i class="fa-solid fa-plus"></i> Add Entry
-      </button>
+      <div>
+        <label class="form-label-erp">Start Time</label>
+        <input type="time" name="start_time" id="addStart" class="form-control-erp" required>
+      </div>
+
+      <div>
+        <label class="form-label-erp">End Time</label>
+        <input type="time" name="end_time" id="addEnd" class="form-control-erp" required>
+      </div>
+
+      <div>
+        <button type="submit" class="btn-erp btn-primary-erp" style="width:100%;">
+          <i class="fa-solid fa-plus"></i> Add Entry
+        </button>
+      </div>
     </form>
   </div>
 </div>
@@ -178,117 +168,87 @@
   </div>
 </div>
 
-{# ── 2D Editable Grid Table ──────────────────────────────────────────────── #}
-<div class="card-erp" style="overflow-x:auto;">
-  <div class="card-body-erp" style="padding:0;">
-    <div class="table-wrap-scroll">
-      <table class="table-erp table-bordered" style="min-width:900px; text-align:center;">
-        <thead style="background:var(--bg-secondary);">
-          <tr>
-            <th style="width:12%; padding:14px; text-align:center; font-weight:800; color:var(--text-color);">Time / Day</th>
-            {% for day in days %}
-            <th style="width:14%; padding:14px; text-align:center; font-weight:800; color:var(--accent-blue);">{{ day[:3].upper() }}</th>
-            {% endfor %}
-          </tr>
-        </thead>
-        <tbody>
-          {% for slot in time_slots %}
-            {% if slot.type == 'break' %}
-            <tr>
-              <td style="font-weight:700; font-size:12px; vertical-align:middle; background:rgba(245,101,101,.05); color:var(--text-color);">
-                {{ format_time_12hr(slot.start) }}<br>
-                <span style="font-size:10px; color:var(--text-muted); font-weight:400;">to</span><br>
-                {{ format_time_12hr(slot.end) }}
-              </td>
-              <td colspan="6" style="background:rgba(245,101,101,.05); vertical-align:middle; text-align:center;">
-                <div style="font-size:14px; font-weight:800; letter-spacing:8px; color:rgba(245,101,101,0.8);">
-                  {{ slot.name }}
-                </div>
-              </td>
-            </tr>
+{# ── Current Entries Table ──────────────────────────────────────────────── #}
+<div class="card-erp">
+  <div class="card-header-erp" style="display:flex;justify-content:space-between;align-items:center;">
+    <h5 style="margin:0;">📋 Current Schedule — {{ selected_class.name }}</h5>
+    <span class="badge-erp badge-info">{{ entries|length }} slot{{ 's' if entries|length != 1 }}</span>
+  </div>
+
+  {% if entries %}
+  <div class="table-wrap-scroll">
+    <table class="table-erp">
+      <thead>
+        <tr>
+          <th>Day</th>
+          <th>Time</th>
+          <th>Type</th>
+          <th>Subject</th>
+          <th>Teacher</th>
+          <th style="text-align:center;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in entries | sort(attribute='day') %}
+        <tr>
+          <td>
+            <span class="badge-erp" style="background:rgba(99,102,241,0.15);color:#818cf8;">{{ e.day }}</span>
+          </td>
+          <td style="font-family:monospace;font-size:13px;">
+            {{ e.start_time }} – {{ e.end_time }}
+          </td>
+          <td>
+            {% if e.entry_type == 'practical' %}
+              <span class="badge-erp" style="background:rgba(245,158,11,.15);color:#f6ad55;">
+                🔬 Practical
+              </span>
+              {% if e.batch %}
+              <span class="badge-erp" style="background:rgba(99,179,237,.15);color:var(--accent-blue);margin-left:4px;">
+                {{ e.batch }}
+              </span>
+              {% endif %}
             {% else %}
-            <tr>
-              <td style="font-weight:700; font-size:12px; vertical-align:middle; background:rgba(99,179,237,.03); color:var(--text-color);">
-                {{ format_time_12hr(slot.start) }}<br>
-                <span style="font-size:10px; color:var(--text-muted); font-weight:400;">to</span><br>
-                {{ format_time_12hr(slot.end) }}
-              </td>
-              {% for day in days %}
-              <td style="vertical-align:top; padding:10px; position:relative;">
-                {% set cell_entries = entries | selectattr('day', 'equalto', day) | selectattr('start_time', 'equalto', slot.start) | selectattr('end_time', 'equalto', slot.end) | list %}
-                
-                {% if cell_entries %}
-                  <div style="display:flex; flex-direction:column; gap:8px;">
-                  {% for e in cell_entries %}
-                    <div class="tt-entry" style="padding:8px; margin:0; text-align:left; border-radius:6px; background:{{ 'rgba(245,158,11,.08)' if e.entry_type == 'practical' else 'rgba(99,179,237,.08)' }}; border:1px solid {{ 'rgba(245,158,11,.2)' if e.entry_type == 'practical' else 'rgba(99,179,237,.18)' }}; position:relative; group;">
-                      
-                      <!-- Edit Actions Overlay (appears on hover) -->
-                      <div style="position:absolute; top:4px; right:4px; display:flex; gap:4px; z-index:10;">
-                        <button type="button" onclick="openEditModal({{ e.id }}, '{{ e.day }}', '{{ e.subject_id }}', '{{ e.start_time }}', '{{ e.end_time }}', '{{ e.entry_type or 'theory' }}', '{{ e.batch or '' }}')" 
-                          style="background:#fff; border:1px solid var(--border-color); border-radius:4px; cursor:pointer; padding:2px 6px; font-size:10px; color:var(--accent-blue);" title="Edit">
-                          <i class="fa-solid fa-pen"></i>
-                        </button>
-                        <form method="POST" action="{{ url_for('timetable.delete', id=e.id) }}" onsubmit="return confirm('Delete this entry?');" style="margin:0;">
-                          <button type="submit" style="background:#fff; border:1px solid var(--border-color); border-radius:4px; cursor:pointer; padding:2px 6px; font-size:10px; color:var(--accent-red);" title="Delete">
-                            <i class="fa-solid fa-trash"></i>
-                          </button>
-                        </form>
-                      </div>
-  
-                      <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px; flex-wrap:wrap; padding-right:40px;">
-                        {% if e.entry_type == 'practical' %}
-                        <span style="font-size:9px;font-weight:700;background:rgba(245,158,11,.2);color:#f6ad55;padding:1px 6px;border-radius:4px;">🔬 PR</span>
-                        {% if e.batch %}
-                        <span style="font-size:9px;font-weight:800;background:rgba(99,179,237,.2);color:var(--accent-blue);padding:1px 6px;border-radius:4px;">{{ e.batch }}</span>
-                        {% endif %}
-                        {% else %}
-                        <span style="font-size:9px;color:var(--text-muted);">📖 TH</span>
-                        {% endif %}
-                      </div>
-                      <div class="tt-entry-name" style="font-size:11px; font-weight:700; color:var(--text-color);">{{ e.subject.name }}</div>
-                      {% if e.subject.teacher_user %}
-                      <div class="tt-entry-teacher" style="font-size:10px; color:var(--text-muted); margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                        <i class="fa-solid fa-chalkboard-user"></i> {{ e.subject.teacher_user.name[:15] }}
-                      </div>
-                      {% endif %}
-                    </div>
-                  {% endfor %}
-                  </div>
-                  
-                  <!-- Add another batch to this slot (mostly for practicals) -->
-                  <button type="button" onclick="openAddModal('{{ day }}', '{{ slot.start }}', '{{ slot.end }}')"
-                    style="margin-top:8px; width:100%; background:none; border:1px dashed var(--border-color); border-radius:4px; font-size:10px; color:var(--text-muted); cursor:pointer; padding:4px;">
-                    + Add Batch
-                  </button>
-                  
-                {% else %}
-                  <button type="button" onclick="openAddModal('{{ day }}', '{{ slot.start }}', '{{ slot.end }}')"
-                    style="width:100%; height:100%; min-height:60px; background:transparent; border:1px dashed transparent; color:var(--text-muted); cursor:pointer; font-size:18px; transition:0.2s;"
-                    onmouseover="this.style.borderColor='var(--accent-blue)'; this.style.color='var(--accent-blue)'"
-                    onmouseout="this.style.borderColor='transparent'; this.style.color='var(--text-muted)'">
-                    +
-                  </button>
-                {% endif %}
-              </td>
-              {% endfor %}
-            </tr>
+              <span class="badge-erp" style="background:rgba(72,187,120,.12);color:#68d391;">📖 Theory</span>
             {% endif %}
-          {% endfor %}
-          {% else %}
-          <tr>
-            <td colspan="7">
-              <div class="empty-state" style="padding:60px 0;">
-                <div class="empty-icon">📅</div>
-                <h6>No Timetable Yet</h6>
-                <p>Click "Add New Entry" above to start building the schedule.</p>
-              </div>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+          </td>
+          <td>
+            <strong>{{ e.subject.name }}</strong><br>
+            <span style="font-size:11px;color:var(--text-muted);">{{ e.subject.code or '' }}</span>
+          </td>
+          <td style="font-size:13px;color:var(--text-secondary);">
+            {{ e.subject.teacher_user.name if e.subject.teacher_user else '—' }}
+          </td>
+          <td style="text-align:center;">
+            <div style="display:flex;gap:8px;justify-content:center;">
+              <button type="button"
+                onclick="openEditModal({{ e.id }}, '{{ e.day }}', '{{ e.subject_id }}', '{{ e.start_time }}', '{{ e.end_time }}', '{{ e.entry_type or 'theory' }}', '{{ e.batch or '' }}')"
+                class="btn-erp"
+                style="padding:4px 10px;background:rgba(59,130,246,0.1);color:#60a5fa;border:1px solid rgba(59,130,246,0.3);"
+                title="Edit">
+                <i class="fa-solid fa-pen-to-square"></i> Edit
+              </button>
+              <form method="POST" action="{{ url_for('timetable.delete', id=e.id) }}"
+                onsubmit="return confirm('Delete this timetable entry?');" style="margin:0;">
+                <button type="submit" class="btn-erp btn-danger-erp" style="padding:4px 10px;" title="Delete">
+                  <i class="fa-solid fa-trash"></i> Delete
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body-erp">
+    <div class="empty-state" style="padding:40px 0;">
+      <div class="empty-icon">📅</div>
+      <h6>No Entries Yet</h6>
+      <p>Add your first timetable slot using the form above.</p>
     </div>
   </div>
+  {% endif %}
 </div>
 
 {% else %}
@@ -307,8 +267,9 @@
 
 {% block extra_js %}
 <script>
+  // Toggle batch dropdown enable/disable based on entry type
   function toggleBatch(prefix) {
-    const typeEl = document.getElementById(prefix + 'Type');
+    const typeEl  = document.getElementById(prefix + 'Type');
     const batchEl = document.getElementById(prefix + 'Batch');
     if (!typeEl || !batchEl) return;
     const isPractical = typeEl.value === 'practical';
@@ -316,36 +277,16 @@
     if (!isPractical) batchEl.value = '';
   }
 
-  function openAddModal(day, startTime, endTime) {
-    document.getElementById('addDay').value = day;
-    document.getElementById('addStart').value = startTime;
-    document.getElementById('addEnd').value = endTime;
-    
-    // reset others
-    document.getElementById('addSubject').value = '';
-    document.getElementById('addType').value = 'theory';
-    toggleBatch('add');
-
-    const modal = document.getElementById('addModal');
-    modal.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-  }
-
-  function closeAddModal() {
-    document.getElementById('addModal').style.display = 'none';
-    document.body.style.overflow = '';
-  }
-
   function openEditModal(id, day, subjectId, startTime, endTime, entryType, batch) {
     document.getElementById('editForm').action = '/timetable/edit/' + id;
-    document.getElementById('editDay').value = day;
+    document.getElementById('editDay').value     = day;
     document.getElementById('editSubject').value = subjectId;
-    document.getElementById('editStart').value = startTime; // Expects raw HH:MM
-    document.getElementById('editEnd').value = endTime;   // Expects raw HH:MM
+    document.getElementById('editStart').value   = startTime;
+    document.getElementById('editEnd').value     = endTime;
 
-    const typeEl = document.getElementById('editType');
+    const typeEl  = document.getElementById('editType');
     const batchEl = document.getElementById('editBatch');
-    typeEl.value = entryType || 'theory';
+    typeEl.value  = entryType || 'theory';
     batchEl.value = batch || '';
     // Sync enable state
     batchEl.disabled = (typeEl.value !== 'practical');
@@ -360,17 +301,11 @@
     document.body.style.overflow = '';
   }
 
-  document.getElementById('editModal').addEventListener('click', function (e) {
+  document.getElementById('editModal').addEventListener('click', function(e) {
     if (e.target === this) closeEditModal();
   });
-  document.getElementById('addModal').addEventListener('click', function (e) {
-    if (e.target === this) closeAddModal();
-  });
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') {
-      closeEditModal();
-      closeAddModal();
-    }
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeEditModal();
   });
 
   // Init add-form batch state
