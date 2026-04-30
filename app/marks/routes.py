@@ -141,11 +141,25 @@ def class_report(class_id):
     exam_type = request.args.get('exam_type', ExamType.CT1)
 
     report = []
+    student_ids = [s.id for s in students]
+    subject_ids = [s.id for s in subjects]
+    
+    import collections
+    marks_dict = collections.defaultdict(dict)
+    
+    if student_ids and subject_ids:
+        all_marks = Marks.query.filter(
+            Marks.student_id.in_(student_ids),
+            Marks.subject_id.in_(subject_ids),
+            Marks.exam_type == exam_type
+        ).all()
+        for m in all_marks:
+            marks_dict[m.student_id][m.subject_id] = m
+
     for student in students:
         row = {'student': student, 'subjects': {}, 'total': 0, 'max_total': 0}
         for sub in subjects:
-            m = Marks.query.filter_by(student_id=student.id,
-                subject_id=sub.id, exam_type=exam_type).first()
+            m = marks_dict[student.id].get(sub.id)
             row['subjects'][sub.id] = m
             if m:
                 row['total'] += m.marks

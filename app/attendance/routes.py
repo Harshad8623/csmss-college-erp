@@ -204,14 +204,34 @@ def class_report(class_id):
     students = Student.query.filter_by(class_id=class_id, approval_status=ApprovalStatus.APPROVED).all()
     subjects = Subject.query.filter_by(class_id=class_id).all()
 
+    student_ids = [s.id for s in students]
+    subject_ids = [s.id for s in subjects]
+    
+    import collections
+    stats_dict = collections.defaultdict(dict)
+    if student_ids and subject_ids:
+        stats = db.session.query(
+            Attendance.student_id,
+            Attendance.subject_id,
+            db.func.count(Attendance.id).label('total'),
+            db.func.sum(db.case((Attendance.status == True, 1), else_=0)).label('present')
+        ).filter(
+            Attendance.student_id.in_(student_ids),
+            Attendance.subject_id.in_(subject_ids)
+        ).group_by(Attendance.student_id, Attendance.subject_id).all()
+        
+        for r in stats:
+            stats_dict[r.student_id][r.subject_id] = {'total': r.total, 'present': r.present or 0}
+
     report = []
     for student in students:
         row = {'student': student, 'subjects': {}}
         overall_total = overall_present = 0
         for sub in subjects:
-            total   = Attendance.query.filter_by(student_id=student.id, subject_id=sub.id).count()
-            present = Attendance.query.filter_by(student_id=student.id, subject_id=sub.id, status=True).count()
-            pct     = round((present / total) * 100, 2) if total else 0
+            st = stats_dict[student.id].get(sub.id, {'total': 0, 'present': 0})
+            total = st['total']
+            present = st['present']
+            pct = round((present / total) * 100, 2) if total else 0
             row['subjects'][sub.id] = {'total': total, 'present': present, 'pct': pct}
             overall_total   += total
             overall_present += present
