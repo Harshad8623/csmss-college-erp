@@ -120,14 +120,18 @@ def mark():
         selected_date = date.fromisoformat(request.form.get('date', str(date.today())))
         present_ids = [int(x) for x in request.form.getlist('present')]
 
+        # Bulk load existing records
+        existing_records = Attendance.query.filter_by(
+            subject_id=selected_subject.id, date=selected_date
+        ).all()
+        existing_dict = {r.student_id: r for r in existing_records}
+
         for student in students:
             is_present = student.id in present_ids
-            existing_record = Attendance.query.filter_by(
-                student_id=student.id, subject_id=selected_subject.id, date=selected_date
-            ).first()
-            if existing_record:
-                existing_record.status    = is_present
-                existing_record.marked_by = current_user.id
+            if student.id in existing_dict:
+                record = existing_dict[student.id]
+                record.status = is_present
+                record.marked_by = current_user.id
             else:
                 db.session.add(Attendance(
                     student_id=student.id,
@@ -139,16 +143,37 @@ def mark():
 
         db.session.commit()
 
-        # Notify defaulters
-        for student in students:
-            pct = calculate_attendance_percentage(student.id, selected_subject.id)
-            if pct < 75:
-                send_notification(
-                    student.user_id,
-                    f'⚠️ Your attendance in {selected_subject.name} is {pct}% — below 75%!',
-                    'warning',
-                    url_for('attendance.index')
-                )
+        # Bulk notification for defaulters
+        student_ids = [s.id for s in students]
+        if student_ids:
+            stats = db.session.query(
+                Attendance.student_id,
+                db.func.count(Attendance.id).label('total'),
+                db.func.sum(db.case((Attendance.status == True, 1), else_=0)).label('present')
+            ).filter(
+                Attendance.subject_id == selected_subject.id,
+                Attendance.student_id.in_(student_ids)
+            ).group_by(Attendance.student_id).all()
+            
+            stats_dict = {r.student_id: {'total': r.total, 'present': r.present or 0} for r in stats}
+            
+            from app.models import Notification
+            notifs = []
+            for student in students:
+                st = stats_dict.get(student.id)
+                if st and st['total'] > 0:
+                    pct = round((st['present'] / st['total']) * 100, 2)
+                    if pct < 75:
+                        notifs.append(Notification(
+                            user_id=student.user_id,
+                            message=f'⚠️ Your attendance in {selected_subject.name} is {pct}% — below 75%!',
+                            type='warning',
+                            link=url_for('attendance.index')
+                        ))
+            
+            if notifs:
+                db.session.bulk_save_objects(notifs)
+                db.session.commit()
 
         flash(f'Attendance saved — {selected_date.strftime("%d %b %Y")} · {selected_subject.name}', 'success')
         return redirect(url_for('attendance.mark',
