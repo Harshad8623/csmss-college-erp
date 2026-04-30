@@ -37,6 +37,30 @@
 </div>
 
 {% if selected_subject and students %}
+<!-- Excel Bulk Upload Section -->
+<div class="card-erp" style="margin-bottom:20px; border-left:4px solid var(--accent-green);">
+  <div class="card-body-erp" style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:20px; align-items:center;">
+    <div>
+      <h5 style="margin:0 0 8px 0; font-weight:700;"><i class="fa-solid fa-file-excel" style="color:var(--accent-green); margin-right:8px;"></i> Bulk Upload via Excel</h5>
+      <p style="margin:0; font-size:13px; color:var(--text-muted);">Download the pre-filled template, enter the marks, and upload the file.</p>
+    </div>
+    
+    <div style="display:flex; gap:12px; flex-wrap:wrap;">
+      <a href="{{ url_for('marks.export_template', subject_id=selected_subject.id, exam_type=exam_type) }}" class="btn-erp btn-outline-erp">
+        <i class="fa-solid fa-download"></i> Template
+      </a>
+      <form method="POST" action="{{ url_for('marks.upload_excel') }}" enctype="multipart/form-data" style="display:flex; gap:12px; align-items:center;">
+        <input type="hidden" name="subject_id" value="{{ selected_subject.id }}">
+        <input type="hidden" name="exam_type" value="{{ exam_type }}">
+        <input type="file" name="file" accept=".xlsx" required class="form-control-erp" style="padding:6px; max-width:200px; font-size:12px;">
+        <button type="submit" class="btn-erp btn-success-erp">
+          <i class="fa-solid fa-upload"></i> Upload
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
 <form method="POST" action="{{ url_for('marks.upload') }}">
   <input type="hidden" name="subject_id" value="{{ selected_subject.id }}">
   <input type="hidden" name="exam_type" value="{{ exam_type }}">
