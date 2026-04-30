@@ -165,7 +165,10 @@ def export_template(subject_id, exam_type):
     wb.save(out)
     out.seek(0)
     
-    filename = f"Marks_Template_{subject.code or subject.id}_{exam_type}.xlsx"
+    import re
+    safe_name = re.sub(r'[^a-zA-Z0-9]', '_', subject.name[:15])
+    safe_exam = re.sub(r'[^a-zA-Z0-9]', '_', str(exam_type))
+    filename = f"Marks_Template_{safe_name}_{safe_exam}.xlsx"
     return send_file(out, download_name=filename, as_attachment=True, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 @marks_bp.route('/upload-excel', methods=['POST'])
