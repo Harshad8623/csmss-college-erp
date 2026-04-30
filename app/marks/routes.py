@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from app.extensions import db
 from app.models import Marks, Student, Subject, Class, User, Roles, ApprovalStatus, ExamType
 from app.utils.decorators import role_required
-from app.utils.helpers import send_notification, get_grade, get_dept_for_hod, get_class_for_ct
+from app.utils.helpers import send_notification, get_grade, get_dept_for_hod, get_class_for_ct, get_students_for_subject
 
 marks_bp = Blueprint('marks', __name__, url_prefix='/marks')
 
@@ -65,10 +65,7 @@ def upload():
             abort(403)
         exam_type = request.args.get('exam_type', ExamType.CT1) or request.form.get('exam_type', ExamType.CT1)
         if selected_subject:
-            students = Student.query.filter_by(
-                class_id=selected_subject.class_id,
-                approval_status=ApprovalStatus.APPROVED
-            ).all()
+            students = get_students_for_subject(selected_subject)
 
     if request.method == 'POST' and selected_subject:
         exam_type = request.form.get('exam_type', ExamType.CT1)
@@ -159,6 +156,10 @@ def class_report(class_id):
     for student in students:
         row = {'student': student, 'subjects': {}, 'total': 0, 'max_total': 0}
         for sub in subjects:
+            if sub.is_elective and student not in sub.enrolled_students:
+                row['subjects'][sub.id] = 'N/A'
+                continue
+            
             m = marks_dict[student.id].get(sub.id)
             row['subjects'][sub.id] = m
             if m:
@@ -183,7 +184,9 @@ def class_report(class_id):
 @login_required
 def performance_data(student_id):
     student = Student.query.get_or_404(student_id)
-    subjects = Subject.query.filter_by(class_id=student.class_id).all()
+    all_class_subjects = Subject.query.filter_by(class_id=student.class_id).all()
+    subjects = [s for s in all_class_subjects if not s.is_elective or student in s.enrolled_students]
+    
     labels = [s.name for s in subjects]
     datasets = {}
     for et in ExamType.ALL:

@@ -629,6 +629,7 @@ def create_subject():
     class_id   = request.form.get('class_id')
     teacher_id = request.form.get('teacher_id') or None
     credits    = int(request.form.get('credits', 3))
+    is_elective = request.form.get('is_elective') == 'on'
 
     # Scope check
     if current_user.role == Roles.CLASS_TEACHER:
@@ -643,7 +644,7 @@ def create_subject():
 
     if name:
         sub = Subject(name=name, code=code, class_id=class_id,
-                      teacher_id=teacher_id, credits=credits)
+                      teacher_id=teacher_id, credits=credits, is_elective=is_elective)
         db.session.add(sub)
         db.session.commit()
         flash(f'Subject "{name}" created.', 'success')
@@ -672,9 +673,46 @@ def edit_subject(id):
     sub.class_id   = request.form.get('class_id', sub.class_id)
     sub.teacher_id = request.form.get('teacher_id') or None
     sub.credits    = int(request.form.get('credits', sub.credits))
+    sub.is_elective = request.form.get('is_elective') == 'on'
     db.session.commit()
     flash(f'Subject "{sub.name}" updated.', 'success')
     return redirect(url_for('admin.subjects'))
+
+
+@admin_bp.route('/subjects/<int:id>/enroll', methods=['GET', 'POST'])
+@login_required
+@role_required(Roles.SUPER_ADMIN, Roles.HOD, Roles.CLASS_TEACHER)
+def enroll_elective(id):
+    sub = Subject.query.get_or_404(id)
+    if not sub.is_elective:
+        flash('This is a regular subject. All class students are automatically enrolled.', 'info')
+        return redirect(url_for('admin.subjects'))
+
+    # Scope check
+    if current_user.role == Roles.CLASS_TEACHER:
+        cls = _ct_class()
+        if not cls or sub.class_id != cls.id:
+            abort(403)
+    elif current_user.role == Roles.HOD:
+        dept_id = _hod_dept_id()
+        cls = Class.query.get(sub.class_id)
+        if not cls or cls.department_id != dept_id:
+            abort(403)
+
+    from app.models import Student, ApprovalStatus
+    # Get all approved students in this class
+    all_students = Student.query.filter_by(class_id=sub.class_id, approval_status=ApprovalStatus.APPROVED).order_by(Student.roll_no).all()
+
+    if request.method == 'POST':
+        selected_ids = request.form.getlist('student_ids')
+        selected_students = Student.query.filter(Student.id.in_(selected_ids)).all() if selected_ids else []
+        sub.enrolled_students = selected_students
+        db.session.commit()
+        flash(f'Enrollment updated for {sub.name}. {len(selected_students)} students enrolled.', 'success')
+        return redirect(url_for('admin.subjects'))
+
+    return render_template('admin/subject_enroll.html', subject=sub, students=all_students)
+
 
 
 # ── Audit Logs ───────────────────────────────────────────────────────────────

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Enroll Students in {{ subject.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+  <div>
+    <h1 class="page-title"><div class="title-icon">👥</div> Enroll Students</h1>
+    <p style="color:var(--text-muted); margin-top:4px;">{{ subject.name }} ({{ subject.code or 'N/A' }}) - {{ subject.class_.name }}</p>
+  </div>
+  <a href="{{ url_for('admin.subjects') }}" class="btn-erp btn-secondary-erp">
+    <i class="fa-solid fa-arrow-left"></i> Back to Subjects
+  </a>
+</div>
+
+<div class="card-erp">
+  <div class="card-header-erp" style="display:flex;justify-content:space-between;align-items:center;">
+    <h5>Select Students</h5>
+    <div style="font-size:14px;color:var(--text-muted);">
+      <span id="selectedCount">{{ subject.enrolled_students|length }}</span> selected out of {{ students|length }}
+    </div>
+  </div>
+  <div class="card-body-erp">
+    <form method="POST" action="{{ url_for('admin.enroll_elective', id=subject.id) }}">
+      
+      <div style="margin-bottom:16px; padding:12px; background:var(--bg-hover); border-radius:6px; display:flex; gap:16px;">
+        <button type="button" class="btn-erp btn-secondary-erp" onclick="toggleAll(true)" style="font-size:12px; padding:4px 8px;">Select All</button>
+        <button type="button" class="btn-erp btn-secondary-erp" onclick="toggleAll(false)" style="font-size:12px; padding:4px 8px;">Deselect All</button>
+      </div>
+
+      <div class="table-wrap-scroll" style="max-height:60vh;">
+        <table class="table-erp">
+          <thead>
+            <tr>
+              <th style="width:50px; text-align:center;">#</th>
+              <th>Roll No</th>
+              <th>Name</th>
+              <th>PRN</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in students %}
+            <tr>
+              <td style="text-align:center;">
+                <input type="checkbox" name="student_ids" value="{{ s.id }}" class="student-checkbox" style="width:16px; height:16px;" 
+                {% if s in subject.enrolled_students %}checked{% endif %} onchange="updateCount()">
+              </td>
+              <td style="font-weight:600;">{{ s.roll_no }}</td>
+              <td>{{ s.user.name }}</td>
+              <td style="color:var(--text-muted); font-family:monospace;">{{ s.prn }}</td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="4"><div class="empty-state"><p>No approved students in this class.</p></div></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      
+      <div style="margin-top:20px; display:flex; justify-content:flex-end;">
+        <button type="submit" class="btn-erp btn-primary-erp">
+          <i class="fa-solid fa-save"></i> Save Enrollments
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updateCount() {
+  const checkboxes = document.querySelectorAll('.student-checkbox');
+  let count = 0;
+  checkboxes.forEach(cb => {
+    if(cb.checked) count++;
+  });
+  document.getElementById('selectedCount').innerText = count;
+}
+
+function toggleAll(check) {
+  const checkboxes = document.querySelectorAll('.student-checkbox');
+  checkboxes.forEach(cb => {
+    cb.checked = check;
+  });
+  updateCount();
+}
+</script>
+{% endblock %}

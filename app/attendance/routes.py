@@ -7,7 +7,7 @@ from app.models import (
 from app.utils.decorators import role_required
 from app.utils.helpers import (
     send_notification, calculate_attendance_percentage, classes_needed_for_75,
-    get_dept_for_hod, get_class_for_ct, get_tg_student_ids
+    get_dept_for_hod, get_class_for_ct, get_tg_student_ids, get_students_for_subject
 )
 from datetime import date
 
@@ -106,10 +106,7 @@ def mark():
             abort(403)
 
         if selected_subject:
-            students = Student.query.filter_by(
-                class_id=selected_subject.class_id,
-                approval_status=ApprovalStatus.APPROVED
-            ).all()
+            students = get_students_for_subject(selected_subject)
             selected_date = date.fromisoformat(att_date)
             existing_records = Attendance.query.filter_by(
                 subject_id=subject_id, date=selected_date
@@ -228,6 +225,10 @@ def class_report(class_id):
         row = {'student': student, 'subjects': {}}
         overall_total = overall_present = 0
         for sub in subjects:
+            if sub.is_elective and student not in sub.enrolled_students:
+                row['subjects'][sub.id] = {'total': '-', 'present': '-', 'pct': '-'}
+                continue
+
             st = stats_dict[student.id].get(sub.id, {'total': 0, 'present': 0})
             total = st['total']
             present = st['present']

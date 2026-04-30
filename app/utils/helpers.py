@@ -91,3 +91,19 @@ def get_tg_student_ids(user_id):
     """Return list of student IDs for which this user is Teacher Guardian."""
     from app.models import Student
     return [s.id for s in Student.query.filter_by(tg_id=user_id).all()]
+
+
+def get_students_for_subject(subject):
+    """
+    Return the list of students enrolled in a subject.
+    If the subject is elective, returns only students explicitly enrolled in it.
+    If it is a regular subject, returns all approved students in the subject's class.
+    """
+    from app.models import Student, ApprovalStatus
+    if subject.is_elective:
+        # Enrolled students via the student_subjects association table
+        return subject.enrolled_students
+    else:
+        # All approved students in the class
+        return Student.query.filter_by(class_id=subject.class_id, approval_status=ApprovalStatus.APPROVED).order_by(Student.roll_no).all()
+

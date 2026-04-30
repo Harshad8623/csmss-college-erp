@@ -40,7 +40,13 @@
           {% for sub in subjects %}
           {% set m = row.subjects.get(sub.id) %}
           <td style="text-align:center;font-weight:600;">
-            {% if m %}{{ m.marks|int }}/{{ m.max_marks|int }}{% else %}—{% endif %}
+            {% if m == 'N/A' %}
+              <span style="color:var(--text-muted);font-size:11px;font-weight:normal;">N/A</span>
+            {% elif m %}
+              {{ m.marks|int }}/{{ m.max_marks|int }}
+            {% else %}
+              —
+            {% endif %}
           </td>
           {% endfor %}
           <td style="text-align:center;font-weight:700;">{{ row.total|int }}/{{ row.max_total|int }}</td>

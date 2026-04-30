@@ -153,6 +153,12 @@ class Class(db.Model):
         return f'<Class {self.name}>'
 
 
+# Association table for elective subject enrollments
+student_subjects = db.Table('student_subjects',
+    db.Column('student_id', db.Integer, db.ForeignKey('students.id'), primary_key=True),
+    db.Column('subject_id', db.Integer, db.ForeignKey('subjects.id'), primary_key=True)
+)
+
 class Student(db.Model):
     __tablename__ = 'students'
     id              = db.Column(db.Integer, primary_key=True)
@@ -249,6 +255,7 @@ class Subject(db.Model):
     class_id   = db.Column(db.Integer, db.ForeignKey('classes.id'), index=True)
     teacher_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
     credits    = db.Column(db.Integer, default=3)
+    is_elective = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     teacher_user = db.relationship('User', foreign_keys=[teacher_id])
@@ -256,6 +263,8 @@ class Subject(db.Model):
     marks        = db.relationship('Marks', backref='subject', lazy='dynamic')
     assignments  = db.relationship('Assignment', backref='subject', lazy='dynamic')
     timetable    = db.relationship('Timetable', backref='subject', lazy='dynamic')
+    enrolled_students = db.relationship('Student', secondary=student_subjects, lazy='subquery',
+        backref=db.backref('elective_subjects', lazy=True))
 
     def __repr__(self):
         return f'<Subject {self.name}>'

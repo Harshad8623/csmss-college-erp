@@ -7,7 +7,7 @@ from app.models import (
 from app.extensions import db, cache
 from sqlalchemy import func
 from datetime import date, timedelta, datetime
-from app.utils.helpers import get_dept_for_hod, get_class_for_ct, get_tg_student_ids
+from app.utils.helpers import get_dept_for_hod, get_class_for_ct, get_tg_student_ids, get_students_for_subject
 
 analytics_bp = Blueprint('analytics', __name__, url_prefix='/analytics')
 
@@ -406,7 +406,7 @@ def subject_summary():
     subj = Subject.query.get_or_404(subj_id)
     if subj.teacher_id != current_user.id and current_user.role not in [Roles.HOD, Roles.SUPER_ADMIN]:
         return jsonify({'error': 'unauthorized'}), 403
-    students = Student.query.filter_by(class_id=subj.class_id, approval_status=ApprovalStatus.APPROVED).all()
+    students = get_students_for_subject(subj)
     sids = [s.id for s in students]
     lectures = Attendance.query.filter(Attendance.subject_id==subj_id).with_entities(Attendance.date).distinct().count()
     pct = _att_pct(sids, subject_id=subj_id)
@@ -421,7 +421,7 @@ def subject_student_attendance():
     subj = Subject.query.get_or_404(subj_id)
     if subj.teacher_id != current_user.id and current_user.role not in [Roles.HOD, Roles.SUPER_ADMIN]:
         return jsonify({'error': 'unauthorized'}), 403
-    students = Student.query.filter_by(class_id=subj.class_id, approval_status=ApprovalStatus.APPROVED).order_by(Student.roll_no).all()
+    students = get_students_for_subject(subj)
     labels, data, info = [], [], []
     for s in students:
         pct = s.attendance_percentage(subject_id=subj_id)

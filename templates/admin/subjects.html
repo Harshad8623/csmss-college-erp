@@ -11,7 +11,7 @@
   <div class="card-body-erp" style="padding:0;">
     <div class="table-wrap-scroll">
     <table class="table-erp">
-      <thead><tr><th>Subject</th><th>Code</th><th>Class</th><th>Teacher</th><th>Credits</th><th style="text-align:right;">Actions</th></tr></thead>
+      <thead><tr><th>Subject</th><th>Code</th><th>Class</th><th>Teacher</th><th>Credits</th><th>Type</th><th style="text-align:right;">Actions</th></tr></thead>
       <tbody>
         {% for sub in subjects %}
         <tr>
@@ -20,8 +20,20 @@
           <td>{{ sub.class_.name if sub.class_ else '—' }}</td>
           <td>{{ sub.teacher_user.name if sub.teacher_user else '—' }}</td>
           <td>{{ sub.credits }}</td>
+          <td>
+            {% if sub.is_elective %}
+              <span class="badge-erp badge-warning">Elective</span>
+            {% else %}
+              <span class="badge-erp badge-success">Regular</span>
+            {% endif %}
+          </td>
           <td style="text-align:right;">
-            <button onclick="openEditSubModal({{ sub.id }}, '{{ sub.name }}', '{{ sub.code or '' }}', '{{ sub.credits }}', '{{ sub.class_id or '' }}', '{{ sub.teacher_id or '' }}')" class="btn-erp" style="padding:4px 8px;font-size:12px;background:var(--bg-hover);">
+            {% if sub.is_elective %}
+            <a href="{{ url_for('admin.enroll_elective', id=sub.id) }}" class="btn-erp" style="padding:4px 8px;font-size:12px;background:var(--bg-hover);color:var(--text-1);text-decoration:none;">
+              <i class="fa-solid fa-users"></i> Enroll
+            </a>
+            {% endif %}
+            <button onclick="openEditSubModal({{ sub.id }}, '{{ sub.name }}', '{{ sub.code or '' }}', '{{ sub.credits }}', '{{ sub.class_id or '' }}', '{{ sub.teacher_id or '' }}', {{ 'true' if sub.is_elective else 'false' }})" class="btn-erp" style="padding:4px 8px;font-size:12px;background:var(--bg-hover);">
               <i class="fa-solid fa-pen"></i> Edit
             </button>
           </td>
@@ -69,6 +81,10 @@
               {% for t in teachers %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
             </select>
           </div>
+          <div class="form-group-erp" style="grid-column:1/-1; display:flex; align-items:center; gap:8px; margin-top:8px;">
+            <input type="checkbox" name="is_elective" id="addIsElective" style="width:16px;height:16px;">
+            <label for="addIsElective" class="form-label-erp" style="margin:0;cursor:pointer;">This is an Elective Subject</label>
+          </div>
         </div>
         <button type="submit" class="btn-erp btn-primary-erp" style="width:100%;justify-content:center;">Create Subject</button>
       </form>
@@ -109,6 +125,10 @@
               {% for t in teachers %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
             </select>
           </div>
+          <div class="form-group-erp" style="grid-column:1/-1; display:flex; align-items:center; gap:8px; margin-top:8px;">
+            <input type="checkbox" name="is_elective" id="editIsElective" style="width:16px;height:16px;">
+            <label for="editIsElective" class="form-label-erp" style="margin:0;cursor:pointer;">This is an Elective Subject</label>
+          </div>
         </div>
         <button type="submit" class="btn-erp btn-primary-erp" style="width:100%;justify-content:center;margin-top:14px;">Save Changes</button>
       </form>
@@ -119,12 +139,13 @@
 
 {% block extra_js %}
 <script>
-function openEditSubModal(id, name, code, credits, classId, teacherId) {
+function openEditSubModal(id, name, code, credits, classId, teacherId, isElective) {
   document.getElementById('editSubName').value = name;
   document.getElementById('editSubCode').value = code;
   document.getElementById('editSubCredits').value = credits;
   document.getElementById('editSubClass').value = classId;
   document.getElementById('editSubTeacher').value = teacherId;
+  document.getElementById('editIsElective').checked = isElective;
   document.getElementById('editSubForm').action = "/admin/subjects/edit/" + id;
   document.getElementById('editSubModal').style.display = 'flex';
 }
