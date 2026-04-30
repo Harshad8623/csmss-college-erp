@@ -74,6 +74,9 @@
               {% else %}
               <div class="user-avatar" style="width:36px;height:36px;font-size:14px;">{{ user.name[0] }}</div>
               {% endif %}
+              {% else %}
+              <div class="user-avatar" style="width:36px;height:36px;font-size:14px;">{{ user.name[0] }}</div>
+              {% endif %}
               <div>
                 <div style="font-weight:600;">{{ user.name }}</div>
                 <div style="font-size:11px;color:var(--text-muted);">{{ user.email }}</div>
