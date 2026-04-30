@@ -27,9 +27,9 @@
         <button type="button" class="btn-erp btn-secondary-erp" onclick="toggleAll(false)" style="font-size:12px; padding:4px 8px;">Deselect All</button>
       </div>
 
-      <div class="table-wrap-scroll" style="max-height:60vh;">
+      <div class="table-wrap-scroll" style="max-height:60vh; overflow-y:auto; border-radius:6px; border:1px solid var(--border-color);">
         <table class="table-erp">
-          <thead>
+          <thead style="position: sticky; top: 0; z-index: 10;">
             <tr>
               <th style="width:50px; text-align:center;">#</th>
               <th>Roll No</th>
