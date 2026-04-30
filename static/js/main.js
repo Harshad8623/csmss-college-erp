@@ -370,8 +370,18 @@ document.addEventListener('DOMContentLoaded', function () {
       // Don't block forms with data-no-loading attribute
       if (form.dataset.noLoading !== undefined) return;
 
-      const btn = form.querySelector('[type="submit"]');
+      const btn = e.submitter || form.querySelector('[type="submit"]');
       if (!btn || btn.disabled) return;
+
+      // If the button has a name, append a hidden input to preserve its value
+      // because disabling the button prevents its value from being sent.
+      if (btn.name) {
+        const hidden = document.createElement('input');
+        hidden.type = 'hidden';
+        hidden.name = btn.name;
+        hidden.value = btn.value;
+        form.appendChild(hidden);
+      }
 
       // Store original content and disable immediately
       const originalHTML = btn.innerHTML;
