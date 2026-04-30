@@ -102,7 +102,7 @@ def get_students_for_subject(subject):
     from app.models import Student, ApprovalStatus
     if subject.is_elective:
         # Enrolled students via the student_subjects association table
-        return subject.enrolled_students
+        return sorted(subject.enrolled_students, key=lambda s: (s.roll_no is None, s.roll_no))
     else:
         # All approved students in the class
         return Student.query.filter_by(class_id=subject.class_id, approval_status=ApprovalStatus.APPROVED).order_by(Student.roll_no).all()
