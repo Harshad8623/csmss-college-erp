@@ -17,22 +17,28 @@ depends_on = None
 
 
 def upgrade():
-    # Add column as nullable first so existing rows don't violate NOT NULL
-    with op.batch_alter_table('users', schema=None) as batch_op:
-        batch_op.add_column(sa.Column(
-            'must_change_password', sa.Boolean(), nullable=True
-        ))
+    from sqlalchemy.engine.reflection import Inspector
+    bind = op.get_bind()
+    inspector = Inspector.from_engine(bind)
 
-    # Backfill: existing users already have a password — no need to force change
-    op.execute("UPDATE users SET must_change_password = FALSE WHERE must_change_password IS NULL")
+    columns = [col['name'] for col in inspector.get_columns('users')]
+    if 'must_change_password' not in columns:
+        # Add column as nullable first so existing rows don't violate NOT NULL
+        with op.batch_alter_table('users', schema=None) as batch_op:
+            batch_op.add_column(sa.Column(
+                'must_change_password', sa.Boolean(), nullable=True
+            ))
 
-    # Now tighten to NOT NULL with server_default so future rows are safe
-    with op.batch_alter_table('users', schema=None) as batch_op:
-        batch_op.alter_column(
-            'must_change_password',
-            nullable=False,
-            server_default=sa.text('FALSE')
-        )
+        # Backfill: existing users already have a password — no need to force change
+        op.execute("UPDATE users SET must_change_password = FALSE WHERE must_change_password IS NULL")
+
+        # Now tighten to NOT NULL with server_default so future rows are safe
+        with op.batch_alter_table('users', schema=None) as batch_op:
+            batch_op.alter_column(
+                'must_change_password',
+                nullable=False,
+                server_default=sa.text('FALSE')
+            )
 
 
 def downgrade():
