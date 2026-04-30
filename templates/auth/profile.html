@@ -785,8 +785,12 @@
         <div class="avatar-zone">
           <div class="avatar-ring" id="avatarRing">
             {% if current_user.profile_pic and current_user.profile_pic != 'default.png' %}
-            <img src="{{ url_for('static', filename='uploads/profiles/' + current_user.profile_pic) }}" alt="Avatar"
-              id="avatarImg">
+              {% set _ppic = profile_pic_url(current_user.profile_pic) %}
+              {% if _ppic %}
+              <img src="{{ _ppic }}" alt="Avatar" id="avatarImg">
+              {% else %}
+              <div class="avatar-initials" id="avatarImg">{{ current_user.name[0] }}</div>
+              {% endif %}
             {% else %}
             <div class="avatar-initials" id="avatarImg">{{ current_user.name[0] }}</div>
             {% endif %}

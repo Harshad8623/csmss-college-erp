@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, send_file
+from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, send_file, current_app
 from flask_login import login_required, current_user
 from app.extensions import db, bcrypt
 from app.models import (
@@ -110,21 +110,99 @@ def unblock_user(id):
 @login_required
 @role_required(Roles.SUPER_ADMIN)
 def delete_user(id):
+    from app.models import (
+        Notification, Message, AuditLog, Attendance, AbsenteeReason,
+        Marks, Grievance, Certificate, Assignment, AssignmentSubmission,
+        LeaveApplication, Notice, PracticalSession, EventSession,
+        PracticalRecord, EventRecord
+    )
     user = User.query.get_or_404(id)
+
     # Prevent self-deletion
     if user.id == current_user.id:
         flash('You cannot delete your own account.', 'danger')
         return redirect(url_for('admin.users'))
+
     name = user.name
-    # Cascade delete related profiles
-    if user.student_profile:
-        db.session.delete(user.student_profile)
-    if user.teacher_profile:
-        db.session.delete(user.teacher_profile)
-    db.session.flush()
-    db.session.delete(user)
-    db.session.commit()
-    flash(f'User "{name}" has been permanently deleted.', 'danger')
+
+    try:
+        # ── 1. Nullify FK references where column is nullable ──────────────
+        # Departments where this user is HOD
+        Department.query.filter_by(hod_id=user.id).update({'hod_id': None})
+        # Classes where this user is Class Teacher
+        Class.query.filter_by(class_teacher_id=user.id).update({'class_teacher_id': None})
+        # Subjects where this user is teacher
+        Subject.query.filter_by(teacher_id=user.id).update({'teacher_id': None})
+        # Students whose TG is this user
+        Student.query.filter_by(tg_id=user.id).update({'tg_id': None})
+        # Students approved by this user
+        Student.query.filter_by(approved_by=user.id).update({'approved_by': None})
+        # Grievances assigned to this user
+        Grievance.query.filter_by(assigned_to=user.id).update({'assigned_to': None})
+        # Certificates approved by this user
+        Certificate.query.filter_by(approved_by=user.id).update({'approved_by': None})
+        # Leave applications approved by this user (TG / CT)
+        LeaveApplication.query.filter_by(tg_approved_by=user.id).update({'tg_approved_by': None})
+        LeaveApplication.query.filter_by(ct_approved_by=user.id).update({'ct_approved_by': None})
+        # Notices posted by this user
+        Notice.query.filter_by(posted_by=user.id).update({'posted_by': None})
+        # Assignments created by this user
+        Assignment.query.filter_by(created_by=user.id).update({'created_by': None})
+        # Attendance marked_by this user
+        Attendance.query.filter_by(marked_by=user.id).update({'marked_by': None})
+        # Marks uploaded_by this user
+        Marks.query.filter_by(uploaded_by=user.id).update({'uploaded_by': None})
+        # PracticalSession / EventSession marked_by this user
+        PracticalSession.query.filter_by(marked_by=user.id).update({'marked_by': None})
+        EventSession.query.filter_by(marked_by=user.id).update({'marked_by': None})
+        # AbsenteeReason requested_by this user
+        AbsenteeReason.query.filter_by(requested_by=user.id).update({'requested_by': None})
+        # AuditLog entries by this user
+        AuditLog.query.filter_by(user_id=user.id).update({'user_id': None})
+
+        db.session.flush()
+
+        # ── 2. Delete owned rows (non-nullable FK) ─────────────────────────
+        # Notifications
+        Notification.query.filter_by(user_id=user.id).delete()
+        # Messages sent/received
+        Message.query.filter(
+            db.or_(Message.sender_id == user.id, Message.receiver_id == user.id)
+        ).delete(synchronize_session=False)
+
+        db.session.flush()
+
+        # ── 3. Delete student profile and all its children first ───────────
+        if user.student_profile:
+            student = user.student_profile
+            # Delete student's attendance → triggers AbsenteeReason cascade
+            Attendance.query.filter_by(student_id=student.id).delete()
+            Marks.query.filter_by(student_id=student.id).delete()
+            AssignmentSubmission.query.filter_by(student_id=student.id).delete()
+            PracticalRecord.query.filter_by(student_id=student.id).delete()
+            EventRecord.query.filter_by(student_id=student.id).delete()
+            Grievance.query.filter_by(student_id=student.id).delete()
+            Certificate.query.filter_by(student_id=student.id).delete()
+            LeaveApplication.query.filter_by(student_id=student.id).delete()
+            db.session.flush()
+            db.session.delete(student)
+            db.session.flush()
+
+        # ── 4. Delete teacher profile ──────────────────────────────────────
+        if user.teacher_profile:
+            db.session.delete(user.teacher_profile)
+            db.session.flush()
+
+        # ── 5. Finally delete the user ─────────────────────────────────────
+        db.session.delete(user)
+        db.session.commit()
+        flash(f'User "{name}" has been permanently deleted.', 'danger')
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Error deleting user {id}: {e}')
+        flash(f'Could not delete user: {e}', 'danger')
+
     return redirect(url_for('admin.users'))
 
 
