@@ -30,9 +30,32 @@
       <button type="submit" class="btn-erp btn-primary-erp">
         <i class="fa-solid fa-search"></i> Load Students
       </button>
+      {% if selected_subject %}
+      <a href="{{ url_for('attendance.export_template', subject_id=selected_subject.id) }}" class="btn-erp btn-outline-erp" style="margin-left: 10px;">
+        <i class="fa-solid fa-download"></i> Download Excel Template
+      </a>
+      {% endif %}
     </form>
   </div>
 </div>
+
+{% if selected_subject %}
+<div class="card-erp" style="margin-bottom:20px; background: rgba(59,130,246,0.03); border: 1px dashed var(--accent-blue);">
+  <div class="card-body-erp" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+    <div>
+      <h5 style="margin:0; font-size:15px; color:var(--text-color);"><i class="fa-solid fa-file-excel" style="color:#10b981;"></i> Bulk Upload via Excel</h5>
+      <p style="margin:4px 0 0; font-size:13px; color:var(--text-muted);">Download the template, fill in 'P' or 'A' under the date columns, and upload it back here.</p>
+    </div>
+    <form method="POST" action="{{ url_for('attendance.upload_excel') }}" enctype="multipart/form-data" style="display:flex; gap:10px; align-items:center;">
+      <input type="hidden" name="subject_id" value="{{ selected_subject.id }}">
+      <input type="file" name="excel_file" accept=".xlsx" class="form-control-erp" style="padding:6px; font-size:13px; width:220px;" required>
+      <button type="submit" class="btn-erp btn-success-erp btn-sm-erp">
+        <i class="fa-solid fa-upload"></i> Upload
+      </button>
+    </form>
+  </div>
+</div>
+{% endif %}
 
 {% if selected_subject and students %}
 <form method="POST" action="{{ url_for('attendance.mark') }}" id="attendanceForm">
