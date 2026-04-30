@@ -4,9 +4,22 @@ from app.extensions import db
 from app.models import Timetable, Class, Subject, Roles, Student
 from app.utils.decorators import role_required
 
+from datetime import datetime
+
 timetable_bp = Blueprint('timetable', __name__, url_prefix='/timetable')
 
 DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+FIXED_SLOTS = [
+    {'type': 'slot', 'start': '10:00', 'end': '11:15'},
+    {'type': 'slot', 'start': '11:15', 'end': '12:15'},
+    {'type': 'break', 'name': 'L U N C H   B R E A K', 'start': '12:15', 'end': '13:00'},
+    {'type': 'slot', 'start': '13:00', 'end': '14:00'},
+    {'type': 'slot', 'start': '14:00', 'end': '15:00'},
+    {'type': 'break', 'name': 'T E A   B R E A K', 'start': '15:00', 'end': '15:15'},
+    {'type': 'slot', 'start': '15:15', 'end': '16:15'},
+    {'type': 'slot', 'start': '16:15', 'end': '17:15'},
+]
 
 @timetable_bp.route('/')
 @login_required
@@ -25,16 +38,13 @@ def index():
         selected_class = Class.query.get(class_id)
         entries = Timetable.query.filter_by(class_id=class_id).all()
         for day in DAYS:
-            timetable_data[day] = sorted(
-                [e for e in entries if e.day == day],
-                key=lambda x: x.start_time
-            )
+            timetable_data[day] = [e for e in entries if e.day == day]
     else:
         for day in DAYS:
             timetable_data[day] = []
 
     return render_template('timetable/index.html',
-        timetable_data=timetable_data, days=DAYS,
+        timetable_data=timetable_data, days=DAYS, time_slots=FIXED_SLOTS,
         classes=classes, selected_class=selected_class)
 
 @timetable_bp.route('/manage', methods=['GET', 'POST'])
@@ -66,7 +76,7 @@ def manage():
 
     return render_template('timetable/manage.html',
         classes=classes, selected_class=Class.query.get(class_id) if class_id else None,
-        subjects=subjects, entries=entries, days=DAYS)
+        subjects=subjects, entries=entries, days=DAYS, time_slots=FIXED_SLOTS)
 
 @timetable_bp.route('/edit/<int:id>', methods=['POST'])
 @login_required
