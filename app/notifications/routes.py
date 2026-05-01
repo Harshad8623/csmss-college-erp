@@ -99,7 +99,7 @@ def push_status():
     return jsonify({'subscriptions_in_db': count, 'user_id': current_user.id})
 
 
-@notifications_bp.route('/api/push-test', methods=['POST'])
+@notifications_bp.route('/api/push-test', methods=['GET', 'POST'])
 @login_required
 def push_test():
     """Send a test Web Push to the current logged-in user's devices."""
