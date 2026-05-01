@@ -39,7 +39,11 @@ def staff_required(f):
     return decorated_function
 
 def log_action(action, details=None):
-    """Log user actions to audit log."""
+    """Log user actions to audit log.
+    Uses flush() not commit() — the log entry is part of the caller's
+    transaction. If the caller rolls back, the log is also rolled back,
+    preventing false audit records for failed operations.
+    """
     from app.models import AuditLog
     from app.extensions import db
     from flask import request
@@ -51,6 +55,6 @@ def log_action(action, details=None):
             ip_address=request.remote_addr
         )
         db.session.add(log)
-        db.session.commit()
+        db.session.flush()  # Part of caller's transaction — do NOT commit here
     except Exception:
         pass

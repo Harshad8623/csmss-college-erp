@@ -189,8 +189,8 @@ def manage():
     if request.method == 'POST' and request.form.get('action') == 'add':
         day        = request.form.get('day')
         subject_id = request.form.get('subject_id')
-        start_time = request.form.get('start_time')
-        end_time   = request.form.get('end_time')
+        start_time = request.form.get('start_time', '').strip()
+        end_time   = request.form.get('end_time', '').strip()
         entry_type = request.form.get('entry_type', 'theory')
         batch      = request.form.get('batch', '').strip() or None
 
@@ -198,9 +198,29 @@ def manage():
             flash('All fields are required to add a timetable entry.', 'danger')
             return redirect(url_for('timetable.manage', class_id=class_id))
 
-        # Only store batch for practical entries
+        # Validate time format and logical order
+        start_m = _to_minutes(start_time)
+        end_m   = _to_minutes(end_time)
+        if end_m <= start_m:
+            flash('End time must be after start time.', 'danger')
+            return redirect(url_for('timetable.manage', class_id=class_id))
+
+        # Clash detection: check for overlapping entries for this class+day
         if entry_type != 'practical':
             batch = None
+        existing_entries = Timetable.query.filter_by(
+            class_id=class_id, day=day
+        ).all()
+        for ex in existing_entries:
+            # Skip practical vs theory clash checks only if different batch
+            if ex.entry_type == 'practical' and entry_type == 'practical' and ex.batch != batch:
+                continue
+            ex_start = _to_minutes(ex.start_time)
+            ex_end   = _to_minutes(ex.end_time)
+            if start_m < ex_end and ex_start < end_m:  # overlap condition
+                flash(f'Time clash detected with existing entry ({ex.start_time}–{ex.end_time}). Please choose a different time slot.', 'danger')
+                return redirect(url_for('timetable.manage', class_id=class_id))
+
         entry = Timetable(class_id=class_id, subject_id=subject_id,
                           day=day, start_time=start_time, end_time=end_time,
                           entry_type=entry_type, batch=batch)

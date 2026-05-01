@@ -47,6 +47,12 @@ def upload_profile_picture(file_storage, user_id):
 
 def _upload_to_cloudinary(file_storage, user_id):
     """Upload to Cloudinary and return the secure URL."""
+    # Validate extension — same allowlist as local fallback to prevent SVG/HTML uploads
+    allowed = {'.jpg', '.jpeg', '.png', '.webp'}
+    ext = os.path.splitext(file_storage.filename or '')[1].lower()
+    if ext not in allowed:
+        current_app.logger.warning(f'Blocked upload of disallowed file type: {ext} for user {user_id}')
+        return None
     try:
         init_cloudinary()
         result = cloudinary.uploader.upload(

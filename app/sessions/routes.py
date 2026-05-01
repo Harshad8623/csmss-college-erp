@@ -105,7 +105,11 @@ def mark_practical():
                 batch=batch
             ).order_by(Student.roll_no).all()
 
-            sel_date = date.fromisoformat(att_date)
+            try:
+                sel_date = date.fromisoformat(att_date)
+            except (ValueError, TypeError):
+                sel_date = date.today()
+                att_date = str(sel_date)
             # Check if session already exists for this subject+batch+date
             existing_session = PracticalSession.query.filter_by(
                 subject_id=selected_subject.id,

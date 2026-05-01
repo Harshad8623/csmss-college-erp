@@ -10,10 +10,13 @@ notifications_bp = Blueprint('notifications', __name__, url_prefix='/notificatio
 def index():
     notifications = Notification.query.filter_by(user_id=current_user.id)\
         .order_by(Notification.created_at.desc()).limit(50).all()
-    # Mark all as read
-    Notification.query.filter_by(user_id=current_user.id, is_read=False)\
-        .update({'is_read': True})
-    db.session.commit()
+    # Only mark the SHOWN notifications as read — do not mark notifications
+    # the user hasn't seen yet (beyond the 50 limit) as read
+    shown_ids = [n.id for n in notifications if not n.is_read]
+    if shown_ids:
+        Notification.query.filter(Notification.id.in_(shown_ids))\
+            .update({'is_read': True}, synchronize_session=False)
+        db.session.commit()
     return render_template('notifications/index.html', notifications=notifications)
 
 @notifications_bp.route('/mark-read/<int:id>', methods=['POST'])
