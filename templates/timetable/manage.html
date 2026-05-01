@@ -85,12 +85,43 @@
 
       <div>
         <label class="form-label-erp">Start Time</label>
-        <input type="time" name="start_time" id="addStart" class="form-control-erp" required>
+        <select name="start_time" id="addStart" class="form-control-erp" required>
+          <option value="">-- Start --</option>
+          {% set times = [
+            ('10:00','10:00 AM'),('10:15','10:15 AM'),('10:30','10:30 AM'),('10:45','10:45 AM'),
+            ('11:00','11:00 AM'),('11:15','11:15 AM'),('11:30','11:30 AM'),('11:45','11:45 AM'),
+            ('12:00','12:00 PM'),('12:15','12:15 PM'),
+            (None,'── Lunch Break ──'),
+            ('13:00','01:00 PM'),('13:15','01:15 PM'),('13:30','01:30 PM'),('13:45','01:45 PM'),
+            ('14:00','02:00 PM'),('14:15','02:15 PM'),('14:30','02:30 PM'),('14:45','02:45 PM'),
+            ('15:00','03:00 PM'),
+            (None,'── Tea Break ──'),
+            ('15:15','03:15 PM'),('15:30','03:30 PM'),('15:45','03:45 PM'),
+            ('16:00','04:00 PM'),('16:15','04:15 PM'),('16:30','04:30 PM'),('16:45','04:45 PM'),
+            ('17:00','05:00 PM'),('17:15','05:15 PM')
+          ] %}
+          {% for val, label in times %}
+            {% if val is none %}
+              <option disabled>{{ label }}</option>
+            {% else %}
+              <option value="{{ val }}">{{ label }}</option>
+            {% endif %}
+          {% endfor %}
+        </select>
       </div>
 
       <div>
         <label class="form-label-erp">End Time</label>
-        <input type="time" name="end_time" id="addEnd" class="form-control-erp" required>
+        <select name="end_time" id="addEnd" class="form-control-erp" required>
+          <option value="">-- End --</option>
+          {% for val, label in times %}
+            {% if val is none %}
+              <option disabled>{{ label }}</option>
+            {% else %}
+              <option value="{{ val }}">{{ label }}</option>
+            {% endif %}
+          {% endfor %}
+        </select>
       </div>
 
       <div>
@@ -153,11 +184,40 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
         <div>
           <label class="form-label-erp">Start Time</label>
-          <input type="time" name="start_time" id="editStart" class="form-control-erp" required>
+          <select name="start_time" id="editStart" class="form-control-erp" required>
+            {% set etimes = [
+              ('10:00','10:00 AM'),('10:15','10:15 AM'),('10:30','10:30 AM'),('10:45','10:45 AM'),
+              ('11:00','11:00 AM'),('11:15','11:15 AM'),('11:30','11:30 AM'),('11:45','11:45 AM'),
+              ('12:00','12:00 PM'),('12:15','12:15 PM'),
+              (None,'── Lunch Break ──'),
+              ('13:00','01:00 PM'),('13:15','01:15 PM'),('13:30','01:30 PM'),('13:45','01:45 PM'),
+              ('14:00','02:00 PM'),('14:15','02:15 PM'),('14:30','02:30 PM'),('14:45','02:45 PM'),
+              ('15:00','03:00 PM'),
+              (None,'── Tea Break ──'),
+              ('15:15','03:15 PM'),('15:30','03:30 PM'),('15:45','03:45 PM'),
+              ('16:00','04:00 PM'),('16:15','04:15 PM'),('16:30','04:30 PM'),('16:45','04:45 PM'),
+              ('17:00','05:00 PM'),('17:15','05:15 PM')
+            ] %}
+            {% for val, label in etimes %}
+              {% if val is none %}
+                <option disabled>{{ label }}</option>
+              {% else %}
+                <option value="{{ val }}">{{ label }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
         </div>
         <div>
           <label class="form-label-erp">End Time</label>
-          <input type="time" name="end_time" id="editEnd" class="form-control-erp" required>
+          <select name="end_time" id="editEnd" class="form-control-erp" required>
+            {% for val, label in etimes %}
+              {% if val is none %}
+                <option disabled>{{ label }}</option>
+              {% else %}
+                <option value="{{ val }}">{{ label }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
         </div>
       </div>
 
@@ -195,7 +255,7 @@
             <span class="badge-erp" style="background:rgba(99,102,241,0.15);color:#818cf8;">{{ e.day }}</span>
           </td>
           <td style="font-family:monospace;font-size:13px;">
-            {{ e.start_time }} – {{ e.end_time }}
+            {{ format_time_12hr(e.start_time) }} – {{ format_time_12hr(e.end_time) }}
           </td>
           <td>
             {% if e.entry_type == 'practical' %}
@@ -281,8 +341,14 @@
     document.getElementById('editForm').action = '/timetable/edit/' + id;
     document.getElementById('editDay').value     = day;
     document.getElementById('editSubject').value = subjectId;
-    document.getElementById('editStart').value   = startTime;
-    document.getElementById('editEnd').value     = endTime;
+
+    // Set time dropdowns — value stored as HH:MM in DB
+    const editStart = document.getElementById('editStart');
+    const editEnd   = document.getElementById('editEnd');
+    // Normalize to HH:MM (strip seconds if present)
+    const normTime = (t) => t ? t.substring(0, 5) : '';
+    editStart.value = normTime(startTime);
+    editEnd.value   = normTime(endTime);
 
     const typeEl  = document.getElementById('editType');
     const batchEl = document.getElementById('editBatch');

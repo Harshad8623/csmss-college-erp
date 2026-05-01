@@ -6,14 +6,14 @@
     <h1 class="page-title"><div class="title-icon">📜</div> Certificates</h1>
     <p class="page-subtitle">Manage student certificate applications</p>
   </div>
-  {% if current_user.role == 'STUDENT' %}
+  {% if current_user.role in ['STUDENT', 'CR'] %}
   <a href="{{ url_for('certificate.apply') }}" class="btn-erp btn-primary-erp">
     <i class="fa-solid fa-plus"></i> Apply for Certificate
   </a>
   {% endif %}
 </div>
 
-{% if current_user.role != 'STUDENT' %}
+{% if current_user.role not in ['STUDENT', 'CR'] %}
 <div class="card-erp" style="margin-bottom:14px;background:rgba(59,130,246,0.06);border-color:rgba(59,130,246,0.2);">
   <div class="card-body-erp" style="padding:14px 18px;display:flex;align-items:center;gap:12px;">
     <i class="fa-solid fa-circle-info" style="color:var(--accent-blue);font-size:18px;flex-shrink:0;"></i>
@@ -55,7 +55,7 @@
           </td>
           <td style="font-size:12px;color:var(--text-muted);">{{ cert.created_at.strftime('%d %b %Y') }}</td>
           <td>
-            {% if current_user.role != 'STUDENT' and cert.status == 'pending' %}
+            {% if current_user.role not in ['STUDENT', 'CR'] and cert.status == 'pending' %}
             {# ── Approve / Reject ── #}
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
               <form method="POST" action="{{ url_for('certificate.action', id=cert.id) }}" style="display:inline;">
@@ -71,7 +71,7 @@
               </form>
             </div>
 
-            {% elif cert.status == 'approved' and current_user.role != 'STUDENT' %}
+            {% elif cert.status == 'approved' and current_user.role not in ['STUDENT', 'CR'] %}
             {# ── Download PDF (staff only) ── #}
             <a href="{{ url_for('certificate.download_pdf', id=cert.id) }}"
                class="btn-erp btn-primary-erp btn-sm-erp"

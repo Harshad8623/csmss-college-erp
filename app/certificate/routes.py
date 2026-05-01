@@ -39,18 +39,18 @@ def verify(cert_id, token):
 @certificate_bp.route('/')
 @login_required
 def index():
-    if current_user.role == Roles.STUDENT:
+    if current_user.role in [Roles.STUDENT, Roles.CR]:
         student = Student.query.filter_by(user_id=current_user.id).first()
         certs = Certificate.query.filter_by(student_id=student.id)\
             .order_by(Certificate.created_at.desc()).all() if student else []
-        return render_template('certificate/student_view.html', certs=certs)
+        return render_template('certificate/admin_view.html', certs=certs)
     else:
         certs = Certificate.query.order_by(Certificate.created_at.desc()).all()
         return render_template('certificate/admin_view.html', certs=certs)
 
 @certificate_bp.route('/apply', methods=['GET', 'POST'])
 @login_required
-@role_required(Roles.STUDENT)
+@role_required(Roles.STUDENT, Roles.CR)
 def apply():
     student = Student.query.filter_by(user_id=current_user.id).first()
     if not student:
