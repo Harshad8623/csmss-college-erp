@@ -73,7 +73,8 @@ class Config:
     PERMANENT_SESSION_LIFETIME = timedelta(hours=8)   # Auto-logout after 8h
     SESSION_COOKIE_HTTPONLY    = True    # JS cannot read session cookie
     SESSION_COOKIE_SAMESITE    = 'Lax'  # CSRF mitigation
-    # SESSION_COOKIE_SECURE = True  # Uncomment when running on HTTPS (Render)
+    # Auto-enable Secure flag when deployed on HTTPS (Render/production)
+    SESSION_COOKIE_SECURE      = os.environ.get('FLASK_ENV', 'production') == 'production'
 
 
 class DevelopmentConfig(Config):

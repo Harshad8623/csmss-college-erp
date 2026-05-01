@@ -47,7 +47,9 @@ def index():
             return render_template('grievance/student_view.html', grievances=[])
         grievances = Grievance.query.filter_by(student_id=student.id) \
             .order_by(Grievance.created_at.desc()).all()
-        return render_template('grievance/student_view.html', grievances=grievances)
+        return render_template('grievance/student_view.html',
+                               grievances=grievances,
+                               now=datetime.utcnow())
 
     # Staff view
     if current_user.role in [Roles.SUPER_ADMIN, Roles.HOD]:
@@ -84,7 +86,8 @@ def index():
     return render_template('grievance/staff_view.html',
                            grievances=grievances,
                            pending_count=pending_count,
-                           escalated_count=escalated_count)
+                           escalated_count=escalated_count,
+                           now=datetime.utcnow())
 
 
 # ── Create ─────────────────────────────────────────────────────────────────────
