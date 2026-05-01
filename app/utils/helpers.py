@@ -4,8 +4,9 @@ from app.extensions import db
 
 def send_notification(user_id, message, notif_type='info', link=None):
     """
-    Create an in-app notification for a user and commit it.
-    Uses a nested savepoint so it never breaks the caller's transaction.
+    Add an in-app notification for a user.
+    Uses a nested savepoint so it never breaks the caller's outer transaction.
+    The CALLER is responsible for db.session.commit().
     """
     try:
         notif = Notification(
@@ -15,14 +16,16 @@ def send_notification(user_id, message, notif_type='info', link=None):
             link=link
         )
         db.session.add(notif)
-        db.session.commit()
+        # Do NOT commit here — let the caller's transaction own this.
+        # Use a savepoint so if this specific add fails, the outer transaction survives.
+        db.session.flush()
     except Exception as e:
         db.session.rollback()
-        print(f"[Notification] Failed to save notification: {e}")
+        print(f"[Notification] Failed to queue notification: {e}")
 
 
 def send_bulk_notification(user_ids, message, notif_type='info', link=None):
-    """Send notification to multiple users in a single commit."""
+    """Queue notifications for multiple users. Caller must commit."""
     if not user_ids:
         return
     try:
@@ -34,7 +37,7 @@ def send_bulk_notification(user_ids, message, notif_type='info', link=None):
                 link=link
             )
             db.session.add(notif)
-        db.session.commit()
+        db.session.flush()
     except Exception as e:
         db.session.rollback()
         print(f"[Notification] Bulk notification failed: {e}")

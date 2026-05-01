@@ -21,6 +21,9 @@ def login():
             if user.status == Status.BLOCKED:
                 flash('Your account has been blocked. Contact admin.', 'danger')
                 return redirect(url_for('auth.login'))
+            if user.status == Status.PENDING:
+                flash('Your account is pending approval. Please wait for admin activation.', 'warning')
+                return redirect(url_for('auth.login'))
             login_user(user, remember=request.form.get('remember'))
             next_page = request.args.get('next')
             # Security: only allow relative paths to prevent open redirect
@@ -60,9 +63,19 @@ def profile():
     if request.method == 'POST':
         # ── User core fields ────────────────────────────────────────────────
         current_user.name  = request.form.get('name', current_user.name).strip()
-        current_user.phone = request.form.get('phone', current_user.phone).strip()
-        new_pw = request.form.get('new_password', '').strip()
-        if new_pw and len(new_pw) >= 6:
+        current_user.phone = (request.form.get('phone', '') or '').strip() or current_user.phone
+        new_pw      = request.form.get('new_password', '').strip()
+        confirm_pw  = request.form.get('confirm_password', '').strip()
+        if new_pw:
+            if len(new_pw) < 8:
+                flash('New password must be at least 8 characters.', 'danger')
+                return redirect(url_for('auth.profile'))
+            if new_pw != confirm_pw:
+                flash('Passwords do not match.', 'danger')
+                return redirect(url_for('auth.profile'))
+            if new_pw in ('csmss@123', 'csmss123', 'password', '12345678'):
+                flash('Please choose a stronger password.', 'danger')
+                return redirect(url_for('auth.profile'))
             current_user.password_hash = bcrypt.generate_password_hash(new_pw).decode('utf-8')
 
         # Handle Profile Picture Upload

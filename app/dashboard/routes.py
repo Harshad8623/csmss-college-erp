@@ -183,12 +183,16 @@ def teacher_dashboard():
     tg_students_count = Student.query.filter_by(tg_id=current_user.id).count()
     subject_ids = [s.id for s in subjects]
 
+    # Bulk count of unique approved students across all taught classes (avoids N+1)
+    taught_class_ids = list({s.class_id for s in subjects if s.class_id})
+    total_students = Student.query.filter(
+        Student.class_id.in_(taught_class_ids),
+        Student.approval_status == ApprovalStatus.APPROVED
+    ).count() if taught_class_ids else 0
+
     stats = {
         'total_subjects': len(subjects),
-        'total_students': sum(
-            s.class_.students.filter_by(approval_status=ApprovalStatus.APPROVED).count()
-            for s in subjects if s.class_
-        ),
+        'total_students': total_students,
         'pending_assignments': Assignment.query.filter_by(created_by=current_user.id).count(),
         'today_marked': Attendance.query.filter_by(marked_by=current_user.id, date=today).count(),
         'tg_students_count': tg_students_count,
@@ -211,10 +215,29 @@ def student_dashboard():
 
     # Attendance summary
     subjects = Subject.query.filter_by(class_id=student.class_id).all() if student.class_id else []
-    attendance_data = []
-    for sub in subjects:
-        pct = student.attendance_percentage(sub.id)
-        attendance_data.append({'subject': sub, 'percentage': pct})
+    subject_ids = [s.id for s in subjects]
+
+    # Bulk attendance per subject — avoids N+1 (1 query instead of len(subjects) queries)
+    if subject_ids:
+        sub_stats = db.session.query(
+            Attendance.subject_id,
+            func.count(Attendance.id).label('total'),
+            func.sum(db.case((Attendance.status == True, 1), else_=0)).label('present')
+        ).filter(
+            Attendance.student_id == student.id,
+            Attendance.subject_id.in_(subject_ids)
+        ).group_by(Attendance.subject_id).all()
+        sub_pct_map = {
+            r.subject_id: round((r.present or 0) / r.total * 100, 2) if r.total > 0 else 0
+            for r in sub_stats
+        }
+    else:
+        sub_pct_map = {}
+
+    attendance_data = [
+        {'subject': sub, 'percentage': sub_pct_map.get(sub.id, 0)}
+        for sub in subjects
+    ]
 
     # Marks summary
     marks_data = Marks.query.filter_by(student_id=student.id)\
