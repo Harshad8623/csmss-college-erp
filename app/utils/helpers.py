@@ -5,23 +5,23 @@ from app.extensions import db
 def send_notification(user_id, message, notif_type='info', link=None):
     """
     Add an in-app notification for a user.
-    Uses a nested savepoint so it never breaks the caller's outer transaction.
+    Uses a nested savepoint so a notification failure NEVER rolls back
+    the caller's outer transaction (e.g., bulk attendance saves).
     The CALLER is responsible for db.session.commit().
     """
     try:
-        notif = Notification(
-            user_id=user_id,
-            message=message,
-            type=notif_type,
-            link=link
-        )
-        db.session.add(notif)
-        # Do NOT commit here — let the caller's transaction own this.
-        # Use a savepoint so if this specific add fails, the outer transaction survives.
-        db.session.flush()
+        with db.session.begin_nested():  # savepoint — only this rolls back on failure
+            notif = Notification(
+                user_id=user_id,
+                message=message,
+                type=notif_type,
+                link=link
+            )
+            db.session.add(notif)
     except Exception as e:
-        db.session.rollback()
-        print(f"[Notification] Failed to queue notification: {e}")
+        # Savepoint already rolled back — outer transaction is safe
+        import logging
+        logging.getLogger(__name__).warning(f"[Notification] Failed to queue notification for user {user_id}: {e}")
 
 
 def send_bulk_notification(user_ids, message, notif_type='info', link=None):

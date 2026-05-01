@@ -108,24 +108,24 @@ def apply():
             leave.status = LeaveStatus.PENDING_CT
 
         db.session.add(leave)
-        db.session.commit()
+        db.session.flush()  # get leave.id without committing yet
 
-        # Notify Teacher Guardian (if assigned)
+        # Notify Teacher Guardian (if assigned) — BEFORE commit so notification is atomic
         from app.utils.helpers import send_notification
         if student.tg_id:
             send_notification(
                 student.tg_id,
-                f'📋 {current_user.name} applied for leave ({leave_type}) from {start_date} to {end_date}.',
+                f'\U0001f4cb {current_user.name} applied for leave ({leave_type}) from {start_date} to {end_date}.',
                 'info', url_for('leaves.index')
             )
         elif student.class_ and student.class_.class_teacher_id:
-            # No TG → notify CT directly
             send_notification(
                 student.class_.class_teacher_id,
-                f'📋 {current_user.name} applied for leave ({leave_type}) — no TG assigned, awaiting your review.',
+                f'\U0001f4cb {current_user.name} applied for leave ({leave_type}) \u2014 no TG assigned, awaiting your review.',
                 'info', url_for('leaves.index')
             )
-        
+
+        db.session.commit()  # Commits leave + notification together
         flash('Leave application submitted successfully.', 'success')
         return redirect(url_for('leaves.index'))
 
@@ -174,11 +174,9 @@ def review(leave_id):
         flash('You do not have permission to review this leave at this stage.', 'danger')
         return redirect(url_for('leaves.index'))
 
-    db.session.commit()
-
-    # Notify student of decision
+    # Notify student of decision — BEFORE commit so notification is atomic
     from app.utils.helpers import send_notification
-    action_label = 'approved ✅' if action == 'approve' else 'rejected ❌'
+    action_label = 'approved \u2705' if action == 'approve' else 'rejected \u274c'
     stage = 'Teacher Guardian' if is_tg else ('Class Teacher' if is_ct else 'Administration')
     send_notification(
         leave.student.user_id,
@@ -187,5 +185,6 @@ def review(leave_id):
         url_for('leaves.index')
     )
 
+    db.session.commit()  # Commits leave status update + notification together
     flash(f'Leave application {action}d successfully.', 'success')
     return redirect(url_for('leaves.index'))

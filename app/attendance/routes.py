@@ -47,9 +47,12 @@ def index():
                 Attendance.subject_id.in_(subject_ids)
             ).distinct().order_by(Attendance.date.desc()).limit(30).all()
 
+            # Bulk-fetch all subjects in one query instead of Subject.query.get() per session
+            sub_id_map = {s.id: s for s in subjects}
             for session_date, sub_id in sessions_query:
-                sub = Subject.query.get(sub_id)
-                recent_sessions.append({'date': session_date, 'subject': sub})
+                sub = sub_id_map.get(sub_id)
+                if sub:
+                    recent_sessions.append({'date': session_date, 'subject': sub})
 
         return render_template('attendance/teacher_view.html',
                                subjects=subjects, recent_sessions=recent_sessions)
@@ -109,7 +112,11 @@ def mark():
 
         if selected_subject:
             students = get_students_for_subject(selected_subject)
-            selected_date = date.fromisoformat(att_date)
+            try:
+                selected_date = date.fromisoformat(att_date)
+            except (ValueError, TypeError):
+                selected_date = date.today()
+                att_date = str(selected_date)
             existing_records = Attendance.query.filter_by(
                 subject_id=subject_id, date=selected_date
             ).all()
@@ -142,7 +149,8 @@ def mark():
 
         db.session.commit()
 
-        # Bulk notification for defaulters
+        # Bulk defaulter notification — but only if student hasn't already been warned
+        # for this subject today (prevents duplicate spam across multiple attendance saves)
         student_ids = [s.id for s in students]
         if student_ids:
             stats = db.session.query(
@@ -153,12 +161,25 @@ def mark():
                 Attendance.subject_id == selected_subject.id,
                 Attendance.student_id.in_(student_ids)
             ).group_by(Attendance.student_id).all()
-            
+
             stats_dict = {r.student_id: {'total': r.total, 'present': r.present or 0} for r in stats}
-            
+
             from app.models import Notification
+            from datetime import datetime as dt_
+            today_str = selected_date.strftime('%d %b %Y')
+            # Find students already warned today for this subject
+            already_warned = set(
+                n.user_id for n in db.session.query(Notification.user_id).filter(
+                    Notification.user_id.in_([s.user_id for s in students]),
+                    Notification.message.like(f'%{selected_subject.name}%'),
+                    Notification.message.like('%below 75%%'),
+                    Notification.created_at >= dt_.combine(selected_date, dt_.min.time())
+                ).all()
+            )
             notifs = []
             for student in students:
+                if student.user_id in already_warned:
+                    continue
                 st = stats_dict.get(student.id)
                 if st and st['total'] > 0:
                     pct = round((st['present'] / st['total']) * 100, 2)
@@ -169,7 +190,6 @@ def mark():
                             type='warning',
                             link=url_for('attendance.index')
                         ))
-            
             if notifs:
                 db.session.bulk_save_objects(notifs)
                 db.session.commit()
