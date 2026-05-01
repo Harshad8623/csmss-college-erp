@@ -23,7 +23,11 @@ def mark_read(id):
     if n.user_id == current_user.id:
         n.is_read = True
         db.session.commit()
-    return redirect(n.link or url_for('dashboard.index'))
+    # Security: only redirect to relative paths to prevent open redirect
+    target = n.link or url_for('dashboard.index')
+    if target.startswith('http') or target.startswith('//'):
+        target = url_for('dashboard.index')
+    return redirect(target)
 
 @notifications_bp.route('/api/unread')
 @login_required

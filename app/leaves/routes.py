@@ -44,10 +44,13 @@ def index():
 
 @leaves_bp.route('/apply', methods=['GET', 'POST'])
 @login_required
-@role_required(Roles.STUDENT)
+@role_required(Roles.STUDENT, Roles.CR)
 def apply():
     if request.method == 'POST':
         student = Student.query.filter_by(user_id=current_user.id).first()
+        if not student:
+            flash('Student profile not found.', 'danger')
+            return redirect(url_for('dashboard.index'))
         leave_type = request.form.get('type')
         start_date_str = request.form.get('start_date')
         end_date_str = request.form.get('end_date')

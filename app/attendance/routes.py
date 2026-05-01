@@ -263,6 +263,21 @@ def chart_data(student_id):
         my_student = Student.query.filter_by(user_id=current_user.id).first()
         if not my_student or my_student.id != student_id:
             abort(403)
+    # Staff scope check
+    elif current_user.role == Roles.TEACHER:
+        taught_class_ids = [s.class_id for s in Subject.query.filter_by(teacher_id=current_user.id).all() if s.class_id]
+        is_tg = (student.tg_id == current_user.id)
+        if student.class_id not in taught_class_ids and not is_tg:
+            abort(403)
+    elif current_user.role == Roles.CLASS_TEACHER:
+        cls = get_class_for_ct(current_user.id)
+        if not cls or student.class_id != cls.id:
+            abort(403)
+    elif current_user.role == Roles.HOD:
+        dept_id = get_dept_for_hod(current_user.id)
+        cls = Class.query.get(student.class_id)
+        if not cls or cls.department_id != dept_id:
+            abort(403)
 
     subjects = Subject.query.filter_by(class_id=student.class_id).all()
     labels, data = [], []

@@ -56,8 +56,20 @@ def index():
                                now=datetime.utcnow())
 
     # Staff view
-    if current_user.role in [Roles.SUPER_ADMIN, Roles.HOD]:
+    if current_user.role == Roles.SUPER_ADMIN:
         grievances = Grievance.query.order_by(Grievance.created_at.desc()).all()
+    elif current_user.role == Roles.HOD:
+        from app.models import Class
+        from app.utils.helpers import get_dept_for_hod
+        dept_id = get_dept_for_hod(current_user.id)
+        if dept_id:
+            dept_class_ids = [c.id for c in Class.query.filter_by(department_id=dept_id).all()]
+            dept_student_ids = [s.id for s in Student.query.filter(Student.class_id.in_(dept_class_ids)).all()] if dept_class_ids else []
+            grievances = Grievance.query.filter(
+                Grievance.student_id.in_(dept_student_ids)
+            ).order_by(Grievance.created_at.desc()).all() if dept_student_ids else []
+        else:
+            grievances = []
     elif current_user.role == Roles.CLASS_TEACHER:
         from app.models import Class
         cls = Class.query.filter_by(class_teacher_id=current_user.id).first()
