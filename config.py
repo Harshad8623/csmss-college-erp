@@ -76,7 +76,9 @@ class Config:
 
     # ── Web Push (VAPID) Settings ─────────────────────────────────────────────
     VAPID_PUBLIC_KEY    = os.environ.get('VAPID_PUBLIC_KEY', '')
-    VAPID_PRIVATE_KEY   = os.environ.get('VAPID_PRIVATE_KEY', '').replace('\\n', '\n')
+    # Robust parsing: handle both literal \n and actual newlines from different env sources
+    _raw_priv = os.environ.get('VAPID_PRIVATE_KEY', '')
+    VAPID_PRIVATE_KEY   = _raw_priv.replace('\\n', '\n').strip()
     VAPID_CLAIMS_EMAIL  = os.environ.get('VAPID_CLAIMS_EMAIL', 'admin@college.edu')
 
     # ── CSRF Protection (Flask-WTF) ───────────────────────────────────────────
