@@ -135,7 +135,6 @@ def hod_dashboard():
 def class_teacher_dashboard():
     class_ = Class.query.filter_by(class_teacher_id=current_user.id).first()
     if not class_:
-        # CT has no class assigned yet — show a basic page
         return render_template('dashboard/class_teacher.html',
             stats={'total_students': 0, 'pending_approvals': 0, 'defaulters': 0, 'active_grievances': 0},
             class_=None, students=[], pending=[], defaulters=[])
@@ -145,12 +144,24 @@ def class_teacher_dashboard():
 
     pending = [s for s in students if s.approval_status == ApprovalStatus.PENDING]
 
-    # Defaulters
-    defaulters = []
-    for s in students:
-        pct = s.attendance_percentage()
-        if pct < 75:
-            defaulters.append({'student': s, 'pct': pct})
+    # Bulk defaulter calculation — avoids N+1 query per student
+    if student_ids:
+        att_stats = db.session.query(
+            Attendance.student_id,
+            func.count(Attendance.id).label('total'),
+            func.sum(db.case((Attendance.status == True, 1), else_=0)).label('present')
+        ).filter(Attendance.student_id.in_(student_ids)).group_by(Attendance.student_id).all()
+        pct_map = {
+            r.student_id: round((r.present or 0) / r.total * 100, 1) if r.total > 0 else 0
+            for r in att_stats
+        }
+    else:
+        pct_map = {}
+
+    defaulters = [
+        {'student': s, 'pct': pct_map.get(s.id, 0)}
+        for s in students if pct_map.get(s.id, 0) < 75
+    ]
 
     stats = {
         'total_students': len(students),
@@ -167,29 +178,31 @@ def class_teacher_dashboard():
         pending=pending, defaulters=defaulters[:5])
 
 def teacher_dashboard():
-    # Get subjects taught by this teacher
     subjects = Subject.query.filter_by(teacher_id=current_user.id).all()
     today = date.today()
-
     tg_students_count = Student.query.filter_by(tg_id=current_user.id).count()
+    subject_ids = [s.id for s in subjects]
 
     stats = {
         'total_subjects': len(subjects),
-        'total_students': sum(s.class_.students.filter_by(
-            approval_status=ApprovalStatus.APPROVED).count() for s in subjects if s.class_),
+        'total_students': sum(
+            s.class_.students.filter_by(approval_status=ApprovalStatus.APPROVED).count()
+            for s in subjects if s.class_
+        ),
         'pending_assignments': Assignment.query.filter_by(created_by=current_user.id).count(),
-        'today_marked': Attendance.query.filter_by(
-            marked_by=current_user.id, date=today).count(),
+        'today_marked': Attendance.query.filter_by(marked_by=current_user.id, date=today).count(),
         'tg_students_count': tg_students_count,
     }
 
-    recent_submissions = []
-    for sub in subjects:
-        for asgn in sub.assignments:
-            recent_submissions.extend(asgn.submissions.all())
+    # Single query for recent submissions instead of nested N+1 loops
+    from app.models import AssignmentSubmission
+    asgn_ids = [a.id for s in subjects for a in s.assignments]
+    recent_submissions = AssignmentSubmission.query.filter(
+        AssignmentSubmission.assignment_id.in_(asgn_ids)
+    ).order_by(AssignmentSubmission.submitted_at.desc()).limit(10).all() if asgn_ids else []
 
     return render_template('dashboard/teacher.html',
-        stats=stats, subjects=subjects, recent_submissions=recent_submissions[:10])
+        stats=stats, subjects=subjects, recent_submissions=recent_submissions)
 
 def student_dashboard():
     student = Student.query.filter_by(user_id=current_user.id).first()

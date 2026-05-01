@@ -1,11 +1,13 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
 from flask_login import login_required, current_user
 from app.extensions import db
-from app.models import Assignment, AssignmentSubmission, Subject, Student, Roles, ApprovalStatus
+from app.models import Assignment, AssignmentSubmission, Subject, Student, Roles, ApprovalStatus, Class
 from app.utils.decorators import role_required
 from app.utils.helpers import send_notification
 from datetime import datetime
 import os
+import uuid
+from werkzeug.utils import secure_filename
 
 assignments_bp = Blueprint('assignments', __name__, url_prefix='/assignments')
 
@@ -109,18 +111,24 @@ def submit(id):
         flash('Student profile not found.', 'danger')
         return redirect(url_for('assignments.index'))
 
+    # Scope check: student must belong to the assignment's class
+    if assignment.subject and assignment.subject.class_id != student.class_id:
+        flash('You are not enrolled in this assignment.', 'danger')
+        return redirect(url_for('assignments.index'))
+
     existing = AssignmentSubmission.query.filter_by(assignment_id=id, student_id=student.id).first()
     is_late = datetime.utcnow() > assignment.deadline
 
     file_path = None
     if 'file' in request.files:
         file = request.files['file']
-        if file and allowed_file(file.filename):
-            from werkzeug.utils import secure_filename
-            from flask import current_app
-            filename = secure_filename(f"asgn_{id}_{student.id}_{file.filename}")
-            upload_path = os.path.join(current_app.root_path, '..', 'static', 'uploads', filename)
-            file.save(upload_path)
+        if file and file.filename and allowed_file(file.filename):
+            ext = os.path.splitext(secure_filename(file.filename))[1].lower()
+            # UUID prefix prevents two students overwriting each other's file
+            filename = f"asgn_{id}_{student.id}_{uuid.uuid4().hex[:8]}{ext}"
+            upload_dir = os.path.join(current_app.static_folder, 'uploads', 'assignments')
+            os.makedirs(upload_dir, exist_ok=True)
+            file.save(os.path.join(upload_dir, filename))
             file_path = filename
 
     if existing:
@@ -133,7 +141,7 @@ def submit(id):
         db.session.add(sub)
 
     db.session.commit()
-    msg = '✅ Assignment submitted!' if not is_late else '⚠️ Assignment submitted (late).'
+    msg = '\u2705 Assignment submitted!' if not is_late else '\u26a0\ufe0f Assignment submitted (late).'
     flash(msg, 'success' if not is_late else 'warning')
     return redirect(url_for('assignments.index'))
 
