@@ -46,7 +46,7 @@
     </div>
     
     <div style="display:flex; gap:12px; flex-wrap:wrap;">
-      <a href="{{ url_for('marks.export_template', subject_id=selected_subject.id, exam_type=exam_type) }}" class="btn-erp btn-outline-erp">
+      <a href="{{ url_for('marks.export_template', subject_id=selected_subject.id, exam_type=exam_type) }}" class="btn-erp btn-outline-erp" download="Marks_Template.xlsx">
         <i class="fa-solid fa-download"></i> Template
       </a>
       <form method="POST" action="{{ url_for('marks.upload_excel') }}" enctype="multipart/form-data" style="display:flex; gap:12px; align-items:center;">

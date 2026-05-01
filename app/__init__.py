@@ -86,6 +86,21 @@ def create_app(config_class=Config):
     def inject_globals():
         from flask_login import current_user
         from app.utils.cloudinary_upload import get_profile_pic_url
+        from datetime import datetime
+        
+        def format_time_12hr(time_str):
+            if not time_str:
+                return ''
+            try:
+                dt = datetime.strptime(time_str, '%H:%M')
+                return dt.strftime('%I:%M %p')
+            except ValueError:
+                try:
+                    dt = datetime.strptime(time_str, '%H:%M:%S')
+                    return dt.strftime('%I:%M %p')
+                except ValueError:
+                    return time_str
+
         unread = 0
         if current_user.is_authenticated:
             from app.models import Notification
@@ -100,6 +115,7 @@ def create_app(config_class=Config):
             college_short=app.config['COLLEGE_SHORT'],
             unread_notifications=unread,
             profile_pic_url=get_profile_pic_url,  # callable in templates
+            format_time_12hr=format_time_12hr,
         )
 
     return app
