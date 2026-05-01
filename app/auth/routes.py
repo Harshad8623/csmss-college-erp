@@ -43,6 +43,32 @@ def smtp_test():
         result['status'] = f'AUTH FAILED — {e}'
     except Exception as e:
         result['status'] = f'ERROR — {type(e).__name__}: {e}'
+    # Also test Brevo API if key is configured
+    brevo_key = current_app.config.get('BREVO_API_KEY', '')
+    if brevo_key:
+        try:
+            import urllib.request, urllib.error, json as _json
+            _payload = _json.dumps({
+                "sender": {"name": "CSMSS ERP", "email": username},
+                "to": [{"email": username}],
+                "subject": "SMTP Diagnostic Test",
+                "textContent": "Test from CSMSS ERP smtp-test route."
+            }).encode('utf-8')
+            _req = urllib.request.Request(
+                "https://api.brevo.com/v3/smtp/email",
+                data=_payload,
+                headers={"accept": "application/json", "content-type": "application/json", "api-key": brevo_key},
+                method="POST"
+            )
+            with urllib.request.urlopen(_req, timeout=15) as _resp:
+                result['brevo_status'] = f'SUCCESS ({_resp.status})'
+        except urllib.error.HTTPError as e:
+            result['brevo_status'] = f'HTTP {e.code}: {e.read().decode()}'
+        except Exception as e:
+            result['brevo_status'] = f'ERROR: {e}'
+    else:
+        result['brevo_status'] = 'BREVO_API_KEY not set'
+
     return jsonify(result)
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
