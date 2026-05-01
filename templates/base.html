@@ -281,60 +281,7 @@
 
 </main>
 
-<!-- ══ MOBILE BOTTOM NAV ══════════════════════════════════════════════════ -->
-<nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="Mobile navigation">
-  <div class="mob-nav-inner">
-    <a href="{{ url_for('dashboard.index') }}" class="mob-nav-item" id="mobnav-dash">
-      <i class="fa-solid fa-gauge"></i>
-      <span>Home</span>
-    </a>
 
-    {% if current_user.role in ['STUDENT', 'CR'] %}
-    <a href="{{ url_for('attendance.index') }}" class="mob-nav-item" id="mobnav-att">
-      <i class="fa-solid fa-clipboard-list"></i>
-      <span>Attendance</span>
-    </a>
-    <a href="{{ url_for('marks.index') }}" class="mob-nav-item" id="mobnav-marks">
-      <i class="fa-solid fa-star"></i>
-      <span>Marks</span>
-    </a>
-    <a href="{{ url_for('leaves.index') }}" class="mob-nav-item" id="mobnav-leave">
-      <i class="fa-solid fa-umbrella-beach"></i>
-      <span>Leave</span>
-    </a>
-    {% endif %}
-
-    {% if current_user.role in ['TEACHER','CLASS_TEACHER','HOD','SUPER_ADMIN'] %}
-    <a href="{{ url_for('attendance.mark') }}" class="mob-nav-item" id="mobnav-mark">
-      <i class="fa-solid fa-clipboard-check"></i>
-      <span>Attendance</span>
-    </a>
-    <a href="{{ url_for('sessions.index') }}" class="mob-nav-item" id="mobnav-sessions">
-      <i class="fa-solid fa-flask"></i>
-      <span>Sessions</span>
-    </a>
-    <a href="{{ url_for('marks.upload') }}" class="mob-nav-item" id="mobnav-marks">
-      <i class="fa-solid fa-chart-simple"></i>
-      <span>Marks</span>
-    </a>
-    <a href="{{ url_for('leaves.index') }}" class="mob-nav-item" id="mobnav-leave">
-      <i class="fa-solid fa-envelope-open-text"></i>
-      <span>Leaves</span>
-    </a>
-    {% endif %}
-
-    <a href="{{ url_for('notifications.index') }}" class="mob-nav-item {{ 'mob-nav-badge' if unread_notifications > 0 }}" id="mobnav-notif">
-      <i class="fa-solid fa-bell"></i>
-      <span>Alerts</span>
-    </a>
-
-    <!-- Hamburger to open sidebar -->
-    <button class="mob-nav-item" id="mobNavSidebarBtn" aria-label="Open menu">
-      <i class="fa-solid fa-bars"></i>
-      <span>Menu</span>
-    </button>
-  </div>
-</nav>
 
 <!-- ══ SCRIPTS ══════════════════════════════════════════════════════════════ -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
