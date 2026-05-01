@@ -519,6 +519,7 @@ class AuditLog(db.Model):
     id         = db.Column(db.Integer, primary_key=True)
     user_id    = db.Column(db.Integer, db.ForeignKey('users.id'))
     action     = db.Column(db.String(200), nullable=False)
+    module     = db.Column(db.String(50))    # Notices, Admin, Certificates, etc.
     details    = db.Column(db.Text)
     ip_address = db.Column(db.String(50))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

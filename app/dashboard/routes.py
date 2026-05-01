@@ -229,8 +229,12 @@ def student_dashboard():
         'pending_assignments': 0,
     }
 
+    # Student notices: must be APPROVED, not deleted, and scoped to their class
     notices = Notice.query.filter(
-        (Notice.target_role == Roles.STUDENT) | (Notice.target_role == None)
+        Notice.is_deleted == False,
+        Notice.status == 'APPROVED',
+        (Notice.target_role == Roles.STUDENT) | (Notice.target_role == None),
+        (Notice.target_class_id == None) | (Notice.target_class_id == student.class_id)
     ).order_by(Notice.created_at.desc()).limit(5).all()
 
     # Pending absentee reasons

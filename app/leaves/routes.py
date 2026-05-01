@@ -89,10 +89,16 @@ def apply():
             reason=reason,
             status=LeaveStatus.PENDING_TG
         )
+
+        # If no TG is assigned, auto-skip TG stage → go directly to CT
+        if not student.tg_id:
+            leave.tg_status = ApprovalStatus.APPROVED
+            leave.status = LeaveStatus.PENDING_CT
+
         db.session.add(leave)
         db.session.commit()
 
-        # Notify Teacher Guardian
+        # Notify Teacher Guardian (if assigned)
         from app.utils.helpers import send_notification
         if student.tg_id:
             send_notification(
@@ -100,8 +106,15 @@ def apply():
                 f'📋 {current_user.name} applied for leave ({leave_type}) from {start_date} to {end_date}.',
                 'info', url_for('leaves.index')
             )
+        elif student.class_ and student.class_.class_teacher_id:
+            # No TG → notify CT directly
+            send_notification(
+                student.class_.class_teacher_id,
+                f'📋 {current_user.name} applied for leave ({leave_type}) — no TG assigned, awaiting your review.',
+                'info', url_for('leaves.index')
+            )
         
-        flash('Leave application submitted successfully. Pending Teacher Guardian approval.', 'success')
+        flash('Leave application submitted successfully.', 'success')
         return redirect(url_for('leaves.index'))
 
     return render_template('leaves/apply.html')
@@ -123,8 +136,10 @@ def review(leave_id):
         cls = Class.query.get(student.class_id)
         if cls and cls.class_teacher_id == current_user.id:
             is_ct = True
+    # HOD/SUPER_ADMIN can act as override at any stage
+    is_admin = current_user.role in [Roles.HOD, Roles.SUPER_ADMIN]
 
-    if is_tg and leave.tg_status == ApprovalStatus.PENDING:
+    if (is_tg or is_admin) and leave.tg_status == ApprovalStatus.PENDING:
         leave.tg_status = ApprovalStatus.APPROVED if action == 'approve' else ApprovalStatus.REJECTED
         leave.tg_approved_by = current_user.id
         leave.tg_comment = comment
@@ -134,7 +149,7 @@ def review(leave_id):
         else:
             leave.status = LeaveStatus.REJECTED
 
-    elif is_ct and leave.tg_status == ApprovalStatus.APPROVED and leave.ct_status == ApprovalStatus.PENDING:
+    elif (is_ct or is_admin) and leave.tg_status == ApprovalStatus.APPROVED and leave.ct_status == ApprovalStatus.PENDING:
         leave.ct_status = ApprovalStatus.APPROVED if action == 'approve' else ApprovalStatus.REJECTED
         leave.ct_approved_by = current_user.id
         leave.ct_comment = comment
@@ -152,7 +167,7 @@ def review(leave_id):
     # Notify student of decision
     from app.utils.helpers import send_notification
     action_label = 'approved ✅' if action == 'approve' else 'rejected ❌'
-    stage = 'Teacher Guardian' if is_tg else 'Class Teacher'
+    stage = 'Teacher Guardian' if is_tg else ('Class Teacher' if is_ct else 'Administration')
     send_notification(
         leave.student.user_id,
         f'Your leave application ({leave.type}) has been {action_label} by {stage}.',
