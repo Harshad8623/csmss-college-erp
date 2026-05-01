@@ -101,7 +101,8 @@ def send_notification(user_id, message, notif_type='info', link=None):
 
 
 def send_bulk_notification(user_ids, message, notif_type='info', link=None):
-    """Queue notifications for multiple users. Caller must commit."""
+    """Queue in-app notifications for multiple users AND fire Web Push to each.
+    Caller must commit after calling this function."""
     if not user_ids:
         return
     try:
@@ -116,7 +117,25 @@ def send_bulk_notification(user_ids, message, notif_type='info', link=None):
         db.session.flush()
     except Exception as e:
         db.session.rollback()
-        print(f"[Notification] Bulk notification failed: {e}")
+        logger.warning(f"[Notification] Bulk notification failed: {e}")
+        return
+
+    # Fire Web Push for all users in background threads
+    try:
+        import threading
+        from flask import current_app
+        app = current_app._get_current_object()
+        _ids = list(user_ids)
+        _msg, _type, _link = message, notif_type, link
+
+        def _bulk_push():
+            with app.app_context():
+                for uid in _ids:
+                    _fire_web_push(uid, _msg, _type, _link)
+
+        threading.Thread(target=_bulk_push, daemon=True).start()
+    except Exception:
+        pass  # Web push is best-effort
 
 
 def calculate_attendance_percentage(student_id, subject_id=None):

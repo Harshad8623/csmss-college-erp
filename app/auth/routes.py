@@ -268,7 +268,7 @@ def reset_password():
             flash('Please choose a stronger password.', 'danger')
             return redirect(url_for('auth.reset_password'))
 
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if user:
             user.password_hash = bcrypt.generate_password_hash(new_pw).decode('utf-8')
             db.session.commit()
