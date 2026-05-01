@@ -13,7 +13,7 @@ auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 @login_required
 def smtp_test():
     """Admin-only SMTP diagnostic — visit /auth/smtp-test to see exact error."""
-    if current_user.role not in (Roles.PRINCIPAL, Roles.HOD):
+    if current_user.role not in (Roles.SUPER_ADMIN, Roles.HOD):
         return jsonify({'error': 'Forbidden'}), 403
     import smtplib
     cfg = current_app.config
