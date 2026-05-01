@@ -401,14 +401,22 @@ def performance_data(student_id):
 
     all_class_subjects = Subject.query.filter_by(class_id=student.class_id).all()
     subjects = [s for s in all_class_subjects if not s.is_elective or student in s.enrolled_students]
-    
+    subject_ids = [s.id for s in subjects]
+
+    # Single bulk query — avoids N+1 (was: 1 query per subject per exam_type = up to 32 queries)
+    all_marks_rows = Marks.query.filter(
+        Marks.student_id == student_id,
+        Marks.subject_id.in_(subject_ids)
+    ).all() if subject_ids else []
+
+    # Build lookup: {(subject_id, exam_type): marks_obj}
+    marks_lookup = {(m.subject_id, m.exam_type): m for m in all_marks_rows}
+
     labels = [s.name for s in subjects]
     datasets = {}
     for et in ExamType.ALL:
-        datasets[et] = []
-        for sub in subjects:
-            m = Marks.query.filter_by(
-                student_id=student_id, subject_id=sub.id, exam_type=et
-            ).first()
-            datasets[et].append(m.percentage if m else 0)
+        datasets[et] = [
+            marks_lookup[(s.id, et)].percentage if (s.id, et) in marks_lookup else 0
+            for s in subjects
+        ]
     return jsonify({'labels': labels, 'datasets': datasets, 'exam_labels': ExamType.LABELS})

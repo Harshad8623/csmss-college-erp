@@ -102,17 +102,20 @@ def create():
                         target_class_id=cls_id, posted_by=current_user.id, 
                         is_urgent=urgent, status=status)
         db.session.add(notice)
+        # Audit log goes in the SAME transaction as the notice
+        db.session.flush()  # get notice.id
+        db.session.add(AuditLog(user_id=current_user.id, action=f"Created notice {notice.id}",
+                                module="Notices",
+                                ip_address=request.remote_addr))
         db.session.commit()
 
-        # Audit Log
-        db.session.add(AuditLog(user_id=current_user.id, action=f"Created notice {notice.id}", module="Notices"))
-
-        # Notification Workflow
+        # Notification Workflow (send_notification only flushes, commit at end)
         if status == 'PENDING':
             # Notify Class Teacher
             cls = Class.query.get(cls_id)
             if cls and cls.class_teacher_id:
                 send_notification(cls.class_teacher_id, f'🔔 Pending Notice Approval: {title} by CR', 'warning', url_for('notices.index'))
+            db.session.commit()
             flash('Notice submitted for Class Teacher approval.', 'info')
         else:
             # Notify immediately
@@ -128,9 +131,9 @@ def create():
 
             for u in users:
                 send_notification(u.id, f'📢 New Notice: {title}', 'info' if not urgent else 'warning', url_for('notices.index'))
+            db.session.commit()
             flash('Notice posted successfully!', 'success')
 
-        db.session.commit()
         return redirect(url_for('notices.index'))
 
     return render_template('notices/create.html', classes=classes, roles=[

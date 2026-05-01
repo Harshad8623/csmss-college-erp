@@ -285,11 +285,27 @@ def chart_data(student_id):
             abort(403)
 
     subjects = Subject.query.filter_by(class_id=student.class_id).all()
-    labels, data = [], []
-    for sub in subjects:
-        pct = calculate_attendance_percentage(student_id, sub.id)
-        labels.append(sub.name)
-        data.append(pct)
+    subject_ids = [s.id for s in subjects]
+
+    # Bulk per-subject percentage — avoids N+1
+    if subject_ids:
+        sub_stats = db.session.query(
+            Attendance.subject_id,
+            db.func.count(Attendance.id).label('total'),
+            db.func.sum(db.case((Attendance.status == True, 1), else_=0)).label('present')
+        ).filter(
+            Attendance.student_id == student.id,
+            Attendance.subject_id.in_(subject_ids)
+        ).group_by(Attendance.subject_id).all()
+        pct_map = {
+            r.subject_id: round((r.present or 0) / r.total * 100, 2) if r.total > 0 else 0
+            for r in sub_stats
+        }
+    else:
+        pct_map = {}
+
+    labels = [s.name for s in subjects]
+    data   = [pct_map.get(s.id, 0) for s in subjects]
     return jsonify({'labels': labels, 'data': data})
 
 
@@ -485,6 +501,14 @@ def upload_excel():
         if not date_cols:
             flash('No valid date columns found. Add dates like YYYY-MM-DD as headers.', 'danger')
             return redirect(url_for('attendance.mark', subject_id=subject_id))
+
+        # Validate all dates are in a sensible range
+        min_allowed = date(2020, 1, 1)
+        max_allowed = date.today()
+        for dt in date_cols.values():
+            if dt < min_allowed or dt > max_allowed:
+                flash(f'Date {dt} is out of allowed range (2020-01-01 to today). Please check your template.', 'danger')
+                return redirect(url_for('attendance.mark', subject_id=subject_id))
             
         students = get_students_for_subject(subject)
         student_map = {}
