@@ -141,8 +141,26 @@ def index():
 @login_required
 @role_required(Roles.SUPER_ADMIN, Roles.HOD, Roles.CLASS_TEACHER)
 def manage():
-    classes = Class.query.all()
+    from app.utils.helpers import get_dept_for_hod, get_class_for_ct
+
+    # Scope the class list by role
+    if current_user.role == Roles.SUPER_ADMIN:
+        classes = Class.query.all()
+    elif current_user.role == Roles.HOD:
+        dept_id = get_dept_for_hod(current_user.id)
+        classes = Class.query.filter_by(department_id=dept_id).all() if dept_id else []
+    else:  # CLASS_TEACHER
+        ct_cls = get_class_for_ct(current_user.id)
+        classes = [ct_cls] if ct_cls else []
+
     class_id = request.args.get('class_id') or request.form.get('class_id')
+
+    # Scope check: ensure requested class_id is within this user's scope
+    allowed_class_ids = [str(c.id) for c in classes]
+    if class_id and str(class_id) not in allowed_class_ids:
+        flash('You are not authorised to manage this class timetable.', 'danger')
+        return redirect(url_for('timetable.manage'))
+
     subjects = Subject.query.filter_by(class_id=class_id).all() if class_id else []
     entries = Timetable.query.filter_by(class_id=class_id).all() if class_id else []
 
@@ -153,6 +171,11 @@ def manage():
         end_time   = request.form.get('end_time')
         entry_type = request.form.get('entry_type', 'theory')
         batch      = request.form.get('batch', '').strip() or None
+
+        if not day or not subject_id or not start_time or not end_time:
+            flash('All fields are required to add a timetable entry.', 'danger')
+            return redirect(url_for('timetable.manage', class_id=class_id))
+
         # Only store batch for practical entries
         if entry_type != 'practical':
             batch = None
@@ -172,8 +195,23 @@ def manage():
 @login_required
 @role_required(Roles.SUPER_ADMIN, Roles.HOD, Roles.CLASS_TEACHER)
 def edit(id):
+    from app.utils.helpers import get_dept_for_hod, get_class_for_ct
     entry = Timetable.query.get_or_404(id)
     class_id = entry.class_id
+
+    # Scope check
+    if current_user.role == Roles.CLASS_TEACHER:
+        ct_cls = get_class_for_ct(current_user.id)
+        if not ct_cls or ct_cls.id != class_id:
+            flash('You are not authorised to edit this timetable entry.', 'danger')
+            return redirect(url_for('timetable.manage'))
+    elif current_user.role == Roles.HOD:
+        dept_id = get_dept_for_hod(current_user.id)
+        cls = Class.query.get(class_id)
+        if not cls or cls.department_id != dept_id:
+            flash('You are not authorised to edit this timetable entry.', 'danger')
+            return redirect(url_for('timetable.manage'))
+
     entry.day        = request.form.get('day', entry.day)
     entry.subject_id = request.form.get('subject_id', entry.subject_id)
     entry.start_time = request.form.get('start_time', entry.start_time)
@@ -189,8 +227,23 @@ def edit(id):
 @login_required
 @role_required(Roles.SUPER_ADMIN, Roles.HOD, Roles.CLASS_TEACHER)
 def delete(id):
+    from app.utils.helpers import get_dept_for_hod, get_class_for_ct
     entry = Timetable.query.get_or_404(id)
     class_id = entry.class_id
+
+    # Scope check
+    if current_user.role == Roles.CLASS_TEACHER:
+        ct_cls = get_class_for_ct(current_user.id)
+        if not ct_cls or ct_cls.id != class_id:
+            flash('You are not authorised to delete this timetable entry.', 'danger')
+            return redirect(url_for('timetable.manage'))
+    elif current_user.role == Roles.HOD:
+        dept_id = get_dept_for_hod(current_user.id)
+        cls = Class.query.get(class_id)
+        if not cls or cls.department_id != dept_id:
+            flash('You are not authorised to delete this timetable entry.', 'danger')
+            return redirect(url_for('timetable.manage'))
+
     db.session.delete(entry)
     db.session.commit()
     flash('Entry removed.', 'info')

@@ -303,14 +303,31 @@ def bulk_delete_students():
             if not cls or student.class_id != cls.id:
                 continue
 
+        # Must delete child records FIRST to avoid FK constraint violations in PostgreSQL
+        from app.models import (
+            Attendance, Marks, AssignmentSubmission,
+            PracticalRecord, EventRecord, Grievance,
+            Certificate, LeaveApplication
+        )
+        Attendance.query.filter_by(student_id=student.id).delete()
+        Marks.query.filter_by(student_id=student.id).delete()
+        AssignmentSubmission.query.filter_by(student_id=student.id).delete()
+        PracticalRecord.query.filter_by(student_id=student.id).delete()
+        EventRecord.query.filter_by(student_id=student.id).delete()
+        Grievance.query.filter_by(student_id=student.id).delete()
+        Certificate.query.filter_by(student_id=student.id).delete()
+        LeaveApplication.query.filter_by(student_id=student.id).delete()
+        db.session.flush()
+
         user = User.query.get(student.user_id)
         db.session.delete(student)
+        db.session.flush()
         if user:
             db.session.delete(user)
         deleted += 1
 
     db.session.commit()
-    flash(f'🗑️ {deleted} student(s) deleted successfully.', 'success')
+    flash(f'\U0001f5d1\ufe0f {deleted} student(s) deleted successfully.', 'success')
     return redirect(request.referrer or url_for('admin.students'))
 
 
@@ -412,13 +429,33 @@ def bulk_approve_students():
 @role_required(Roles.SUPER_ADMIN, Roles.HOD, Roles.CLASS_TEACHER, Roles.TEACHER)
 def export_students_excel():
     student_ids_str = request.form.get('student_ids', '')
-    # If no specific selection, export all visible students using current filters
-    if student_ids_str:
-        student_ids = [int(s.strip()) for s in student_ids_str.split(',') if s.strip().isdigit()]
-        students = Student.query.filter(Student.id.in_(student_ids)).all()
-    else:
+    if not student_ids_str:
         flash('No students selected for export.', 'warning')
         return redirect(request.referrer or url_for('admin.students'))
+
+    student_ids = [int(s.strip()) for s in student_ids_str.split(',') if s.strip().isdigit()]
+    # Scope: only export students this user is allowed to see
+    students_all = Student.query.filter(Student.id.in_(student_ids)).all()
+    students = []
+    for s in students_all:
+        if current_user.role == Roles.HOD:
+            dept_id = _hod_dept_id()
+            cls = Class.query.get(s.class_id)
+            if cls and cls.department_id == dept_id:
+                students.append(s)
+        elif current_user.role == Roles.CLASS_TEACHER:
+            cls = _ct_class()
+            if cls and s.class_id == cls.id:
+                students.append(s)
+        elif current_user.role == Roles.TEACHER:
+            taught_class_ids = [
+                sub.class_id for sub in Subject.query.filter_by(teacher_id=current_user.id).all()
+                if sub.class_id
+            ]
+            if s.class_id in taught_class_ids or s.tg_id == current_user.id:
+                students.append(s)
+        else:  # SUPER_ADMIN
+            students.append(s)
 
     wb = openpyxl.Workbook()
     ws = wb.active
