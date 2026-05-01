@@ -11,6 +11,10 @@ instance/college_erp.db-shm
 instance/college_erp.db-wal
 .DS_Store
 
+# AI assistant working files — never commit
+.gemini/
+
+
 # User uploads — never commit these
 static/uploads/
 
