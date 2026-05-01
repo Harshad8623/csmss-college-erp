@@ -84,7 +84,9 @@ def super_admin_dashboard():
         'total_departments': Department.query.count(),
         'total_classes': Class.query.count(),
         'pending_users': User.query.filter_by(status=Status.PENDING).count(),
-        'pending_grievances': Grievance.query.filter_by(status=ApprovalStatus.PENDING).count(),
+        'pending_grievances': Grievance.query.filter(
+            Grievance.status.in_(['pending', 'escalated'])
+        ).count(),
         'pending_certs': Certificate.query.filter_by(status=ApprovalStatus.PENDING).count(),
     }
     # Attendance today
@@ -132,7 +134,13 @@ def hod_dashboard():
 
 def class_teacher_dashboard():
     class_ = Class.query.filter_by(class_teacher_id=current_user.id).first()
-    students = Student.query.filter_by(class_id=class_.id).all() if class_ else []
+    if not class_:
+        # CT has no class assigned yet — show a basic page
+        return render_template('dashboard/class_teacher.html',
+            stats={'total_students': 0, 'pending_approvals': 0, 'defaulters': 0, 'active_grievances': 0},
+            class_=None, students=[], pending=[], defaulters=[])
+
+    students = Student.query.filter_by(class_id=class_.id).all()
     student_ids = [s.id for s in students]
 
     pending = [s for s in students if s.approval_status == ApprovalStatus.PENDING]

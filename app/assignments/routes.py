@@ -40,15 +40,44 @@ def index():
 @login_required
 @role_required(Roles.TEACHER, Roles.CLASS_TEACHER, Roles.HOD, Roles.SUPER_ADMIN)
 def create():
-    subjects = Subject.query.filter_by(teacher_id=current_user.id).all()
+    from app.utils.helpers import get_dept_for_hod, get_class_for_ct
+    # Scope subjects properly by role
+    if current_user.role == Roles.SUPER_ADMIN:
+        subjects = Subject.query.all()
+    elif current_user.role == Roles.HOD:
+        dept_id = get_dept_for_hod(current_user.id)
+        class_ids = [c.id for c in Class.query.filter_by(department_id=dept_id).all()] if dept_id else []
+        subjects = Subject.query.filter(Subject.class_id.in_(class_ids)).all()
+    elif current_user.role == Roles.CLASS_TEACHER:
+        cls = get_class_for_ct(current_user.id)
+        subjects = Subject.query.filter_by(class_id=cls.id).all() if cls else []
+    else:
+        subjects = Subject.query.filter_by(teacher_id=current_user.id).all()
+
     if request.method == 'POST':
         title      = request.form.get('title', '').strip()
         desc       = request.form.get('description', '').strip()
         subject_id = request.form.get('subject_id')
         deadline   = request.form.get('deadline')
-        max_marks  = float(request.form.get('max_marks', 10))
+        max_marks  = request.form.get('max_marks', '10').strip()
 
-        deadline_dt = datetime.strptime(deadline, '%Y-%m-%dT%H:%M') if deadline else datetime.utcnow()
+        if not title:
+            flash('Assignment title is required.', 'danger')
+            return render_template('assignments/create.html', subjects=subjects)
+        if not subject_id:
+            flash('Please select a subject.', 'danger')
+            return render_template('assignments/create.html', subjects=subjects)
+
+        try:
+            max_marks = float(max_marks)
+        except ValueError:
+            max_marks = 10.0
+
+        try:
+            deadline_dt = datetime.strptime(deadline, '%Y-%m-%dT%H:%M') if deadline else datetime.utcnow()
+        except ValueError:
+            flash('Invalid deadline format.', 'danger')
+            return render_template('assignments/create.html', subjects=subjects)
 
         asgn = Assignment(title=title, description=desc, subject_id=subject_id,
                           deadline=deadline_dt, max_marks=max_marks, created_by=current_user.id)

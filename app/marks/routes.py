@@ -81,6 +81,12 @@ def upload():
                 continue
             try:
                 marks_float = float(marks_val)
+                if marks_float < 0:
+                    flash(f'Marks cannot be negative for student {student.user.name}.', 'danger')
+                    continue
+                if marks_float > max_marks:
+                    flash(f'Marks {marks_float} exceed max marks {max_marks} for {student.user.name}. Capped.', 'warning')
+                    marks_float = max_marks
             except ValueError:
                 continue
             # Upsert
@@ -99,13 +105,23 @@ def upload():
                           uploaded_by=current_user.id)
                 db.session.add(m)
             count += 1
-            send_notification(
-                student.user_id,
-                f'📊 Marks uploaded for {selected_subject.name} — {exam_type.title()}',
-                'info', url_for('marks.index')
-            )
 
         db.session.commit()
+        # Batch notify all students at once (not inside loop to avoid N commits)
+        from app.models import Notification
+        notifs = [
+            Notification(
+                user_id=student.user_id,
+                message=f'📊 Marks uploaded for {selected_subject.name} — {exam_type.title()}',
+                type='info',
+                link=url_for('marks.index')
+            )
+            for student in students
+            if request.form.get(f'marks_{student.id}', '').strip() != ''
+        ]
+        if notifs:
+            db.session.bulk_save_objects(notifs)
+            db.session.commit()
         flash(f'Marks uploaded for {count} students — {selected_subject.name} [{exam_type}]', 'success')
         return redirect(url_for('marks.upload', subject_id=selected_subject.id, exam_type=exam_type))
 
@@ -335,6 +351,14 @@ def class_report(class_id):
 @login_required
 def performance_data(student_id):
     student = Student.query.get_or_404(student_id)
+
+    # Auth: students can only see their own performance data
+    if current_user.role in [Roles.STUDENT, Roles.CR]:
+        my_student = Student.query.filter_by(user_id=current_user.id).first()
+        if not my_student or my_student.id != student_id:
+            from flask import abort
+            abort(403)
+
     all_class_subjects = Subject.query.filter_by(class_id=student.class_id).all()
     subjects = [s for s in all_class_subjects if not s.is_elective or student in s.enrolled_students]
     
