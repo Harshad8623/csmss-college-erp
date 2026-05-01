@@ -39,15 +39,18 @@
           <div style="display:flex; gap:8px;">
             {% if current_user.role == 'CLASS_TEACHER' and n.status == 'PENDING' %}
             <form method="POST" action="{{ url_for('notices.approve', id=n.id) }}" style="margin:0;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" class="btn-erp btn-success-erp btn-sm-erp" title="Approve Notice"><i class="fa-solid fa-check"></i> Approve</button>
             </form>
             <form method="POST" action="{{ url_for('notices.reject', id=n.id) }}" style="margin:0;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" class="btn-erp btn-outline-erp btn-sm-erp" title="Reject Notice"><i class="fa-solid fa-xmark"></i></button>
             </form>
             {% endif %}
 
             {% if current_user.role in ['SUPER_ADMIN','HOD','CLASS_TEACHER'] %}
             <form method="POST" action="{{ url_for('notices.delete', id=n.id) }}" style="margin:0;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" class="btn-erp btn-danger-erp btn-sm-erp" data-confirm="Delete this notice?">
                 <i class="fa-solid fa-trash"></i>
               </button>

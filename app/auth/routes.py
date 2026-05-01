@@ -81,10 +81,10 @@ def profile():
         # Handle Profile Picture Upload
         profile_file = request.files.get('profile_pic')
         if profile_file and profile_file.filename:
-            allowed_ext = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+            allowed_ext = {'.jpg', '.jpeg', '.png', '.webp'}  # must match cloudinary_upload.py allowlist
             ext = os.path.splitext(profile_file.filename)[1].lower()
             if ext not in allowed_ext:
-                flash('Only image files (JPG, PNG, WEBP, GIF) are allowed.', 'danger')
+                flash('Only image files (JPG, PNG, WEBP) are allowed.', 'danger')
                 return redirect(url_for('auth.profile'))
 
             from app.utils.cloudinary_upload import upload_profile_picture

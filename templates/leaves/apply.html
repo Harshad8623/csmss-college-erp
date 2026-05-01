@@ -7,6 +7,7 @@
 
 <div class="card-erp" style="max-width:600px; margin:0 auto; padding:24px;">
   <form method="POST" action="{{ url_for('leaves.apply') }}" id="leaveForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     
     <div class="form-group-erp" style="margin-bottom:20px;">
       <label class="form-label-erp">Leave Type</label>

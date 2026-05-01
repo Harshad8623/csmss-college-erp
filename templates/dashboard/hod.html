@@ -57,10 +57,12 @@
             <td>{{ s.class_.name if s.class_ else 'N/A' }}</td>
             <td>
               <form method="POST" action="{{ url_for('admin.approve_student', id=s.id) }}" style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="action" value="approve">
                 <button type="submit" class="btn-erp btn-success-erp btn-sm-erp">✅ Approve</button>
               </form>
               <form method="POST" action="{{ url_for('admin.approve_student', id=s.id) }}" style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="action" value="reject">
                 <button type="submit" class="btn-erp btn-danger-erp btn-sm-erp">❌ Reject</button>
               </form>

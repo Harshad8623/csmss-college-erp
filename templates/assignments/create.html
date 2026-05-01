@@ -17,6 +17,7 @@
     <div class="card-body-erp">
 
       <form method="POST" action="{{ url_for('assignments.create') }}" data-validate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
         <div class="form-group-erp">
 

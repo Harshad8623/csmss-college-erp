@@ -777,6 +777,7 @@
   </div>
 
   <form method="POST" action="{{ url_for('auth.profile') }}" enctype="multipart/form-data" id="profileForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="profile-grid">
 
       <!-- ═══════════ LEFT — Identity Card ═══════════ -->

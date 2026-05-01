@@ -62,6 +62,7 @@
             {% if leave.tg_status == 'pending' %}
             <form method="POST" action="{{ url_for('leaves.review', leave_id=leave.id) }}"
               style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <input type="text" name="comment" class="form-control-erp" placeholder="Comment..."
                 style="padding:4px 8px;font-size:12px;width:110px;">
               <button type="submit" name="action" value="approve" class="btn-erp btn-success-erp"
@@ -158,6 +159,7 @@
             {% if leave.ct_status == 'pending' %}
             <form method="POST" action="{{ url_for('leaves.review', leave_id=leave.id) }}"
               style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <input type="text" name="comment" class="form-control-erp" placeholder="Comment..."
                 style="padding:4px 8px;font-size:12px;width:110px;">
               <button type="submit" name="action" value="approve" class="btn-erp btn-success-erp"

@@ -11,6 +11,7 @@
     <div class="card-body-erp">
       <form method="POST" action="{{ url_for('grievance.create') }}"
             enctype="multipart/form-data" data-validate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;">
           <div>

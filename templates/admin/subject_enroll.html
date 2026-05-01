@@ -21,6 +21,7 @@
   </div>
   <div class="card-body-erp">
     <form method="POST" action="{{ url_for('admin.enroll_elective', id=subject.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       
       <div style="margin-bottom:16px; padding:12px; background:var(--bg-hover); border-radius:6px; display:flex; gap:16px;">
         <button type="button" class="btn-erp btn-secondary-erp" onclick="toggleAll(true)" style="font-size:12px; padding:4px 8px;">Select All</button>

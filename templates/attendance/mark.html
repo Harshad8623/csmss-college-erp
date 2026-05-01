@@ -47,6 +47,7 @@
       <p style="margin:4px 0 0; font-size:13px; color:var(--text-muted);">Download the template, fill in 'P' or 'A' under the date columns, and upload it back here.</p>
     </div>
     <form method="POST" action="{{ url_for('attendance.upload_excel') }}" enctype="multipart/form-data" style="display:flex; gap:10px; align-items:center;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="subject_id" value="{{ selected_subject.id }}">
       <input type="file" name="excel_file" accept=".xlsx" class="form-control-erp" style="padding:6px; font-size:13px; width:220px;" required>
       <button type="submit" class="btn-erp btn-success-erp btn-sm-erp">
@@ -59,6 +60,7 @@
 
 {% if selected_subject and students %}
 <form method="POST" action="{{ url_for('attendance.mark') }}" id="attendanceForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="subject_id" value="{{ selected_subject.id }}">
   <input type="hidden" name="date" value="{{ selected_date }}">
 

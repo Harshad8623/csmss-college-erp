@@ -53,6 +53,7 @@
     </div>
     <div class="card-body-erp">
       <form method="POST" action="{{ url_for('admin.create_department') }}" data-validate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group-erp">
           <label class="form-label-erp">Department Name *</label>
           <input type="text" name="name" class="form-control-erp" placeholder="e.g. Computer Engineering" required>
@@ -87,6 +88,7 @@
     </div>
     <div class="card-body-erp">
       <form method="POST" id="editDeptForm" data-validate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group-erp">
           <label class="form-label-erp">Department Name *</label>
           <input type="text" name="name" id="editDeptName" class="form-control-erp" required>

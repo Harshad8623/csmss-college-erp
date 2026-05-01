@@ -5,12 +5,11 @@ load_dotenv()
 
 
 class Config:
-    # ── CRITICAL: Set SECRET_KEY as an env var on Render — never use default in prod ──
-    _sk = os.environ.get('SECRET_KEY')
-    if not _sk and os.environ.get('FLASK_ENV', 'production') == 'production':
-        import secrets
-        _sk = secrets.token_hex(32)   # auto-generate if missing (safe fallback)
-    SECRET_KEY = _sk or 'dev-secret-key-local-only'
+    # ── CRITICAL: SECRET_KEY must be set as an env var on Render ──────────────
+    # A random key generated at startup means EVERY Gunicorn worker (and every
+    # restart) gets a DIFFERENT key — sessions from worker-1 break on worker-2.
+    # Set SECRET_KEY in Render Environment Variables. Never leave it unset in prod.
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-local-only-DO-NOT-USE-IN-PROD'
 
     # ── Bcrypt: 10 rounds = ~80ms per hash (12 rounds = ~300ms, no security gain at this scale)
     BCRYPT_LOG_ROUNDS = 10

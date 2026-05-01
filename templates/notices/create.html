@@ -8,6 +8,7 @@
   <div class="card-erp">
     <div class="card-body-erp">
       <form method="POST" action="{{ url_for('notices.create') }}" data-validate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group-erp">
           <label class="form-label-erp">Notice Title *</label>
           <input type="text" name="title" class="form-control-erp" placeholder="e.g. Exam Schedule Update" required>

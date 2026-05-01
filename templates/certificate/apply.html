@@ -6,6 +6,7 @@
   <div class="card-erp">
     <div class="card-body-erp">
       <form method="POST" action="{{ url_for('certificate.apply') }}" data-validate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group-erp">
           <label class="form-label-erp">Certificate Type *</label>
           <select name="type" class="form-control-erp" required>

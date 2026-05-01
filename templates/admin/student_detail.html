@@ -162,6 +162,7 @@
               {% if current_user.role in ['SUPER_ADMIN','HOD','CLASS_TEACHER'] %}
               <form method="POST" action="{{ url_for('admin.update_batch', id=student.id) }}"
                     style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <select name="batch" class="form-control-erp" style="flex:1;min-width:80px;font-size:13px;padding:6px 10px;">
                   <option value="" {{ 'selected' if not student.batch }}>— None —</option>
                   <option value="S1" {{ 'selected' if student.batch == 'S1' }}>Batch S1</option>

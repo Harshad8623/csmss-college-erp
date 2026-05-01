@@ -273,6 +273,7 @@
             </a>
             {% if s.approval_status == 'pending' %}
             <form method="POST" action="{{ url_for('admin.approve_student', id=s.id) }}" style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <input type="hidden" name="action" value="approve">
               <button type="submit" class="btn-erp btn-success-erp" style="padding:4px 10px;font-size:12px;">
                 <i class="fa-solid fa-check"></i> Approve
@@ -332,6 +333,7 @@
     </div>
     <div class="card-body-erp">
       <form method="POST" id="assignTGForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="student_ids" id="assignTGStudentIds" value="">
         <div class="form-group-erp">
           <label class="form-label-erp">Select Teacher Guardian</label>
@@ -360,6 +362,7 @@
     </div>
     <div class="card-body-erp">
       <form method="POST" action="{{ url_for('admin.add_student') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
 
           <div class="form-group-erp" style="grid-column:span 2;">
@@ -491,6 +494,7 @@
         </p>
       </div>
       <form method="POST" action="{{ url_for('admin.upload_students_excel') }}" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group-erp" style="margin-bottom:12px;">
           <label class="form-label-erp">Assign to Class <span style="color:var(--danger-color);">*</span></label>
           {% if current_user.role == 'CLASS_TEACHER' and upload_classes %}
@@ -548,6 +552,7 @@
     </div>
     <div class="card-body-erp">
       <form method="POST" action="{{ url_for('admin.bulk_move_class') }}" id="bulkMoveForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="student_ids" id="bulkMoveStudentIds" value="">
         <div class="form-group-erp" style="margin-bottom:16px;">
           <label class="form-label-erp">Select Target Class</label>
@@ -576,12 +581,15 @@
 
 <!-- Hidden forms for bulk actions -->
 <form id="bulkDeleteForm" method="POST" action="{{ url_for('admin.bulk_delete_students') }}" style="display:none;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="student_ids" id="bulkDeleteIds">
 </form>
 <form id="bulkApproveForm" method="POST" action="{{ url_for('admin.bulk_approve_students') }}" style="display:none;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="student_ids" id="bulkApproveIds">
 </form>
 <form id="bulkExportForm" method="POST" action="{{ url_for('admin.export_students_excel') }}" style="display:none;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="student_ids" id="bulkExportIds">
 </form>
 

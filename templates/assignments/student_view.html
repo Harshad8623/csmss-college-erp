@@ -32,6 +32,7 @@
       </div>
       {% if not sub and not is_late %}
       <form method="POST" action="{{ url_for('assignments.submit', id=a.id) }}" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:8px;min-width:200px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div>
           <label class="form-label-erp">Upload File</label>
           <input type="file" name="file" class="form-control-erp" accept=".pdf,.doc,.docx,.zip,.png,.jpg,.txt">

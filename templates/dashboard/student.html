@@ -58,6 +58,7 @@
       ({{ reason.attendance.subject.name if reason.attendance.subject else 'All Classes' }}).
     </p>
     <form action="{{ url_for('dashboard.submit_absentee_reason', reason_id=reason.id) }}" method="POST" style="display:flex;gap:8px;flex-wrap:wrap;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="text" name="reason_text" class="form-control-erp" placeholder="Type your reason here..." required style="flex:1;">
       <button type="submit" class="btn-erp btn-warning-erp" style="padding: 8px 16px;">Submit</button>
     </form>

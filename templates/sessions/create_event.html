@@ -14,6 +14,7 @@
   <div class="card-header-erp"><h5>🎓 Event Details</h5></div>
   <div class="card-body-erp">
     <form method="POST" action="{{ url_for('sessions.create_event') }}" data-validate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
       <div class="grid-2col">
         <div class="form-group-erp">

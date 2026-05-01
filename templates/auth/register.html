@@ -32,6 +32,7 @@
     </div>
 
     <form method="POST" action="{{ url_for('auth.register') }}" data-validate id="regForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
         <div class="form-group-erp" style="grid-column:1/-1;">
           <label class="form-label-erp">Full Name *</label>

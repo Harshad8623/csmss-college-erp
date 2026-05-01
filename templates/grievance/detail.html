@@ -152,6 +152,7 @@
 
         {# Reply box — available to all #}
         <form method="POST" action="{{ url_for('grievance.detail', id=grievance.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <input type="hidden" name="form_type" value="reply">
           <div style="display:flex;gap:10px;align-items:flex-end;">
             <textarea name="message" class="form-control-erp" rows="2"
@@ -171,6 +172,7 @@
     <div class="card-header-erp"><h5>Review Action</h5></div>
     <div class="card-body-erp">
       <form method="POST" action="{{ url_for('grievance.detail', id=grievance.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="form_type" value="action">
         <div class="form-group-erp">
           <label class="form-label-erp">Comment / Resolution Note</label>
@@ -205,6 +207,7 @@
     <div class="card-header-erp"><h5>HOD Review — Escalated</h5></div>
     <div class="card-body-erp">
       <form method="POST" action="{{ url_for('grievance.detail', id=grievance.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="form_type" value="action">
         <div class="form-group-erp">
           <label class="form-label-erp">HOD Decision Note</label>

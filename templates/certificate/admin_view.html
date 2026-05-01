@@ -59,11 +59,13 @@
             {# ── Approve / Reject ── #}
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
               <form method="POST" action="{{ url_for('certificate.action', id=cert.id) }}" style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="action" value="approve">
                 <button type="submit" class="btn-erp btn-success-erp btn-sm-erp"
                   data-loading-text="Approving…">✅ Approve</button>
               </form>
               <form method="POST" action="{{ url_for('certificate.action', id=cert.id) }}" style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="action" value="reject">
                 <input type="hidden" name="notes" value="Rejected">
                 <button type="submit" class="btn-erp btn-danger-erp btn-sm-erp"
