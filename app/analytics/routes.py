@@ -98,13 +98,21 @@ def index():
 # ═══════════════════════════════════════════════════════════════════════════
 @analytics_bp.route('/api/principal/summary')
 @login_required
-@cache.cached(timeout=120, key_prefix='principal_summary')
 def principal_summary():
+    if current_user.role not in [Roles.SUPER_ADMIN, Roles.HOD]:
+        return jsonify({'error': 'unauthorized'}), 403
     total_students = Student.query.filter_by(approval_status=ApprovalStatus.APPROVED).count()
     total_teachers = Teacher.query.count()
-    all_ids = [s.id for s in Student.query.filter_by(approval_status=ApprovalStatus.APPROVED).all()]
+    all_ids = [s.id for s in Student.query.with_entities(Student.id).filter_by(approval_status=ApprovalStatus.APPROVED).all()]
     pres, abs_, seen = _today_counts(all_ids)
-    defaulters = sum(1 for s in Student.query.filter_by(approval_status=ApprovalStatus.APPROVED).all() if s.attendance_percentage() < 75)
+    # Efficient defaulter count using bulk aggregation instead of N Python loops
+    from sqlalchemy import func as sqlfunc
+    stats = db.session.query(
+        Attendance.student_id,
+        sqlfunc.count(Attendance.id).label('total'),
+        sqlfunc.sum(db.case((Attendance.status == True, 1), else_=0)).label('present')
+    ).filter(Attendance.student_id.in_(all_ids)).group_by(Attendance.student_id).all()
+    defaulters = sum(1 for r in stats if r.total > 0 and (r.present or 0) / r.total * 100 < 75)
     return jsonify({'students': total_students, 'teachers': total_teachers,
                     'present_today': pres, 'absent_today': abs_,
                     'defaulters': defaulters, 'depts': Department.query.count()})
@@ -158,14 +166,23 @@ def principal_classwise():
 
 @analytics_bp.route('/api/principal/defaulters-dept')
 @login_required
-@cache.cached(timeout=300, key_prefix='principal_defaulters_dept')
 def principal_defaulters_dept():
+    if current_user.role not in [Roles.SUPER_ADMIN, Roles.HOD]:
+        return jsonify({'error': 'unauthorized'}), 403
     depts = Department.query.all()
     labels, safe_d, risk_d = [], [], []
     for dept in depts:
         cids = [c.id for c in Class.query.filter_by(department_id=dept.id).all()]
         students = Student.query.filter(Student.class_id.in_(cids), Student.approval_status==ApprovalStatus.APPROVED).all()
-        def_count = sum(1 for s in students if s.attendance_percentage() < 75)
+        # Efficient bulk defaulter count
+        sids = [s.id for s in students]
+        from sqlalchemy import func as sqlfunc
+        stats = db.session.query(
+            Attendance.student_id,
+            sqlfunc.count(Attendance.id).label('total'),
+            sqlfunc.sum(db.case((Attendance.status == True, 1), else_=0)).label('present')
+        ).filter(Attendance.student_id.in_(sids)).group_by(Attendance.student_id).all() if sids else []
+        def_count = sum(1 for r in stats if r.total > 0 and (r.present or 0) / r.total * 100 < 75)
         labels.append(dept.code or dept.name[:8])
         risk_d.append(def_count); safe_d.append(len(students) - def_count)
     return jsonify({'labels': labels, 'safe': safe_d, 'defaulters': risk_d})
@@ -454,6 +471,8 @@ def attendance_overview():
 @analytics_bp.route('/api/defaulters')
 @login_required
 def defaulters():
+    if current_user.role not in STAFF_ROLES:
+        return jsonify({'error': 'unauthorized'}), 403
     classes = Class.query.all()
     labels, counts = [], []
     for c in classes:
@@ -465,6 +484,8 @@ def defaulters():
 @analytics_bp.route('/api/attendance-trend')
 @login_required
 def attendance_trend():
+    if current_user.role not in STAFF_ROLES:
+        return jsonify({'error': 'unauthorized'}), 403
     today = date.today()
     labels, p_data, a_data = [], [], []
     for i in range(29, -1, -1):
@@ -483,7 +504,32 @@ def summary():
 @analytics_bp.route('/request-reason/<int:attendance_id>', methods=['POST'])
 @login_required
 def request_reason(attendance_id):
+    from app.utils.helpers import get_class_for_ct, get_dept_for_hod
     attendance = Attendance.query.get_or_404(attendance_id)
+
+    # Scope: only staff who are responsible for this student's class may request reasons
+    student = Student.query.get(attendance.student_id)
+    if not student:
+        from flask import abort; abort(404)
+    if current_user.role == Roles.TEACHER:
+        # Only if this teacher teaches the subject OR is TG for the student
+        is_tg = (student.tg_id == current_user.id)
+        teaches = (attendance.subject and attendance.subject.teacher_id == current_user.id)
+        if not is_tg and not teaches:
+            from flask import abort; abort(403)
+    elif current_user.role == Roles.CLASS_TEACHER:
+        cls = get_class_for_ct(current_user.id)
+        if not cls or student.class_id != cls.id:
+            from flask import abort; abort(403)
+    elif current_user.role == Roles.HOD:
+        dept_id = get_dept_for_hod(current_user.id)
+        from app.models import Class as Cls
+        cls = Cls.query.get(student.class_id)
+        if not cls or cls.department_id != dept_id:
+            from flask import abort; abort(403)
+    elif current_user.role not in [Roles.SUPER_ADMIN]:
+        from flask import abort; abort(403)
+
     if attendance.absentee_reason:
         from flask import flash, redirect, url_for
         flash('Reason already requested.', 'warning')
