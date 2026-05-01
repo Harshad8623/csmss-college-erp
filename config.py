@@ -70,6 +70,9 @@ class Config:
     MAIL_USERNAME         = os.environ.get('MAIL_USERNAME')
     MAIL_PASSWORD         = os.environ.get('MAIL_PASSWORD')
     MAIL_DEFAULT_SENDER   = os.environ.get('MAIL_DEFAULT_SENDER') or MAIL_USERNAME
+    # Brevo (Sendinblue) API key — set this on Render to bypass SMTP port blocks
+    # Free at: https://app.brevo.com  (300 emails/day free)
+    BREVO_API_KEY         = os.environ.get('BREVO_API_KEY', '')
 
     # ── Web Push (VAPID) Settings ─────────────────────────────────────────────
     VAPID_PUBLIC_KEY    = os.environ.get('VAPID_PUBLIC_KEY', '')
