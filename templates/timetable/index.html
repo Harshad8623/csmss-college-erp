@@ -188,6 +188,43 @@
     0%, 100% { opacity: 1; transform: scale(1); }
     50%       { opacity: .4; transform: scale(0.6); }
   }
+
+  /* ── Teacher's own class ─────────────────────────────────────── */
+  .tt-entry.mine {
+    background: rgba(99,102,241,0.16) !important;
+    border-color: rgba(99,102,241,0.5) !important;
+    animation: mineGlow 2.8s ease-in-out infinite;
+  }
+  .tt-entry.mine.now {
+    /* If it's BOTH the teacher's class AND live, merge the glows */
+    animation: mineGlowNow 2.8s ease-in-out infinite;
+  }
+  @keyframes mineGlow {
+    0%, 100% { box-shadow: 0 0 0 1.5px rgba(99,102,241,0.28), 0 4px 18px rgba(99,102,241,0.12); }
+    50%       { box-shadow: 0 0 0 3px   rgba(99,102,241,0.48), 0 8px 28px rgba(99,102,241,0.22); }
+  }
+  @keyframes mineGlowNow {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(72,187,120,0.35), 0 0 0 4px rgba(99,102,241,0.2), 0 4px 18px rgba(99,102,241,0.15); }
+    50%       { box-shadow: 0 0 0 2px rgba(72,187,120,0.55), 0 0 0 5px rgba(99,102,241,0.35), 0 8px 28px rgba(99,102,241,0.25); }
+  }
+  .tt-entry.mine .tt-entry-name { color: #a5b4fc; }
+  .tt-entry.mine .tt-entry-time { color: #818cf8; }
+
+  .tt-mine-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    color: #a5b4fc;
+    background: rgba(99,102,241,0.15);
+    border: 1px solid rgba(99,102,241,0.4);
+    border-radius: 3px;
+    padding: 1px 5px;
+    margin-left: 4px;
+    text-transform: uppercase;
+  }
 </style>
 {% endblock %}
 
@@ -269,16 +306,21 @@
             <div class="tt-group" style="top:{{ first.top }}px;height:{{ first.height }}px;">
               {% for item in group %}
               {% set e = item.entry %}
-              <div class="tt-entry {{ e.entry_type or 'theory' }}"
+              {% set is_mine = current_user.role in ['TEACHER','CLASS_TEACHER','HOD','SUPER_ADMIN'] and e.subject.teacher_id == current_user.id %}
+              <div class="tt-entry {{ e.entry_type or 'theory' }}{{ ' mine' if is_mine }}"
                    data-day="{{ day }}"
                    data-start="{{ e.start_time[:5] }}"
                    data-end="{{ e.end_time[:5] }}"
+                   data-teacher-id="{{ e.subject.teacher_id or '' }}"
                    title="{{ e.subject.name }}">
                 <div>
                   <span class="tt-tag {{ e.entry_type or 'theory' }}">
                     {% if e.entry_type == 'practical' %}🔬 Practical{% else %}📖 Theory{% endif %}
                   </span>
                   {% if e.batch %}<span class="tt-tag batch">{{ e.batch }}</span>{% endif %}
+                  {% if is_mine %}
+                  <span class="tt-mine-badge">⭐ Your Class</span>
+                  {% endif %}
                   {# JS will inject the NOW badge here #}
                 </div>
                 <div class="tt-entry-name">{{ e.subject.name }}</div>
