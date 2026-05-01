@@ -329,6 +329,13 @@ class Marks(db.Model):
 
     uploader = db.relationship('User', foreign_keys=[uploaded_by])
 
+    # Prevent duplicate marks rows for the same student+subject+exam
+    __table_args__ = (
+        db.UniqueConstraint('student_id', 'subject_id', 'exam_type',
+                            name='uq_marks_student_subject_exam'),
+        db.Index('ix_marks_student_subject', 'student_id', 'subject_id'),
+    )
+
     @property
     def percentage(self):
         if self.max_marks == 0:

@@ -250,8 +250,8 @@ def generate_certificate_pdf(cert, app) -> bytes:
     ]
 
     if os.path.exists(logo_path):
-        logo = Image(logo_path2, width=2.5 * cm, height=2.5 * cm)
-        logo2 = Image(logo_path, width=2.5 * cm, height=2.5 * cm)
+        logo  = Image(logo_path,  width=2.5 * cm, height=2.5 * cm)   # college logo (left)
+        logo2 = Image(logo_path2, width=2.5 * cm, height=2.5 * cm)   # sanstha logo (right)
         logo_col_w = 2.8 * cm
         hdr = Table(
             [[logo, college_block, logo2]],

@@ -86,13 +86,22 @@ def apply():
         cert = Certificate(student_id=student.id, type=cert_type, reason=reason,
                            status=ApprovalStatus.PENDING)
         db.session.add(cert)
+        db.session.flush()  # get cert.id for notification link
 
-        # Notify admins
-        admins = User.query.filter(User.role.in_([Roles.SUPER_ADMIN, Roles.HOD, Roles.CLASS_TEACHER])).all()
-        for admin in admins:
-            send_notification(admin.id,
-                f'📜 Certificate request: {cert_type} from {current_user.name}',
-                'info', url_for('certificate.index'))
+        # Notify only the student's own Class Teacher (not every CT in the college)
+        if student.class_ and student.class_.class_teacher_id:
+            send_notification(
+                student.class_.class_teacher_id,
+                f'\U0001f4dc Certificate request: {cert_type} from {current_user.name}',
+                'info', url_for('certificate.index')
+            )
+        # Also notify HOD of the student's department
+        if student.class_ and student.class_.department and student.class_.department.hod_id:
+            send_notification(
+                student.class_.department.hod_id,
+                f'\U0001f4dc Certificate request: {cert_type} from {current_user.name}',
+                'info', url_for('certificate.index')
+            )
 
         db.session.commit()
         flash('Certificate application submitted successfully!', 'success')
@@ -110,6 +119,23 @@ def apply():
 @role_required(Roles.SUPER_ADMIN, Roles.HOD, Roles.CLASS_TEACHER)
 def action(id):
     cert = Certificate.query.get_or_404(id)
+
+    # Scope check: Class Teacher can only act on their own class's students
+    if current_user.role == Roles.CLASS_TEACHER:
+        from app.models import Class
+        cls = Class.query.filter_by(class_teacher_id=current_user.id).first()
+        if not cls or cert.student.class_id != cls.id:
+            flash('You are not authorised to act on this certificate.', 'danger')
+            return redirect(url_for('certificate.index'))
+    elif current_user.role == Roles.HOD:
+        from app.utils.helpers import get_dept_for_hod
+        from app.models import Class
+        dept_id = get_dept_for_hod(current_user.id)
+        cls = Class.query.get(cert.student.class_id)
+        if not cls or cls.department_id != dept_id:
+            flash('You are not authorised to act on this certificate.', 'danger')
+            return redirect(url_for('certificate.index'))
+
     act  = request.form.get('action')
     notes = request.form.get('notes', '').strip()
 
@@ -117,12 +143,12 @@ def action(id):
         cert.status      = ApprovalStatus.APPROVED
         cert.approved_by = current_user.id
         cert.notes       = notes
-        msg       = f'✅ Your {cert.type.title()} Certificate has been approved! The staff will hand it to you after signing.'
+        msg       = f'\u2705 Your {cert.type.title()} Certificate has been approved! The staff will hand it to you after signing.'
         notif_type = 'success'
     else:
         cert.status = ApprovalStatus.REJECTED
         cert.notes  = notes
-        msg         = f'❌ Your {cert.type.title()} Certificate was rejected. Reason: {notes}'
+        msg         = f'\u274c Your {cert.type.title()} Certificate was rejected. Reason: {notes or "No reason provided"}'
         notif_type  = 'danger'
 
     send_notification(cert.student.user_id, msg, notif_type, url_for('certificate.index'))
