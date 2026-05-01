@@ -56,8 +56,21 @@ def index():
         else:
             certs = []
         return render_template('certificate/admin_view.html', certs=certs)
+    elif current_user.role == Roles.HOD:
+        from app.models import Class
+        from app.utils.helpers import get_dept_for_hod
+        dept_id = get_dept_for_hod(current_user.id)
+        if dept_id:
+            dept_class_ids = [c.id for c in Class.query.filter_by(department_id=dept_id).all()]
+            dept_student_ids = [s.id for s in Student.query.filter(Student.class_id.in_(dept_class_ids)).all()] if dept_class_ids else []
+            certs = Certificate.query.filter(
+                Certificate.student_id.in_(dept_student_ids)
+            ).order_by(Certificate.created_at.desc()).all() if dept_student_ids else []
+        else:
+            certs = []
+        return render_template('certificate/admin_view.html', certs=certs)
     else:
-        # HOD / Super Admin see all
+        # Super Admin sees all
         certs = Certificate.query.order_by(Certificate.created_at.desc()).all()
         return render_template('certificate/admin_view.html', certs=certs)
 
@@ -167,6 +180,22 @@ def download_pdf(id):
     Students CANNOT access this route — they receive the physical signed copy.
     """
     cert = Certificate.query.get_or_404(id)
+
+    # Scope check
+    if current_user.role == Roles.CLASS_TEACHER:
+        from app.models import Class
+        cls = Class.query.filter_by(class_teacher_id=current_user.id).first()
+        if not cls or cert.student.class_id != cls.id:
+            flash('You are not authorised to download this certificate.', 'danger')
+            return redirect(url_for('certificate.index'))
+    elif current_user.role == Roles.HOD:
+        from app.utils.helpers import get_dept_for_hod
+        from app.models import Class
+        dept_id = get_dept_for_hod(current_user.id)
+        cls = Class.query.get(cert.student.class_id)
+        if not cls or cls.department_id != dept_id:
+            flash('You are not authorised to download this certificate.', 'danger')
+            return redirect(url_for('certificate.index'))
 
     if cert.status != ApprovalStatus.APPROVED:
         flash('Certificate must be approved before a PDF can be generated.', 'warning')

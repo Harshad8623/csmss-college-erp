@@ -985,6 +985,9 @@ def add_teacher():
 
     if role not in Roles.ALL:
         role = Roles.TEACHER
+    # Privilege escalation guard: HOD cannot create HOD/SUPER_ADMIN users
+    if current_user.role == Roles.HOD and role in [Roles.SUPER_ADMIN, Roles.HOD]:
+        role = Roles.TEACHER
 
     pw_hash = bcrypt.generate_password_hash(password).decode('utf-8')
     user = User(name=name, email=email, phone=phone, password_hash=pw_hash,
@@ -1304,6 +1307,9 @@ def upload_teachers_excel():
             continue
 
         if role not in Roles.ALL:
+            role = Roles.TEACHER
+        # Privilege escalation guard: HOD cannot create HOD/SUPER_ADMIN via Excel
+        if current_user.role == Roles.HOD and role in [Roles.SUPER_ADMIN, Roles.HOD]:
             role = Roles.TEACHER
 
         # Resolve department
