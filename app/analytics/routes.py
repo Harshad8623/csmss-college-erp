@@ -15,45 +15,63 @@ STAFF_ROLES = [Roles.SUPER_ADMIN, Roles.HOD, Roles.CLASS_TEACHER, Roles.TEACHER]
 
 # ── Helper ──────────────────────────────────────────────────────────────────
 def _att_pct(student_ids, subject_id=None, d=None):
-    q = Attendance.query.filter(Attendance.student_id.in_(student_ids))
-    if subject_id:
-        q = q.filter_by(subject_id=subject_id)
-    if d:
-        q = q.filter_by(date=d)
-    total = q.count()
-    if total == 0:
+    """Single-query attendance percentage (was 2 sequential counts)."""
+    if not student_ids:
         return 0
-    present = q.filter_by(status=True).count()
-    return round(present / total * 100, 2)
+    q = db.session.query(
+        func.count(Attendance.id).label('total'),
+        func.sum(db.case((Attendance.status == True, 1), else_=0)).label('present')
+    ).filter(Attendance.student_id.in_(student_ids))
+    if subject_id:
+        q = q.filter(Attendance.subject_id == subject_id)
+    if d:
+        q = q.filter(Attendance.date == d)
+    row = q.one()
+    if not row.total:
+        return 0
+    return round((row.present or 0) / row.total * 100, 2)
 
 def _today_counts(student_ids):
-    recs = Attendance.query.filter(
+    """Single-query today present/absent count."""
+    if not student_ids:
+        return 0, 0, 0
+    recs = db.session.query(
+        Attendance.student_id,
+        func.sum(db.case((Attendance.status == True, 1), else_=0)).label('p'),
+        func.sum(db.case((Attendance.status == False, 1), else_=0)).label('a')
+    ).filter(
         Attendance.student_id.in_(student_ids),
         Attendance.date == date.today()
-    ).all()
-    seen = {}
-    for r in recs:
-        if r.student_id not in seen:
-            seen[r.student_id] = {'p': 0, 'a': 0}
-        if r.status:
-            seen[r.student_id]['p'] += 1
-        else:
-            seen[r.student_id]['a'] += 1
-    present = sum(1 for v in seen.values() if v['a'] == 0 and v['p'] > 0)
-    absent  = sum(1 for v in seen.values() if v['a'] > 0)
-    return present, absent, len(seen)
+    ).group_by(Attendance.student_id).all()
+    present = sum(1 for r in recs if r.p > 0 and r.a == 0)
+    absent  = sum(1 for r in recs if r.a > 0)
+    return present, absent, len(recs)
 
 def _week_trend(student_ids, days=7):
+    """Single-query 7-day trend (was 14 queries: 2 per day x 7 days)."""
     today = date.today()
+    start = today - timedelta(days=days - 1)
+    if not student_ids:
+        labels = [(start + timedelta(days=i)).strftime('%d %b') for i in range(days)]
+        return labels, [0]*days, [0]*days
+
+    rows = db.session.query(
+        Attendance.date,
+        func.count(Attendance.id).label('total'),
+        func.sum(db.case((Attendance.status == True, 1), else_=0)).label('present')
+    ).filter(
+        Attendance.student_id.in_(student_ids),
+        Attendance.date >= start,
+        Attendance.date <= today
+    ).group_by(Attendance.date).all()
+    day_map = {r.date: (r.present or 0, r.total - (r.present or 0)) for r in rows}
+
     labels, p_data, a_data = [], [], []
-    for i in range(days - 1, -1, -1):
-        d = today - timedelta(days=i)
-        q = Attendance.query.filter(Attendance.student_id.in_(student_ids), Attendance.date == d)
-        total = q.count()
-        pres  = q.filter_by(status=True).count()
+    for i in range(days):
+        d = start + timedelta(days=i)
+        p, a = day_map.get(d, (0, 0))
         labels.append(d.strftime('%d %b'))
-        p_data.append(pres)
-        a_data.append(total - pres)
+        p_data.append(p); a_data.append(a)
     return labels, p_data, a_data
 
 # ── Main page ────────────────────────────────────────────────────────────────
@@ -123,13 +141,40 @@ def principal_dept_today():
     if current_user.role not in [Roles.SUPER_ADMIN]:
         return jsonify({'error': 'unauthorized'}), 403
     depts = Department.query.all()
-    labels, present_d, absent_d, total_d = [], [], [], []
-    for dept in depts:
-        cids = [c.id for c in Class.query.filter_by(department_id=dept.id).all()]
-        sids = [s.id for s in Student.query.filter(Student.class_id.in_(cids)).all()]
-        p, a, _ = _today_counts(sids)
-        labels.append(dept.code or dept.name[:8])
-        present_d.append(p); absent_d.append(a); total_d.append(len(sids))
+
+    # Single query: get all today's attendance grouped by student_id
+    all_class_ids = [c.id for c in Class.query.with_entities(Class.id).all()]
+    # Build student_id -> dept_id map in one query
+    student_dept = db.session.query(
+        Student.id, Class.department_id
+    ).join(Class, Student.class_id == Class.id).filter(
+        Class.department_id.in_([d.id for d in depts])
+    ).all()
+    sid_to_dept = {row[0]: row[1] for row in student_dept}
+    all_sids = list(sid_to_dept.keys())
+
+    today_recs = db.session.query(
+        Attendance.student_id,
+        func.sum(db.case((Attendance.status == True, 1), else_=0)).label('p'),
+        func.sum(db.case((Attendance.status == False, 1), else_=0)).label('a')
+    ).filter(
+        Attendance.student_id.in_(all_sids),
+        Attendance.date == date.today()
+    ).group_by(Attendance.student_id).all()
+
+    dept_stats = {d.id: {'p': 0, 'a': 0, 'total': 0} for d in depts}
+    for sid, cnt in sid_to_dept.items():
+        dept_stats[cnt]['total'] += 1
+    for r in today_recs:
+        did = sid_to_dept.get(r.student_id)
+        if did and did in dept_stats:
+            if r.p > 0 and r.a == 0: dept_stats[did]['p'] += 1
+            elif r.a > 0:            dept_stats[did]['a'] += 1
+
+    labels = [d.code or d.name[:8] for d in depts]
+    present_d = [dept_stats[d.id]['p'] for d in depts]
+    absent_d  = [dept_stats[d.id]['a'] for d in depts]
+    total_d   = [dept_stats[d.id]['total'] for d in depts]
     return jsonify({'labels': labels, 'present': present_d, 'absent': absent_d, 'total': total_d})
 
 @analytics_bp.route('/api/principal/weekwise')
@@ -195,15 +240,21 @@ def principal_lecture_today():
     class_id = request.args.get('class_id', type=int)
     if not class_id:
         return jsonify({'labels': [], 'present': [], 'absent': []})
-    sids = [s.id for s in Student.query.filter_by(class_id=class_id).all()]
+    sids = [s.id for s in Student.query.filter_by(class_id=class_id).with_entities(Student.id).all()]
     recs = Attendance.query.filter(
         Attendance.student_id.in_(sids), Attendance.date == date.today()
     ).all()
+    # Pre-fetch all subjects to avoid lazy N+1 on r.subject.name inside loop
+    subject_ids = list({r.subject_id for r in recs})
+    subj_name_map = {
+        s.id: s.name for s in Subject.query.filter(Subject.id.in_(subject_ids)).all()
+    } if subject_ids else {}
+
     subj_map = {}
     for r in recs:
         sid = r.subject_id
         if sid not in subj_map:
-            subj_map[sid] = {'p': 0, 'a': 0, 'name': r.subject.name if r.subject else str(sid)}
+            subj_map[sid] = {'p': 0, 'a': 0, 'name': subj_name_map.get(sid, str(sid))}
         if r.status: subj_map[sid]['p'] += 1
         else:        subj_map[sid]['a'] += 1
     labels = [v['name'] for v in subj_map.values()]
@@ -222,9 +273,20 @@ def _hod_dept_id():
 def hod_summary():
     dept_id = _hod_dept_id()
     cids = [c.id for c in Class.query.filter_by(department_id=dept_id).all()]
-    sids = [s.id for s in Student.query.filter(Student.class_id.in_(cids), Student.approval_status==ApprovalStatus.APPROVED).all()]
+    sids = [s.id for s in Student.query.filter(
+        Student.class_id.in_(cids), Student.approval_status == ApprovalStatus.APPROVED
+    ).with_entities(Student.id).all()] if cids else []
     p, a, _ = _today_counts(sids)
-    def_count = sum(1 for s in Student.query.filter(Student.class_id.in_(cids), Student.approval_status==ApprovalStatus.APPROVED).all() if s.attendance_percentage() < 75)
+
+    # Bulk defaulter count — replaces N+1 s.attendance_percentage() loop
+    from sqlalchemy import func as sqlfunc
+    stats = db.session.query(
+        Attendance.student_id,
+        sqlfunc.count(Attendance.id).label('total'),
+        sqlfunc.sum(db.case((Attendance.status == True, 1), else_=0)).label('present')
+    ).filter(Attendance.student_id.in_(sids)).group_by(Attendance.student_id).all() if sids else []
+    def_count = sum(1 for r in stats if r.total > 0 and (r.present or 0) / r.total * 100 < 75)
+
     pct = _att_pct(sids)
     return jsonify({'total': len(sids), 'present': p, 'absent': a, 'defaulters': def_count, 'avg_pct': pct})
 

@@ -452,8 +452,23 @@ def bulk_approve_students():
             student.user.status     = Status.ACTIVE
             approved += 1
 
+    # Bulk-notify newly approved students in one batch insert
+    from app.models import Notification
+    notifs = [
+        Notification(
+            user_id=s.user_id,
+            message='\u2705 Your account has been approved! You can now access all features.',
+            type='success',
+            link='/dashboard'
+        )
+        for s in students
+        if s.approval_status == ApprovalStatus.APPROVED
+    ]
+    if notifs:
+        db.session.bulk_save_objects(notifs)
+
     db.session.commit()
-    flash(f'✅ {approved} student(s) approved.', 'success')
+    flash(f'\u2705 {approved} student(s) approved.', 'success')
     return redirect(request.referrer or url_for('admin.students'))
 
 
@@ -653,13 +668,22 @@ def edit_class(id):
     cls.year    = request.form.get('year', cls.year)
     cls.section = request.form.get('section', cls.section)
     new_ct_id   = request.form.get('class_teacher_id') or None
+
+    old_ct_id = cls.class_teacher_id
     cls.class_teacher_id = new_ct_id
 
     # Promote new Class Teacher
-    if new_ct_id:
+    if new_ct_id and str(new_ct_id) != str(old_ct_id):
         ct_user = User.query.get(new_ct_id)
         if ct_user and ct_user.role == Roles.TEACHER:
             ct_user.role = Roles.CLASS_TEACHER
+
+        # Demote old Class Teacher IF they are no longer assigned to any class
+        if old_ct_id:
+            old_ct = User.query.get(old_ct_id)
+            still_assigned = Class.query.filter_by(class_teacher_id=old_ct_id).first()
+            if old_ct and not still_assigned and old_ct.role == Roles.CLASS_TEACHER:
+                old_ct.role = Roles.TEACHER
 
     db.session.commit()
     flash(f'Class "{cls.name}" updated.', 'success')
@@ -1046,7 +1070,7 @@ def add_teacher():
                       designation=designation, teacher_type='subject')
     db.session.add(teacher)
     db.session.commit()
-    flash(f'Teacher "{name}" added successfully! Default password: csmss@123', 'success')
+    flash(f'Teacher "{name}" added successfully. They must change their password on first login.', 'success')
     return redirect(url_for('admin.users'))
 
 
