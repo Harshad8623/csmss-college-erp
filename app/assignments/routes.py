@@ -22,8 +22,19 @@ def index():
     if current_user.role in [Roles.TEACHER, Roles.CLASS_TEACHER, Roles.HOD, Roles.SUPER_ADMIN]:
         assignments = Assignment.query.filter_by(created_by=current_user.id)\
             .order_by(Assignment.created_at.desc()).all()
-        if current_user.role in [Roles.SUPER_ADMIN, Roles.HOD]:
+        if current_user.role == Roles.SUPER_ADMIN:
             assignments = Assignment.query.order_by(Assignment.created_at.desc()).all()
+        elif current_user.role == Roles.HOD:
+            from app.utils.helpers import get_dept_for_hod
+            dept_id = get_dept_for_hod(current_user.id)
+            if dept_id:
+                dept_class_ids = [c.id for c in Class.query.filter_by(department_id=dept_id).all()]
+                dept_subject_ids = [s.id for s in Subject.query.filter(Subject.class_id.in_(dept_class_ids)).all()] if dept_class_ids else []
+                assignments = Assignment.query.filter(
+                    Assignment.subject_id.in_(dept_subject_ids)
+                ).order_by(Assignment.created_at.desc()).all() if dept_subject_ids else []
+            else:
+                assignments = []
         return render_template('assignments/teacher_view.html', assignments=assignments)
     else:
         student = Student.query.filter_by(user_id=current_user.id).first()
@@ -157,7 +168,14 @@ def submissions(id):
         if not student or assignment.subject.class_id != student.class_id:
             from flask import abort
             abort(403)
-    elif current_user.role not in [Roles.SUPER_ADMIN, Roles.HOD] and assignment.created_by != current_user.id:
+    elif current_user.role == Roles.HOD:
+        from app.utils.helpers import get_dept_for_hod
+        dept_id = get_dept_for_hod(current_user.id)
+        if assignment.subject and assignment.subject.class_:
+            if assignment.subject.class_.department_id != dept_id:
+                from flask import abort
+                abort(403)
+    elif current_user.role not in [Roles.SUPER_ADMIN] and assignment.created_by != current_user.id:
         from flask import abort
         abort(403)
 

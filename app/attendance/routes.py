@@ -203,6 +203,11 @@ def class_report(class_id):
         student = Student.query.filter_by(user_id=current_user.id).first()
         if not student or student.class_id != class_id:
             abort(403)
+    elif current_user.role == Roles.TEACHER:
+        taught_class_ids = [s.class_id for s in Subject.query.filter_by(teacher_id=current_user.id).all() if s.class_id]
+        tg_class_ids = [s.class_id for s in Student.query.filter_by(tg_id=current_user.id).all() if s.class_id]
+        if class_id not in taught_class_ids and class_id not in tg_class_ids:
+            abort(403)
 
     students = Student.query.filter_by(
         class_id=class_id, 

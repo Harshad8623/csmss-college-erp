@@ -176,6 +176,10 @@ def mark_practical():
 @role_required(Roles.TEACHER, Roles.CLASS_TEACHER, Roles.HOD, Roles.SUPER_ADMIN)
 def practical_detail(session_id):
     session = PracticalSession.query.get_or_404(session_id)
+    # Scope check
+    allowed_ids = [c.id for c in _scoped_classes()]
+    if session.class_id not in allowed_ids:
+        abort(403)
     records = session.records.all()
     present = sum(1 for r in records if r.status)
     return render_template('sessions/practical_detail.html',
@@ -205,6 +209,11 @@ def create_event():
                                    classes=classes, event_types=EventType.LABELS)
 
         cls = Class.query.get_or_404(class_id)
+        # Scope check: ensure this class is within the user's scope
+        allowed_ids = [c.id for c in classes]
+        if class_id not in allowed_ids:
+            flash('You are not authorised to create events for this class.', 'danger')
+            return redirect(url_for('sessions.index'))
         sel_date = date.fromisoformat(att_date)
         present_ids = [int(x) for x in request.form.getlist('present')]
 
