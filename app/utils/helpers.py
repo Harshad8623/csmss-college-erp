@@ -1,10 +1,72 @@
 from app.models import Notification
 from app.extensions import db
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def _fire_web_push(user_id, message, notif_type, link):
+    """Send a Web Push notification to all of a user's registered browsers.
+    Runs in a background thread — never blocks the main request."""
+    try:
+        from flask import current_app
+        from app.models import PushSubscription
+        from pywebpush import webpush, WebPushException
+        import json, threading
+
+        subs = PushSubscription.query.filter_by(user_id=user_id).all()
+        if not subs:
+            return
+
+        pub_key   = current_app.config.get('VAPID_PUBLIC_KEY', '')
+        priv_key  = current_app.config.get('VAPID_PRIVATE_KEY', '')
+        claims_email = current_app.config.get('VAPID_CLAIMS_EMAIL', 'admin@college.edu')
+
+        if not pub_key or not priv_key:
+            return
+
+        payload = json.dumps({
+            'title': 'CSMSS College ERP',
+            'body':  message,
+            'type':  notif_type,
+            'url':   link or '/notifications/',
+            'icon':  '/static/img/college_logo.png',
+        })
+
+        dead_endpoints = []
+        for sub in subs:
+            try:
+                webpush(
+                    subscription_info={
+                        'endpoint': sub.endpoint,
+                        'keys': {'p256dh': sub.p256dh, 'auth': sub.auth},
+                    },
+                    data=payload,
+                    vapid_private_key=priv_key,
+                    vapid_claims={'sub': f'mailto:{claims_email}'},
+                )
+            except WebPushException as e:
+                # 410 Gone = subscription expired/unregistered
+                if e.response and e.response.status_code in (404, 410):
+                    dead_endpoints.append(sub.endpoint)
+                else:
+                    logger.warning(f"[WebPush] Failed for user {user_id}: {e}")
+            except Exception as e:
+                logger.warning(f"[WebPush] Unexpected error for user {user_id}: {e}")
+
+        if dead_endpoints:
+            PushSubscription.query.filter(
+                PushSubscription.endpoint.in_(dead_endpoints)
+            ).delete(synchronize_session=False)
+            db.session.commit()
+
+    except Exception as e:
+        logger.warning(f"[WebPush] _fire_web_push crashed: {e}")
 
 
 def send_notification(user_id, message, notif_type='info', link=None):
     """
-    Add an in-app notification for a user.
+    Add an in-app notification for a user AND fire a Web Push to their devices.
     Uses a nested savepoint so a notification failure NEVER rolls back
     the caller's outer transaction (e.g., bulk attendance saves).
     The CALLER is responsible for db.session.commit().
@@ -19,9 +81,20 @@ def send_notification(user_id, message, notif_type='info', link=None):
             )
             db.session.add(notif)
     except Exception as e:
-        # Savepoint already rolled back — outer transaction is safe
-        import logging
-        logging.getLogger(__name__).warning(f"[Notification] Failed to queue notification for user {user_id}: {e}")
+        logger.warning(f"[Notification] Failed to queue notification for user {user_id}: {e}")
+
+    # Fire Web Push in a background thread — never blocks the request
+    try:
+        import threading
+        from flask import current_app
+        app = current_app._get_current_object()
+        t = threading.Thread(
+            target=lambda: app.app_context().__enter__() or _fire_web_push(user_id, message, notif_type, link),
+            daemon=True
+        )
+        t.start()
+    except Exception:
+        pass  # Web push is best-effort
 
 
 def send_bulk_notification(user_ids, message, notif_type='info', link=None):

@@ -71,6 +71,11 @@ class Config:
     MAIL_PASSWORD         = os.environ.get('MAIL_PASSWORD')
     MAIL_DEFAULT_SENDER   = os.environ.get('MAIL_DEFAULT_SENDER') or MAIL_USERNAME
 
+    # ── Web Push (VAPID) Settings ─────────────────────────────────────────────
+    VAPID_PUBLIC_KEY    = os.environ.get('VAPID_PUBLIC_KEY', '')
+    VAPID_PRIVATE_KEY   = os.environ.get('VAPID_PRIVATE_KEY', '').replace('\\n', '\n')
+    VAPID_CLAIMS_EMAIL  = os.environ.get('VAPID_CLAIMS_EMAIL', 'admin@college.edu')
+
     # ── CSRF Protection (Flask-WTF) ───────────────────────────────────────────
     WTF_CSRF_ENABLED      = True
     WTF_CSRF_TIME_LIMIT   = 3600   # CSRF token expires in 1 hour

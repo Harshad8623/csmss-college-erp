@@ -523,6 +523,72 @@
     setInterval(poll, POLL_INTERVAL);
   })();
   </script>
+
+  <!-- Web Push: register service worker + auto-request permission -->
+  <script>
+  (function() {
+    const VAPID_PUBLIC_KEY = '{{ config.VAPID_PUBLIC_KEY | default("") }}';
+    const SUBSCRIBE_URL    = '{{ url_for("notifications.subscribe") }}';
+
+    if (!VAPID_PUBLIC_KEY || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+      return; // Browser doesn't support push — gracefully skip
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+      return outputArray;
+    }
+
+    async function subscribeToPush(registration) {
+      try {
+        const existing = await registration.pushManager.getSubscription();
+        const sub = existing || await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        });
+
+        // Send subscription to server
+        await fetch(SUBSCRIBE_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || '',
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify(sub.toJSON()),
+        });
+      } catch (err) {
+        // User blocked notifications or an error occurred — silently ignore
+        console.debug('[WebPush] Subscription failed:', err);
+      }
+    }
+
+    async function initPush() {
+      try {
+        const reg = await navigator.serviceWorker.register('/static/sw.js', { scope: '/' });
+        await navigator.serviceWorker.ready;
+
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          await subscribeToPush(reg);
+        }
+      } catch (err) {
+        console.debug('[WebPush] Init failed:', err);
+      }
+    }
+
+    // Auto-trigger push permission on page load (fires once after SW is ready)
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initPush);
+    } else {
+      initPush();
+    }
+  })();
+  </script>
   {% endif %}
 
 
