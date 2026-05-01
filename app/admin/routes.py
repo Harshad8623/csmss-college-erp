@@ -65,6 +65,14 @@ def activate_user(id):
         teacher = Teacher.query.filter_by(user_id=user.id).first()
         if not teacher or teacher.department_id != dept_id:
             abort(403)
+    # Class Teacher can only activate students from their class
+    elif current_user.role == Roles.CLASS_TEACHER:
+        cls = _ct_class()
+        if not cls:
+            abort(403)
+        student = Student.query.filter_by(user_id=user.id).first()
+        if not student or student.class_id != cls.id:
+            abort(403)
     user.status = Status.ACTIVE
     db.session.commit()
     flash(f'{user.name} activated.', 'success')
@@ -87,6 +95,10 @@ def block_user(id):
 @role_required(Roles.SUPER_ADMIN)
 def change_role(id):
     user = User.query.get_or_404(id)
+    # Prevent changing your own role (could lock yourself out)
+    if user.id == current_user.id:
+        flash('You cannot change your own role.', 'danger')
+        return redirect(url_for('admin.users'))
     new_role = request.form.get('role')
     if new_role in Roles.ALL:
         user.role = new_role
@@ -175,12 +187,21 @@ def delete_user(id):
         # ── 3. Delete student profile and all its children first ───────────
         if user.student_profile:
             student = user.student_profile
-            # Delete student's attendance → triggers AbsenteeReason cascade
+            # Delete student's AbsenteeReasons FIRST (FK → attendance.id)
+            from app.models import AbsenteeReason
+            att_ids = [a.id for a in Attendance.query.filter_by(student_id=student.id).all()]
+            if att_ids:
+                AbsenteeReason.query.filter(AbsenteeReason.attendance_id.in_(att_ids)).delete(synchronize_session=False)
             Attendance.query.filter_by(student_id=student.id).delete()
             Marks.query.filter_by(student_id=student.id).delete()
             AssignmentSubmission.query.filter_by(student_id=student.id).delete()
             PracticalRecord.query.filter_by(student_id=student.id).delete()
             EventRecord.query.filter_by(student_id=student.id).delete()
+            # Delete GrievanceReplies FIRST (FK → grievances.id)
+            from app.models import GrievanceReply
+            griev_ids = [g.id for g in Grievance.query.filter_by(student_id=student.id).all()]
+            if griev_ids:
+                GrievanceReply.query.filter(GrievanceReply.grievance_id.in_(griev_ids)).delete(synchronize_session=False)
             Grievance.query.filter_by(student_id=student.id).delete()
             Certificate.query.filter_by(student_id=student.id).delete()
             LeaveApplication.query.filter_by(student_id=student.id).delete()
@@ -309,11 +330,21 @@ def bulk_delete_students():
             PracticalRecord, EventRecord, Grievance,
             Certificate, LeaveApplication
         )
+        # Must delete AbsenteeReasons FIRST (FK → attendance.id)
+        from app.models import AbsenteeReason
+        att_ids = [a.id for a in Attendance.query.filter_by(student_id=student.id).all()]
+        if att_ids:
+            AbsenteeReason.query.filter(AbsenteeReason.attendance_id.in_(att_ids)).delete(synchronize_session=False)
         Attendance.query.filter_by(student_id=student.id).delete()
         Marks.query.filter_by(student_id=student.id).delete()
         AssignmentSubmission.query.filter_by(student_id=student.id).delete()
         PracticalRecord.query.filter_by(student_id=student.id).delete()
         EventRecord.query.filter_by(student_id=student.id).delete()
+        # Delete GrievanceReplies FIRST (FK → grievances.id)
+        from app.models import GrievanceReply
+        griev_ids = [g.id for g in Grievance.query.filter_by(student_id=student.id).all()]
+        if griev_ids:
+            GrievanceReply.query.filter(GrievanceReply.grievance_id.in_(griev_ids)).delete(synchronize_session=False)
         Grievance.query.filter_by(student_id=student.id).delete()
         Certificate.query.filter_by(student_id=student.id).delete()
         LeaveApplication.query.filter_by(student_id=student.id).delete()
@@ -707,7 +738,19 @@ def edit_subject(id):
 
     sub.name       = request.form.get('name', sub.name).strip()
     sub.code       = request.form.get('code', sub.code).strip()
-    sub.class_id   = request.form.get('class_id', sub.class_id)
+    new_class_id   = request.form.get('class_id', sub.class_id)
+    # Validate the NEW class_id is still within scope
+    if str(new_class_id) != str(sub.class_id):
+        if current_user.role == Roles.CLASS_TEACHER:
+            cls = _ct_class()
+            if not cls or str(cls.id) != str(new_class_id):
+                abort(403)
+        elif current_user.role == Roles.HOD:
+            dept_id = _hod_dept_id()
+            target_cls = Class.query.get(new_class_id)
+            if not target_cls or target_cls.department_id != dept_id:
+                abort(403)
+    sub.class_id   = new_class_id
     sub.teacher_id = request.form.get('teacher_id') or None
     sub.credits    = int(request.form.get('credits', sub.credits))
     sub.is_elective = request.form.get('is_elective') == 'on'
