@@ -10,3 +10,20 @@ instance/college_erp.db
 instance/college_erp.db-shm
 instance/college_erp.db-wal
 .DS_Store
+
+# User uploads — never commit these
+static/uploads/
+
+# Test & cache
+.pytest_cache/
+test_app.py
+
+# One-off scripts
+seed.py
+gen_students.py
+add_timetable_batch.py
+migrate_grievance.py
+
+# Editor / OS
+*.swp
+Thumbs.db
