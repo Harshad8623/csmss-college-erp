@@ -14,7 +14,12 @@ reportlab==4.2.0
 qrcode[pil]==7.4.2
 SQLAlchemy==2.0.30
 Werkzeug==3.0.3
-gunicorn==22.0.0
-psycopg2-binary==2.9.9
+gunicorn==23.0.0
+psycopg2-binary==2.9.12
 openpyxl==3.1.2
 cloudinary==1.44.2
+pywebpush==2.3.0
+py-vapid==1.9.4
+http-ece==1.2.1
+aiohttp==3.13.5
+cryptography==47.0.0
