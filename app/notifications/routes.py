@@ -102,20 +102,48 @@ def push_status():
 @notifications_bp.route('/api/push-test', methods=['GET', 'POST'])
 @login_required
 def push_test():
-    """Send a test Web Push to the current logged-in user's devices."""
-    from app.utils.helpers import send_notification
-    count = PushSubscription.query.filter_by(user_id=current_user.id).count()
-    if count == 0:
-        return jsonify({
-            'status': 'no_subscription',
-            'message': 'No push subscriptions in DB. Grant notification permission in Chrome first.'
-        }), 400
-    send_notification(
-        user_id    = current_user.id,
-        message    = '🔔 Test! Web Push is working. You received this with Chrome closed.',
-        notif_type = 'success',
-        link       = '/notifications/'
-    )
-    db.session.commit()
-    return jsonify({'status': 'sent', 'devices': count,
-                    'message': f'Test push sent to {count} device(s). Check your phone!'})
+    """Synchronous test push — returns exact error per device for debugging."""
+    from flask import current_app
+    from app.models import PushSubscription
+    import json
+
+    subs = PushSubscription.query.filter_by(user_id=current_user.id).all()
+    if not subs:
+        return jsonify({'status': 'no_subscription',
+                        'message': 'No subscriptions in DB. Grant Chrome notification permission first.'}), 400
+
+    pub_key      = current_app.config.get('VAPID_PUBLIC_KEY', '')
+    priv_key     = current_app.config.get('VAPID_PRIVATE_KEY', '')
+    claims_email = current_app.config.get('VAPID_CLAIMS_EMAIL', '')
+
+    results = []
+    for sub in subs:
+        entry = {'endpoint_tail': sub.endpoint[-40:], 'result': None, 'error': None}
+        try:
+            from pywebpush import webpush, WebPushException
+            payload = json.dumps({
+                'title': 'CSMSS ERP — Push Test',
+                'body':  '🔔 Background push working! You received this with Chrome closed.',
+                'type':  'success',
+                'url':   '/notifications/',
+                'icon':  '/static/img/college_logo.png',
+            })
+            resp = webpush(
+                subscription_info={'endpoint': sub.endpoint,
+                                   'keys': {'p256dh': sub.p256dh, 'auth': sub.auth}},
+                data=payload,
+                vapid_private_key=priv_key,
+                vapid_claims={'sub': f'mailto:{claims_email}'},
+            )
+            entry['result'] = f'HTTP {resp.status_code}'
+        except Exception as e:
+            entry['error'] = str(e)[:300]
+        results.append(entry)
+
+    return jsonify({
+        'vapid_public_key_set':  bool(pub_key),
+        'vapid_private_key_set': bool(priv_key),
+        'claims_email':          claims_email,
+        'devices_attempted':     len(subs),
+        'results':               results,
+    })
