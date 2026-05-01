@@ -249,11 +249,12 @@ def approve_student(id):
     student.approval_status = ApprovalStatus.APPROVED if action == 'approve' else ApprovalStatus.REJECTED
     student.approved_by = current_user.id
     student.user.status = Status.ACTIVE if action == 'approve' else Status.BLOCKED
-    db.session.commit()
-    flash(f'Student {student.user.name} {student.approval_status}.', 'success')
+
     from app.utils.helpers import send_notification
     msg = '✅ Your account has been approved! You can now login.' if action == 'approve' else '❌ Your registration was rejected.'
     send_notification(student.user_id, msg, 'success' if action == 'approve' else 'danger')
+    db.session.commit()
+    flash(f'Student {student.user.name} {student.approval_status}.', 'success')
     return redirect(request.referrer or url_for('dashboard.index'))
 
 
@@ -312,53 +313,55 @@ def bulk_delete_students():
 
     students = Student.query.filter(Student.id.in_(student_ids)).all()
     deleted = 0
-    for student in students:
-        # Scope check
-        if current_user.role == Roles.HOD:
-            dept_id = _hod_dept_id()
-            cls = Class.query.get(student.class_id)
-            if not cls or cls.department_id != dept_id:
-                continue
-        elif current_user.role == Roles.CLASS_TEACHER:
-            cls = _ct_class()
-            if not cls or student.class_id != cls.id:
-                continue
+    try:
+        for student in students:
+            # Scope check per student
+            if current_user.role == Roles.HOD:
+                dept_id = _hod_dept_id()
+                cls = Class.query.get(student.class_id)
+                if not cls or cls.department_id != dept_id:
+                    continue
+            elif current_user.role == Roles.CLASS_TEACHER:
+                cls = _ct_class()
+                if not cls or student.class_id != cls.id:
+                    continue
 
-        # Must delete child records FIRST to avoid FK constraint violations in PostgreSQL
-        from app.models import (
-            Attendance, Marks, AssignmentSubmission,
-            PracticalRecord, EventRecord, Grievance,
-            Certificate, LeaveApplication
-        )
-        # Must delete AbsenteeReasons FIRST (FK → attendance.id)
-        from app.models import AbsenteeReason
-        att_ids = [a.id for a in Attendance.query.filter_by(student_id=student.id).all()]
-        if att_ids:
-            AbsenteeReason.query.filter(AbsenteeReason.attendance_id.in_(att_ids)).delete(synchronize_session=False)
-        Attendance.query.filter_by(student_id=student.id).delete()
-        Marks.query.filter_by(student_id=student.id).delete()
-        AssignmentSubmission.query.filter_by(student_id=student.id).delete()
-        PracticalRecord.query.filter_by(student_id=student.id).delete()
-        EventRecord.query.filter_by(student_id=student.id).delete()
-        # Delete GrievanceReplies FIRST (FK → grievances.id)
-        from app.models import GrievanceReply
-        griev_ids = [g.id for g in Grievance.query.filter_by(student_id=student.id).all()]
-        if griev_ids:
-            GrievanceReply.query.filter(GrievanceReply.grievance_id.in_(griev_ids)).delete(synchronize_session=False)
-        Grievance.query.filter_by(student_id=student.id).delete()
-        Certificate.query.filter_by(student_id=student.id).delete()
-        LeaveApplication.query.filter_by(student_id=student.id).delete()
-        db.session.flush()
+            # Delete child records in FK dependency order
+            from app.models import (
+                Attendance, Marks, AssignmentSubmission,
+                PracticalRecord, EventRecord, Grievance,
+                Certificate, LeaveApplication, AbsenteeReason, GrievanceReply
+            )
+            att_ids = [a.id for a in Attendance.query.filter_by(student_id=student.id).all()]
+            if att_ids:
+                AbsenteeReason.query.filter(AbsenteeReason.attendance_id.in_(att_ids)).delete(synchronize_session=False)
+            Attendance.query.filter_by(student_id=student.id).delete()
+            Marks.query.filter_by(student_id=student.id).delete()
+            AssignmentSubmission.query.filter_by(student_id=student.id).delete()
+            PracticalRecord.query.filter_by(student_id=student.id).delete()
+            EventRecord.query.filter_by(student_id=student.id).delete()
+            griev_ids = [g.id for g in Grievance.query.filter_by(student_id=student.id).all()]
+            if griev_ids:
+                GrievanceReply.query.filter(GrievanceReply.grievance_id.in_(griev_ids)).delete(synchronize_session=False)
+            Grievance.query.filter_by(student_id=student.id).delete()
+            Certificate.query.filter_by(student_id=student.id).delete()
+            LeaveApplication.query.filter_by(student_id=student.id).delete()
+            db.session.flush()
 
-        user = User.query.get(student.user_id)
-        db.session.delete(student)
-        db.session.flush()
-        if user:
-            db.session.delete(user)
-        deleted += 1
+            user = User.query.get(student.user_id)
+            db.session.delete(student)
+            db.session.flush()
+            if user:
+                db.session.delete(user)
+            deleted += 1
 
-    db.session.commit()
-    flash(f'\U0001f5d1\ufe0f {deleted} student(s) deleted successfully.', 'success')
+        db.session.commit()
+        flash(f'\U0001f5d1\ufe0f {deleted} student(s) deleted successfully.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Bulk delete error: {e}')
+        flash(f'Error during bulk delete — rolled back: {e}', 'danger')
+
     return redirect(request.referrer or url_for('admin.students'))
 
 

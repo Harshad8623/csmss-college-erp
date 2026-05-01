@@ -503,6 +503,12 @@ class Notification(db.Model):
     is_read    = db.Column(db.Boolean, default=False, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
+    # Composite index for the most frequent query: unread count per user
+    # SELECT COUNT(*) FROM notifications WHERE user_id=? AND is_read=false
+    __table_args__ = (
+        db.Index('ix_notif_user_unread', 'user_id', 'is_read'),
+    )
+
 
 class Message(db.Model):
     __tablename__ = 'messages'
