@@ -4,34 +4,75 @@
 <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
   <div>
     <h1 class="page-title"><div class="title-icon">⚠️</div> Grievance Management</h1>
-    <p class="page-subtitle">{{ pending_count }} pending grievances to review</p>
+    <p class="page-subtitle">
+      <span style="color:#eab308;">{{ pending_count }} Pending</span>
+      {% if escalated_count > 0 %}
+        &nbsp;·&nbsp;<span style="color:#ef4444;font-weight:700;">{{ escalated_count }} Escalated 🔴</span>
+      {% endif %}
+    </p>
   </div>
 </div>
+
+{% set priority_colors = {'urgent':'#ef4444','high':'#f97316','medium':'#eab308','low':'#22c55e'} %}
+{% set priority_icons  = {'urgent':'🚨','high':'🔴','medium':'🟡','low':'🟢'} %}
 
 <div class="card-erp">
   <div class="card-header-erp">
     <h5><i class="fa-solid fa-list" style="color:var(--accent-purple);"></i> All Grievances</h5>
-    <span class="badge-erp badge-warning">{{ pending_count }} Pending</span>
+    <div style="display:flex;gap:8px;">
+      <span class="badge-erp badge-warning">{{ pending_count }} Pending</span>
+      {% if escalated_count > 0 %}
+      <span class="badge-erp badge-danger">{{ escalated_count }} Escalated</span>
+      {% endif %}
+    </div>
   </div>
   <div class="card-body-erp" style="padding:0;">
     <div class="table-wrap-scroll">
     <table class="table-erp">
       <thead>
-        <tr><th>Student</th><th>Type</th><th>Description</th><th>Status</th><th>Date</th><th>Action</th></tr>
+        <tr>
+          <th>Student</th><th>Priority</th><th>Type</th>
+          <th>Description</th><th>Status</th><th>Pending</th>
+          <th>Date</th><th>Action</th>
+        </tr>
       </thead>
       <tbody>
         {% for g in grievances %}
-        <tr>
+        <tr style="{{ 'background:rgba(239,68,68,0.05);' if g.status=='escalated' }}">
           <td>
             <div style="font-weight:600;">{{ g.student.user.name }}</div>
             <div style="font-size:11px;color:var(--text-muted);">{{ g.student.class_.name if g.student.class_ else '' }}</div>
           </td>
-          <td><span class="badge-erp badge-purple">{{ g.type.title() }}</span></td>
-          <td><div class="truncate" style="max-width:200px;">{{ g.description }}</div></td>
           <td>
-            <span class="badge-erp {{ 'badge-warning' if g.status=='pending' else 'badge-success' if g.status=='approved' else 'badge-danger' }}">
-              {{ g.status.title() }}
+            <span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;
+              background:{{ priority_colors.get(g.priority or 'medium','#eab308') }}22;
+              color:{{ priority_colors.get(g.priority or 'medium','#eab308') }};
+              border:1px solid {{ priority_colors.get(g.priority or 'medium','#eab308') }}44;">
+              {{ priority_icons.get(g.priority or 'medium','🟡') }} {{ (g.priority or 'medium').title() }}
             </span>
+          </td>
+          <td><span class="badge-erp badge-purple">{{ g.type.replace('_',' ').title() }}</span></td>
+          <td><div class="truncate" style="max-width:180px;">{{ g.description }}</div></td>
+          <td>
+            <span class="badge-erp
+              {% if g.status == 'escalated' %}badge-danger
+              {% elif g.status == 'pending' %}badge-warning
+              {% elif g.status == 'approved' %}badge-success
+              {% else %}badge-danger{% endif %}">
+              {% if g.status == 'escalated' %}⬆️ Escalated
+              {% elif g.status == 'pending' %}⏳ Pending
+              {% elif g.status == 'approved' %}✅ Resolved
+              {% else %}❌ Rejected{% endif %}
+            </span>
+          </td>
+          <td style="font-size:12px;">
+            {% set days_p = (now - g.created_at).days if now is defined else 0 %}
+            <span style="{{ 'color:#ef4444;font-weight:700;' if days_p > 5 else 'color:var(--text-muted);' }}">
+              {{ days_p }} day{{ 's' if days_p != 1 }}
+            </span>
+            {% if g.deadline and g.status in ['pending','escalated'] and now is defined and now > g.deadline %}
+            <div style="font-size:9px;color:#ef4444;font-weight:700;">⚠️ OVERDUE</div>
+            {% endif %}
           </td>
           <td style="font-size:12px;color:var(--text-muted);">{{ g.created_at.strftime('%d %b %Y') }}</td>
           <td>
@@ -41,7 +82,7 @@
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="6"><div class="empty-state"><div class="empty-icon">✅</div><h6>No Grievances</h6><p>All clear!</p></div></td></tr>
+        <tr><td colspan="8"><div class="empty-state"><div class="empty-icon">✅</div><h6>No Grievances</h6><p>All clear!</p></div></td></tr>
         {% endfor %}
       </tbody>
     </table>

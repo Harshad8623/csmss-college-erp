@@ -5,29 +5,51 @@
   <h1 class="page-title"><div class="title-icon">📝</div> Raise a Grievance</h1>
   <p class="page-subtitle">Describe your issue — it will be reviewed by your class teacher</p>
 </div>
-<div style="max-width:600px;">
+<div style="max-width:640px;">
   <div class="card-erp">
     <div class="card-header-erp"><h5>📋 Grievance Form</h5></div>
     <div class="card-body-erp">
-      <form method="POST" action="{{ url_for('grievance.create') }}" data-validate>
-        <div class="form-group-erp">
-          <label class="form-label-erp">Grievance Type *</label>
-          <select name="type" class="form-control-erp" required>
-            {% for val, label in types %}
-            <option value="{{ val }}">{{ label }}</option>
-            {% endfor %}
-          </select>
+      <form method="POST" action="{{ url_for('grievance.create') }}"
+            enctype="multipart/form-data" data-validate>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;">
+          <div>
+            <label class="form-label-erp">Grievance Type *</label>
+            <select name="type" class="form-control-erp" required>
+              {% for val, label in types %}
+              <option value="{{ val }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="form-label-erp">Priority *</label>
+            <select name="priority" class="form-control-erp" required>
+              {% for val, label in priorities %}
+              <option value="{{ val }}" {{ 'selected' if val == 'medium' }}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
         </div>
+
         <div class="form-group-erp">
           <label class="form-label-erp">Description *</label>
           <textarea name="description" class="form-control-erp" rows="5"
             placeholder="Describe your grievance in detail..." required></textarea>
         </div>
+
+        <div class="form-group-erp">
+          <label class="form-label-erp">Attachment <span style="color:var(--text-muted);font-size:11px;">(optional — JPG, PNG, PDF)</span></label>
+          <input type="file" name="attachment" class="form-control-erp"
+                 accept=".jpg,.jpeg,.png,.pdf"
+                 style="padding:8px;cursor:pointer;">
+        </div>
+
         <div style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.15);border-radius:var(--radius-sm);padding:12px;margin-bottom:18px;font-size:13px;color:var(--text-secondary);">
           <i class="fa-solid fa-circle-info" style="color:var(--accent-blue);"></i>
           Your grievance will be assigned to your class teacher for review.
-          You will be notified of any updates.
+          SLA deadlines: Urgent=2 days · High=3 days · Medium=5 days · Low=7 days.
         </div>
+
         <div style="display:flex;gap:12px;">
           <button type="submit" class="btn-erp btn-primary-erp">
             <i class="fa-solid fa-paper-plane"></i> Submit Grievance

@@ -53,6 +53,12 @@ class GrievanceType:
     FACILITY   = 'facility'
     OTHER      = 'other'
 
+class GrievancePriority:
+    LOW    = 'low'
+    MEDIUM = 'medium'
+    HIGH   = 'high'
+    URGENT = 'urgent'
+
 class CertificateType:
     BONAFIDE  = 'bonafide'
     LEAVING   = 'leaving'
@@ -348,12 +354,28 @@ class Grievance(db.Model):
     type        = db.Column(db.String(30), nullable=False)
     description = db.Column(db.Text, nullable=False)
     status      = db.Column(db.String(20), default=ApprovalStatus.PENDING)
+    priority    = db.Column(db.String(10), default='medium')  # low/medium/high/urgent
+    attachment  = db.Column(db.String(255), nullable=True)    # uploaded filename
+    deadline    = db.Column(db.DateTime, nullable=True)        # SLA deadline
     assigned_to = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     comment     = db.Column(db.Text)
     created_at  = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at  = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     assignee = db.relationship('User', foreign_keys=[assigned_to])
+    replies  = db.relationship('GrievanceReply', backref='grievance',
+                               lazy='dynamic', order_by='GrievanceReply.created_at')
+
+
+class GrievanceReply(db.Model):
+    __tablename__ = 'grievance_replies'
+    id           = db.Column(db.Integer, primary_key=True)
+    grievance_id = db.Column(db.Integer, db.ForeignKey('grievances.id'), nullable=False)
+    user_id      = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    message      = db.Column(db.Text, nullable=False)
+    created_at   = db.Column(db.DateTime, default=datetime.utcnow)
+
+    author = db.relationship('User', foreign_keys=[user_id])
 
 
 class Certificate(db.Model):
