@@ -77,32 +77,10 @@ class Config:
     # ── Web Push (VAPID) Settings ─────────────────────────────────────────────
     VAPID_PUBLIC_KEY    = os.environ.get('VAPID_PUBLIC_KEY', '')
     VAPID_CLAIMS_EMAIL  = os.environ.get('VAPID_CLAIMS_EMAIL', 'admin@college.edu')
-
-    # VAPID private key — stored as raw 43-char base64url (no newline issues on Render)
-    # Falls back to old PEM format for backwards compatibility
-    _raw_b64 = os.environ.get('VAPID_PRIVATE_KEY_RAW', '')
-    if _raw_b64:
-        # Reconstruct a clean PEM from raw 32-byte EC private key d-value
-        try:
-            import base64 as _b64
-            from cryptography.hazmat.primitives.asymmetric.ec import (
-                derive_private_key, SECP256R1
-            )
-            from cryptography.hazmat.primitives.serialization import (
-                Encoding as _Enc, PrivateFormat as _PF, NoEncryption as _NE
-            )
-            _d_bytes = _b64.urlsafe_b64decode(_raw_b64 + '==')
-            _d_int   = int.from_bytes(_d_bytes, 'big')
-            _ec_key  = derive_private_key(_d_int, SECP256R1())
-            VAPID_PRIVATE_KEY = _ec_key.private_bytes(
-                _Enc.PEM, _PF.PKCS8, _NE()
-            ).decode()
-        except Exception:
-            VAPID_PRIVATE_KEY = ''
-    else:
-        # Legacy: PEM with \n escape sequences
-        _raw_priv = os.environ.get('VAPID_PRIVATE_KEY', '')
-        VAPID_PRIVATE_KEY = _raw_priv.replace('\\n', '\n').strip()
+    # Raw base64url private key — py_vapid 1.9.4 Vapid.from_string() accepts this directly.
+    # No PEM headers, no newlines, no encoding issues on any platform.
+    VAPID_PRIVATE_KEY   = os.environ.get('VAPID_PRIVATE_KEY_RAW', '') or \
+                          os.environ.get('VAPID_PRIVATE_KEY', '').replace('\\n', '\n').strip()
 
 
     # ── CSRF Protection (Flask-WTF) ───────────────────────────────────────────
