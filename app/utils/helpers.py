@@ -88,11 +88,14 @@ def send_notification(user_id, message, notif_type='info', link=None):
         import threading
         from flask import current_app
         app = current_app._get_current_object()
-        t = threading.Thread(
-            target=lambda: app.app_context().__enter__() or _fire_web_push(user_id, message, notif_type, link),
-            daemon=True
-        )
-        t.start()
+        # Capture values for the closure explicitly to avoid late-binding issues
+        _uid, _msg, _type, _link = user_id, message, notif_type, link
+
+        def _push_worker():
+            with app.app_context():
+                _fire_web_push(_uid, _msg, _type, _link)
+
+        threading.Thread(target=_push_worker, daemon=True).start()
     except Exception:
         pass  # Web push is best-effort
 

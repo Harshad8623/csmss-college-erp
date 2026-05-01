@@ -29,7 +29,7 @@ def create_app(config_class=Config):
         if current_user.is_authenticated and getattr(current_user, 'must_change_password', False):
             # Allow the change-password page, OTP flow, and logout — nothing else
             allowed = ('auth.change_password', 'auth.logout', 'auth.forgot_password',
-                       'auth.verify_otp', 'auth.reset_password', 'static')
+                       'auth.verify_otp', 'auth.reset_password', 'static', 'service_worker')
             if request.endpoint not in allowed:
                 return redirect(url_for('auth.change_password'))
 
@@ -81,6 +81,24 @@ def create_app(config_class=Config):
     app.register_blueprint(notifications_bp)
     app.register_blueprint(leaves_bp)
     app.register_blueprint(sessions_bp)
+
+    # ── Service Worker: must be served from root with Service-Worker-Allowed header ──
+    # Without this, Chrome blocks the SW from controlling pages outside /static/
+    @app.route('/sw.js')
+    def service_worker():
+        from flask import send_from_directory, make_response
+        import os
+        sw_path = os.path.join(app.root_path, '..', 'static')
+        resp = make_response(send_from_directory(sw_path, 'sw.js'))
+        resp.headers['Content-Type'] = 'application/javascript'
+        resp.headers['Service-Worker-Allowed'] = '/'
+        resp.headers['Cache-Control'] = 'no-cache'
+        return resp
+
+    # Exempt push subscribe/unsubscribe from CSRF (uses X-CSRFToken header)
+    from app.notifications.routes import subscribe, unsubscribe
+    csrf.exempt(subscribe)
+    csrf.exempt(unsubscribe)
 
     # Inject globals into all templates
     @app.context_processor

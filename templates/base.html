@@ -569,7 +569,7 @@
 
     async function initPush() {
       try {
-        const reg = await navigator.serviceWorker.register('/static/sw.js', { scope: '/' });
+        const reg = await navigator.serviceWorker.register('/sw.js');
         await navigator.serviceWorker.ready;
 
         const permission = await Notification.requestPermission();
