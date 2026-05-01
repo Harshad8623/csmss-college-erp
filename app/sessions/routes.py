@@ -395,6 +395,11 @@ def student_view():
 @role_required(Roles.CLASS_TEACHER, Roles.HOD, Roles.SUPER_ADMIN)
 def api_class_students(class_id):
     from flask import jsonify
+    # Scope check: only return students from classes this user is authorized for
+    allowed_ids = [c.id for c in _scoped_classes()]
+    if class_id not in allowed_ids:
+        return jsonify({'error': 'unauthorized'}), 403
+
     students = Student.query.filter_by(
         class_id=class_id, approval_status=ApprovalStatus.APPROVED
     ).order_by(Student.roll_no).all()

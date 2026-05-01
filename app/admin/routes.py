@@ -1021,6 +1021,14 @@ def add_student():
     if current_user.role == Roles.CLASS_TEACHER:
         cls = _ct_class()
         class_id = cls.id if cls else None
+    elif current_user.role == Roles.HOD:
+        # HOD can only add students to classes in their own department
+        dept_id = _hod_dept_id()
+        if class_id:
+            target_cls = Class.query.get(int(class_id))
+            if not target_cls or target_cls.department_id != dept_id:
+                flash('You can only add students to your department classes.', 'danger')
+                return redirect(url_for('admin.students'))
 
     if not name or not email:
         flash('Name and Email are required.', 'danger')

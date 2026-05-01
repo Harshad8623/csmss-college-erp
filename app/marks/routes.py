@@ -226,7 +226,7 @@ def upload_excel():
             if 'prn' in h: prn_idx = i
             elif 'roll' in h: roll_idx = i
             elif 'max' in h: max_idx = i
-            elif 'obtain' in h or 'marks' in h and not 'max' in h: marks_idx = i
+            elif ('obtain' in h) or ('marks' in h and 'max' not in h): marks_idx = i
             
         if (prn_idx == -1 and roll_idx == -1) or marks_idx == -1:
             flash('Invalid template. Missing PRN/Roll No or Marks column.', 'danger')
@@ -255,7 +255,13 @@ def upload_excel():
             student = students.get(prn) or roll_students.get(roll)
             if not student:
                 continue
-                
+
+            # Validate marks range (same rules as manual upload)
+            if marks_float < 0:
+                continue
+            if marks_float > max_float:
+                marks_float = max_float
+
             existing = Marks.query.filter_by(
                 student_id=student.id,
                 subject_id=subject.id,
@@ -272,16 +278,30 @@ def upload_excel():
                           uploaded_by=current_user.id)
                 db.session.add(m)
             count += 1
-            send_notification(
-                student.user_id,
-                f'📊 Marks uploaded for {subject.name} — {exam_type.title()}',
-                'info', url_for('marks.index')
+
+        # Batch notify all affected students at once (not inside loop)
+        from app.models import Notification
+        notified_user_ids = set()
+        for s_key in list(students.values()) + list(roll_students.values()):
+            if s_key.user_id not in notified_user_ids:
+                notified_user_ids.add(s_key.user_id)
+        notifs = [
+            Notification(
+                user_id=uid,
+                message=f'\U0001f4ca Marks uploaded for {subject.name} \u2014 {exam_type.title()}',
+                type='info',
+                link=url_for('marks.index')
             )
-            
+            for uid in notified_user_ids
+        ]
+        if notifs:
+            db.session.bulk_save_objects(notifs)
+
         db.session.commit()
         flash(f'Successfully imported marks for {count} students.', 'success')
         
     except Exception as e:
+        db.session.rollback()
         flash(f'Error processing file: {str(e)}', 'danger')
         
     return redirect(url_for('marks.upload', subject_id=subject_id, exam_type=exam_type))
@@ -357,6 +377,21 @@ def performance_data(student_id):
         my_student = Student.query.filter_by(user_id=current_user.id).first()
         if not my_student or my_student.id != student_id:
             from flask import abort
+            abort(403)
+    # Staff scope check: teachers can only see students in their taught classes or TG students
+    elif current_user.role == Roles.TEACHER:
+        taught_class_ids = [s.class_id for s in Subject.query.filter_by(teacher_id=current_user.id).all() if s.class_id]
+        is_tg = (student.tg_id == current_user.id)
+        if student.class_id not in taught_class_ids and not is_tg:
+            abort(403)
+    elif current_user.role == Roles.CLASS_TEACHER:
+        cls = get_class_for_ct(current_user.id)
+        if not cls or student.class_id != cls.id:
+            abort(403)
+    elif current_user.role == Roles.HOD:
+        dept_id = get_dept_for_hod(current_user.id)
+        cls = Class.query.get(student.class_id)
+        if not cls or cls.department_id != dept_id:
             abort(403)
 
     all_class_subjects = Subject.query.filter_by(class_id=student.class_id).all()

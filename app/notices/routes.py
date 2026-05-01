@@ -62,7 +62,20 @@ def index():
 @role_required(Roles.SUPER_ADMIN, Roles.HOD, Roles.CLASS_TEACHER, Roles.CR)
 @limiter.limit("5 per day")
 def create():
-    classes = Class.query.all()
+    # Scope class list by role
+    if current_user.role == Roles.SUPER_ADMIN:
+        classes = Class.query.all()
+    elif current_user.role == Roles.HOD:
+        from app.utils.helpers import get_dept_for_hod
+        dept_id = get_dept_for_hod(current_user.id)
+        classes = Class.query.filter_by(department_id=dept_id).all() if dept_id else []
+    elif current_user.role == Roles.CLASS_TEACHER:
+        from app.utils.helpers import get_class_for_ct
+        cls = get_class_for_ct(current_user.id)
+        classes = [cls] if cls else []
+    else:  # CR
+        class_id = get_user_class_id()
+        classes = [Class.query.get(class_id)] if class_id else []
     if request.method == 'POST':
         title    = request.form.get('title', '').strip()
         content  = request.form.get('content', '').strip()
