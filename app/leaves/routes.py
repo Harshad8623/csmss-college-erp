@@ -10,8 +10,11 @@ leaves_bp = Blueprint('leaves', __name__, url_prefix='/leaves')
 @leaves_bp.route('/')
 @login_required
 def index():
-    if current_user.role == Roles.STUDENT:
+    if current_user.role in [Roles.STUDENT, Roles.CR]:
         student = Student.query.filter_by(user_id=current_user.id).first()
+        if not student:
+            flash('Student profile not found.', 'danger')
+            return redirect(url_for('dashboard.index'))
         leaves = LeaveApplication.query.filter_by(student_id=student.id).order_by(LeaveApplication.created_at.desc()).all()
         return render_template('leaves/student_history.html', leaves=leaves)
     else:
@@ -51,11 +54,28 @@ def apply():
         specific_lectures = request.form.get('specific_lectures', '')
         reason = request.form.get('reason', '').strip()
 
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        if not reason:
+            flash('Please provide a reason for your leave.', 'danger')
+            return redirect(url_for('leaves.apply'))
+
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            flash('Invalid start date format.', 'danger')
+            return redirect(url_for('leaves.apply'))
+
         if leave_type == LeaveType.SINGLE_DAY or leave_type == LeaveType.SPECIFIC_LECTURES:
             end_date = start_date
         else:
-            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            try:
+                end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            except (ValueError, TypeError):
+                flash('Invalid end date format.', 'danger')
+                return redirect(url_for('leaves.apply'))
+
+        if end_date < start_date:
+            flash('End date cannot be before start date.', 'danger')
+            return redirect(url_for('leaves.apply'))
 
         leave = LeaveApplication(
             student_id=student.id,
@@ -68,6 +88,15 @@ def apply():
         )
         db.session.add(leave)
         db.session.commit()
+
+        # Notify Teacher Guardian
+        from app.utils.helpers import send_notification
+        if student.tg_id:
+            send_notification(
+                student.tg_id,
+                f'📋 {current_user.name} applied for leave ({leave_type}) from {start_date} to {end_date}.',
+                'info', url_for('leaves.index')
+            )
         
         flash('Leave application submitted successfully. Pending Teacher Guardian approval.', 'success')
         return redirect(url_for('leaves.index'))
@@ -116,5 +145,17 @@ def review(leave_id):
         return redirect(url_for('leaves.index'))
 
     db.session.commit()
+
+    # Notify student of decision
+    from app.utils.helpers import send_notification
+    action_label = 'approved ✅' if action == 'approve' else 'rejected ❌'
+    stage = 'Teacher Guardian' if is_tg else 'Class Teacher'
+    send_notification(
+        leave.student.user_id,
+        f'Your leave application ({leave.type}) has been {action_label} by {stage}.',
+        'success' if action == 'approve' else 'danger',
+        url_for('leaves.index')
+    )
+
     flash(f'Leave application {action}d successfully.', 'success')
     return redirect(url_for('leaves.index'))

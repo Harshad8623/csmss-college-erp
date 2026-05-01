@@ -257,6 +257,13 @@ def class_report(class_id):
 @login_required
 def chart_data(student_id):
     student  = Student.query.get_or_404(student_id)
+
+    # Authorization: students can only see their own chart
+    if current_user.role in [Roles.STUDENT, Roles.CR]:
+        my_student = Student.query.filter_by(user_id=current_user.id).first()
+        if not my_student or my_student.id != student_id:
+            abort(403)
+
     subjects = Subject.query.filter_by(class_id=student.class_id).all()
     labels, data = [], []
     for sub in subjects:

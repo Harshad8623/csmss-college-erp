@@ -23,6 +23,9 @@ def login():
                 return redirect(url_for('auth.login'))
             login_user(user, remember=request.form.get('remember'))
             next_page = request.args.get('next')
+            # Security: only allow relative paths to prevent open redirect
+            if next_page and (next_page.startswith('http') or next_page.startswith('//')): 
+                next_page = None
             flash(f'Welcome back, {user.name}!', 'success')
             return redirect(next_page or url_for('dashboard.index'))
         else:
@@ -51,7 +54,7 @@ def pending():
 @login_required
 def profile():
     student = None
-    if current_user.role == Roles.STUDENT:
+    if current_user.role in [Roles.STUDENT, Roles.CR]:
         student = current_user.student_profile
 
     if request.method == 'POST':
