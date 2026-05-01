@@ -225,6 +225,76 @@
     margin-left: 4px;
     text-transform: uppercase;
   }
+
+  /* ── Mobile day-tab switcher ──────────────────────────────── */
+  .tt-mobile-tabs {
+    display: none;
+  }
+
+  @media (max-width: 767px) {
+    /* Show tab bar, hide on desktop */
+    .tt-mobile-tabs {
+      display: flex;
+      overflow-x: auto;
+      gap: 6px;
+      padding: 10px;
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      margin-bottom: 14px;
+      scrollbar-width: none;
+    }
+    .tt-mobile-tabs::-webkit-scrollbar { display: none; }
+
+    .tt-mobile-tab {
+      flex-shrink: 0;
+      padding: 7px 16px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      border: 1px solid var(--border-color);
+      background: var(--bg-card);
+      color: var(--text-muted);
+      transition: all 0.2s;
+      text-transform: uppercase;
+    }
+    .tt-mobile-tab.active {
+      background: var(--accent-blue);
+      color: #fff;
+      border-color: var(--accent-blue);
+      box-shadow: 0 2px 10px rgba(59,130,246,0.35);
+    }
+    .tt-mobile-tab.today-tab {
+      border-color: rgba(72,187,120,0.5);
+    }
+    .tt-mobile-tab.today-tab.active {
+      background: rgba(72,187,120,0.85);
+      border-color: #68d391;
+      box-shadow: 0 2px 10px rgba(72,187,120,0.35);
+    }
+
+    /* In mobile mode: only show the selected day column */
+    .tt-wrapper {
+      overflow-x: hidden;
+    }
+    .tt-day-col {
+      display: none;
+      min-width: unset;
+    }
+    .tt-day-col.mobile-active {
+      display: block;
+      flex: 1;
+    }
+    .tt-days-wrap {
+      flex: 1;
+    }
+    /* Slightly smaller text on mobile entries */
+    .tt-entry-name { font-size: 10px; }
+    .tt-entry-time, .tt-entry-teacher { font-size: 8px; }
+    .tt-axis { width: 58px; }
+    .tt-axis-label { font-size: 9px; right: 5px; }
+  }
 </style>
 {% endblock %}
 
@@ -267,6 +337,18 @@
   📅 {{ selected_class.name }} — Weekly Schedule
 </h4>
 
+{# ── Mobile Day Tab Switcher (hidden on desktop via CSS) ── #}
+{% if selected_class %}
+<div class="tt-mobile-tabs" id="ttMobileTabs">
+  {% set weekday_names = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'] %}
+  {% for day in days %}
+  <button class="tt-mobile-tab" data-day="{{ day }}" onclick="switchDay('{{ day }}')">
+    {{ day[:3] }}
+  </button>
+  {% endfor %}
+</div>
+{% endif %}
+
 <div class="card-erp" style="overflow-x:auto;padding:0;">
   <div class="tt-wrapper" style="min-height:{{ grid_height + 36 }}px;">
 
@@ -281,7 +363,7 @@
     {# ── Day Columns ── #}
     <div class="tt-days-wrap">
       {% for day in days %}
-      <div class="tt-day-col">
+      <div class="tt-day-col" data-dayname="{{ day }}">
         <div class="tt-day-hdr">{{ day[:3].upper() }}</div>
 
         <div class="tt-day-body" style="height:{{ grid_height }}px;position:relative;">
@@ -409,6 +491,55 @@
   // Run immediately and refresh every 60 seconds
   highlightCurrentClass();
   setInterval(highlightCurrentClass, 60000);
+
+  // ── Mobile day tab switcher ────────────────────────────────────
+  const WEEKDAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+  function switchDay(dayName) {
+    // Toggle columns
+    document.querySelectorAll('.tt-day-col').forEach(col => {
+      col.classList.toggle('mobile-active', col.dataset.dayname === dayName);
+    });
+    // Toggle tab active state
+    document.querySelectorAll('.tt-mobile-tab').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.day === dayName);
+    });
+  }
+
+  function initMobileTabs() {
+    const tabs = document.querySelectorAll('.tt-mobile-tab');
+    if (!tabs.length) return;
+
+    const todayName = DAY_NAMES[new Date().getDay()];
+    const defaultDay = WEEKDAYS.includes(todayName) ? todayName : 'Monday';
+
+    // Mark today's tab green
+    tabs.forEach(btn => {
+      if (btn.dataset.day === todayName) btn.classList.add('today-tab');
+    });
+
+    // On desktop: make all columns visible (CSS will take care of hiding on mobile)
+    if (window.innerWidth > 767) {
+      document.querySelectorAll('.tt-day-col').forEach(col => {
+        col.classList.add('mobile-active'); // no-op on desktop, CSS overrides
+      });
+    }
+
+    // Init: show today's column (or Monday)
+    switchDay(defaultDay);
+
+    // Scroll the active tab into view on mobile
+    const activeTab = document.querySelector(`.tt-mobile-tab[data-day="${defaultDay}"]`);
+    if (activeTab) activeTab.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'center' });
+  }
+
+  // Re-run on resize so switching desktop↔mobile keeps state consistent
+  initMobileTabs();
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 767) {
+      document.querySelectorAll('.tt-day-col').forEach(c => c.classList.add('mobile-active'));
+    }
+  });
 </script>
 {% endblock %}
 {% endblock %}
