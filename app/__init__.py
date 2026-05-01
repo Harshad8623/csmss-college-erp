@@ -27,8 +27,9 @@ def create_app(config_class=Config):
         from flask_login import current_user
         # Only intercept authenticated users who still have default password
         if current_user.is_authenticated and getattr(current_user, 'must_change_password', False):
-            # Allow the change-password page and logout — nothing else
-            allowed = ('auth.change_password', 'auth.logout', 'static')
+            # Allow the change-password page, OTP flow, and logout — nothing else
+            allowed = ('auth.change_password', 'auth.logout', 'auth.forgot_password',
+                       'auth.verify_otp', 'auth.reset_password', 'static')
             if request.endpoint not in allowed:
                 return redirect(url_for('auth.change_password'))
 

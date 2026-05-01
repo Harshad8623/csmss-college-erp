@@ -544,6 +544,17 @@ class AuditLog(db.Model):
     user = db.relationship('User', foreign_keys=[user_id])
 
 
+class OTPRequest(db.Model):
+    __tablename__ = 'otp_requests'
+    id         = db.Column(db.Integer, primary_key=True)
+    user_id    = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    otp_hash   = db.Column(db.String(256), nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', foreign_keys=[user_id])
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # PRACTICAL SESSION MODELS  (batch-wise lab attendance — NOT in 75% calc)
 # ─────────────────────────────────────────────────────────────────────────────
