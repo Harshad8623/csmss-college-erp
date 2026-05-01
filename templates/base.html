@@ -23,6 +23,78 @@
   <meta name="csrf-token" content="{{ csrf_token() }}">
 
   {% block extra_css %}{% endblock %}
+
+  <style>
+    /* ══ Real-time notification toasts ══════════════════════════════════════════ */
+    #notif-toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 99999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .notif-toast {
+      pointer-events: all;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      min-width: 300px;
+      max-width: 380px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.35), 0 1px 0 rgba(255,255,255,0.05) inset;
+      border: 1px solid rgba(255,255,255,0.1);
+      animation: toastIn 0.4s cubic-bezier(0.22,1,0.36,1) forwards;
+      cursor: pointer;
+    }
+    .notif-toast:hover { opacity: 0.92; }
+    .notif-toast.toast-info    { background: rgba(59,130,246,0.88); }
+    .notif-toast.toast-success { background: rgba(16,185,129,0.88); }
+    .notif-toast.toast-warning { background: rgba(245,158,11,0.88); }
+    .notif-toast.toast-danger  { background: rgba(239,68,68,0.88);  }
+    .notif-toast.toast-out     { animation: toastOut 0.35s ease forwards; }
+    .toast-icon { font-size: 20px; color: rgba(255,255,255,0.9); flex-shrink: 0; margin-top: 1px; }
+    .toast-body { flex: 1; }
+    .toast-title { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.75); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+    .toast-msg   { font-size: 13px; color: #fff; line-height: 1.5; word-break: break-word; }
+    .toast-close { font-size: 18px; color: rgba(255,255,255,0.6); background: none; border: none; cursor: pointer; padding: 0; line-height: 1; flex-shrink: 0; }
+    .toast-close:hover { color: #fff; }
+    .toast-progress {
+      position: absolute;
+      bottom: 0; left: 0;
+      height: 3px; border-radius: 0 0 12px 12px;
+      background: rgba(255,255,255,0.4);
+      animation: toastProgress 5s linear forwards;
+    }
+    .notif-toast { position: relative; overflow: hidden; }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateX(110%); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes toastOut {
+      from { opacity: 1; transform: translateX(0);    max-height: 100px; margin-bottom: 0; }
+      to   { opacity: 0; transform: translateX(110%); max-height: 0;     margin-bottom: -10px; }
+    }
+    @keyframes toastProgress {
+      from { width: 100%; }
+      to   { width: 0%; }
+    }
+    /* Bell pulse animation when new notification arrives */
+    @keyframes bellPulse {
+      0%,100% { transform: rotate(0);    }
+      15%      { transform: rotate(15deg);  }
+      30%      { transform: rotate(-12deg); }
+      45%      { transform: rotate(8deg);   }
+      60%      { transform: rotate(-5deg);  }
+      75%      { transform: rotate(3deg);   }
+    }
+    .bell-ring { animation: bellPulse 0.7s ease; }
+  </style>
 </head>
 
 <body>
@@ -329,6 +401,129 @@
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
   {% block extra_js %}{% endblock %}
 
-</body>
+  {% if current_user.is_authenticated %}
+  <!-- Real-time notification polling -->
+  <div id="notif-toast-container"></div>
+  <script>
+  (function() {
+    const POLL_INTERVAL = 30000; // 30 seconds
+    const POLL_URL = '{{ url_for("notifications.unread_api") }}';
+
+    let lastKnownCount = {{ unread_notifications }};  // set from server on page load
+    let lastKnownIds = new Set();                     // track which notif IDs we've toasted
+
+    const typeIcon = {
+      info:    'fa-circle-info',
+      success: 'fa-circle-check',
+      warning: 'fa-triangle-exclamation',
+      danger:  'fa-circle-xmark',
+    };
+    const typeLabel = {
+      info:    'New Notification',
+      success: 'Success',
+      warning: 'Alert',
+      danger:  'Important',
+    };
+
+    function dismissToast(el) {
+      el.classList.add('toast-out');
+      setTimeout(() => el.remove(), 360);
+    }
+
+    function showToast(notif) {
+      const container = document.getElementById('notif-toast-container');
+      const type = notif.type || 'info';
+      const icon = typeIcon[type] || 'fa-circle-info';
+      const label = typeLabel[type] || 'Notification';
+
+      const toast = document.createElement('div');
+      toast.className = `notif-toast toast-${type}`;
+      toast.innerHTML = `
+        <i class="fa-solid ${icon} toast-icon"></i>
+        <div class="toast-body">
+          <div class="toast-title">${label}</div>
+          <div class="toast-msg">${notif.message}</div>
+        </div>
+        <button class="toast-close" aria-label="Close">&times;</button>
+        <div class="toast-progress"></div>
+      `;
+
+      // Click anywhere on toast → navigate to notif link
+      toast.addEventListener('click', () => {
+        if (notif.link) window.location.href = notif.link;
+        dismissToast(toast);
+      });
+      toast.querySelector('.toast-close').addEventListener('click', (e) => {
+        e.stopPropagation();
+        dismissToast(toast);
+      });
+
+      container.appendChild(toast);
+
+      // Auto-dismiss after 5 seconds
+      setTimeout(() => { if (toast.isConnected) dismissToast(toast); }, 5000);
+    }
+
+    function updateBadge(count) {
+      const badge = document.getElementById('notifBadge');
+      if (!badge) return;
+      if (count > 0) {
+        badge.textContent = count > 99 ? '99+' : count;
+        badge.style.display = '';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    function ringBell() {
+      const bell = document.getElementById('notifBell');
+      if (!bell) return;
+      bell.classList.remove('bell-ring');
+      void bell.offsetWidth; // force reflow to restart animation
+      bell.classList.add('bell-ring');
+      setTimeout(() => bell.classList.remove('bell-ring'), 800);
+    }
+
+    function poll() {
+      fetch(POLL_URL, { credentials: 'same-origin' })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (!data) return;
+          const newCount = data.count;
+
+          // Update badge
+          updateBadge(newCount);
+
+          // Check for genuinely new (unread) notifications we haven't shown yet
+          if (newCount > lastKnownCount) {
+            // Show toasts only for brand-new unread ones
+            (data.notifications || []).forEach(n => {
+              if (!n.is_read && !lastKnownIds.has(n.id)) {
+                showToast(n);
+                lastKnownIds.add(n.id);
+              }
+            });
+            ringBell();
+          }
+
+          // Always track which IDs we know about
+          (data.notifications || []).forEach(n => lastKnownIds.add(n.id));
+          lastKnownCount = newCount;
+        })
+        .catch(() => { /* silent fail — no internet? just retry next interval */ });
+    }
+
+    // Seed initial known IDs from the first poll on page load
+    fetch(POLL_URL, { credentials: 'same-origin' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) (data.notifications || []).forEach(n => lastKnownIds.add(n.id)); })
+      .catch(() => {});
+
+    // Start polling
+    setInterval(poll, POLL_INTERVAL);
+  })();
+  </script>
+  {% endif %}
+
 
 </html>
