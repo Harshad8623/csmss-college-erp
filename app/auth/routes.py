@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
 import os
 from werkzeug.utils import secure_filename
@@ -7,6 +7,43 @@ from app.models import User, Student, Teacher, Department, Class, Roles, Status,
 from app.utils.helpers import send_notification
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
+
+
+@auth_bp.route('/smtp-test')
+@login_required
+def smtp_test():
+    """Admin-only SMTP diagnostic — visit /auth/smtp-test to see exact error."""
+    if current_user.role not in (Roles.PRINCIPAL, Roles.HOD):
+        return jsonify({'error': 'Forbidden'}), 403
+    import smtplib
+    cfg = current_app.config
+    server   = cfg.get('MAIL_SERVER', '')
+    port     = cfg.get('MAIL_PORT', 587)
+    username = cfg.get('MAIL_USERNAME', '')
+    password = cfg.get('MAIL_PASSWORD', '')
+    use_tls  = cfg.get('MAIL_USE_TLS', True)
+    result   = {
+        'MAIL_SERVER':   server,
+        'MAIL_PORT':     port,
+        'MAIL_USERNAME': username,
+        'MAIL_PASSWORD': f'{password[:4]}...{password[-2:]}' if password and len(password) > 6 else '(empty or short)',
+        'MAIL_USE_TLS':  use_tls,
+        'password_length': len(password) if password else 0,
+        'has_spaces': ' ' in (password or ''),
+    }
+    try:
+        s = smtplib.SMTP(server, port, timeout=10)
+        s.ehlo()
+        s.starttls()
+        s.ehlo()
+        s.login(username, password)
+        s.quit()
+        result['status'] = 'SUCCESS — SMTP login works!'
+    except smtplib.SMTPAuthenticationError as e:
+        result['status'] = f'AUTH FAILED — {e}'
+    except Exception as e:
+        result['status'] = f'ERROR — {type(e).__name__}: {e}'
+    return jsonify(result)
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 @limiter.limit("10 per minute")   # Prevents brute-force at scale
