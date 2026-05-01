@@ -218,7 +218,10 @@ def create_event():
         if class_id not in allowed_ids:
             flash('You are not authorised to create events for this class.', 'danger')
             return redirect(url_for('sessions.index'))
-        sel_date = date.fromisoformat(att_date)
+        try:
+            sel_date = date.fromisoformat(att_date)
+        except (ValueError, TypeError):
+            sel_date = date.today()
         present_ids = [int(x) for x in request.form.getlist('present')]
 
         # Create event session

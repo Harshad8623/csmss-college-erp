@@ -205,33 +205,44 @@ class Student(db.Model):
 
     def attendance_percentage(self, subject_id=None):
         """Overall attendance = theory + events. Practicals are excluded."""
-        query = self.attendance
+        from sqlalchemy import func, cast, Integer
+        
+        # ── Per-subject logic (only theory) ──
         if subject_id:
-            # Per-subject: only theory records
-            query = query.filter_by(subject_id=subject_id)
-            total   = query.count()
-            present = query.filter_by(status=True).count()
-            if total == 0:
-                return 0
-            return round((present / total) * 100, 2)
+            res = db.session.query(
+                func.count(Attendance.id),
+                func.sum(cast(Attendance.status, Integer))
+            ).filter(
+                Attendance.student_id == self.id,
+                Attendance.subject_id == subject_id
+            ).first()
+            total = res[0] or 0
+            present = res[1] or 0
+            return round((present / total) * 100, 2) if total > 0 else 0
 
-        # Overall: theory + event attendance
-        theory_total   = query.count()
-        theory_present = query.filter_by(status=True).count()
+        # ── Overall: theory + event attendance ──
+        # Theory counts
+        theory_res = db.session.query(
+            func.count(Attendance.id),
+            func.sum(cast(Attendance.status, Integer))
+        ).filter(Attendance.student_id == self.id).first()
+        theory_total = theory_res[0] or 0
+        theory_present = theory_res[1] or 0
 
-        # Event records for this student's class
-        event_q = EventRecord.query.join(EventSession).filter(
+        # Event counts
+        event_res = db.session.query(
+            func.count(EventRecord.id),
+            func.sum(cast(EventRecord.status, Integer))
+        ).join(EventSession).filter(
             EventRecord.student_id == self.id,
-            EventSession.class_id  == self.class_id
-        )
-        event_total   = event_q.count()
-        event_present = event_q.filter(EventRecord.status == True).count()
+            EventSession.class_id == self.class_id
+        ).first()
+        event_total = event_res[0] or 0
+        event_present = event_res[1] or 0
 
-        total   = theory_total + event_total
+        total = theory_total + event_total
         present = theory_present + event_present
-        if total == 0:
-            return 0
-        return round((present / total) * 100, 2)
+        return round((present / total) * 100, 2) if total > 0 else 0
 
     def is_defaulter(self):
         return self.attendance_percentage() < 75

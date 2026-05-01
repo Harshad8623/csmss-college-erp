@@ -73,7 +73,10 @@ def upload():
 
     if request.method == 'POST' and selected_subject:
         exam_type = request.form.get('exam_type', ExamType.CT1)
-        max_marks = float(request.form.get('max_marks', 100))
+        max_marks = float(request.form.get('max_marks', 100) or 100)
+        if max_marks <= 0:
+            flash('Max marks must be greater than 0.', 'danger')
+            return redirect(url_for('marks.upload', subject_id=selected_subject.id, exam_type=exam_type))
         count = 0
         for student in students:
             marks_val = request.form.get(f'marks_{student.id}', '').strip()
@@ -279,12 +282,18 @@ def upload_excel():
                 db.session.add(m)
             count += 1
 
-        # Batch notify all affected students at once (not inside loop)
+        # Batch notify only students whose marks were actually processed
         from app.models import Notification
         notified_user_ids = set()
-        for s_key in list(students.values()) + list(roll_students.values()):
-            if s_key.user_id not in notified_user_ids:
-                notified_user_ids.add(s_key.user_id)
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            prn  = str(row[prn_idx]).strip()  if prn_idx  != -1 and len(row) > prn_idx  and row[prn_idx]  is not None else None
+            roll = str(row[roll_idx]).strip() if roll_idx != -1 and len(row) > roll_idx and row[roll_idx] is not None else None
+            marks_val = row[marks_idx] if marks_idx != -1 and len(row) > marks_idx else None
+            if marks_val is None or str(marks_val).strip() == '':
+                continue
+            s = students.get(prn) or roll_students.get(roll)
+            if s and s.user_id:
+                notified_user_ids.add(s.user_id)
         notifs = [
             Notification(
                 user_id=uid,
