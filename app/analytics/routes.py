@@ -119,8 +119,9 @@ def principal_summary():
 
 @analytics_bp.route('/api/principal/dept-today')
 @login_required
-@cache.cached(timeout=120, key_prefix='principal_dept_today')
 def principal_dept_today():
+    if current_user.role not in [Roles.SUPER_ADMIN]:
+        return jsonify({'error': 'unauthorized'}), 403
     depts = Department.query.all()
     labels, present_d, absent_d, total_d = [], [], [], []
     for dept in depts:
@@ -154,8 +155,9 @@ def principal_dept_overall():
 
 @analytics_bp.route('/api/principal/classwise')
 @login_required
-@cache.cached(timeout=300, key_prefix='principal_classwise')
 def principal_classwise():
+    if current_user.role not in [Roles.SUPER_ADMIN]:
+        return jsonify({'error': 'unauthorized'}), 403
     classes = Class.query.all()
     labels, data = [], []
     for c in classes:
@@ -264,11 +266,22 @@ def hod_subject_attendance():
 @login_required
 def hod_defaulters():
     dept_id = _hod_dept_id()
+    if not dept_id:
+        return jsonify({'error': 'unauthorized'}), 403
     classes = Class.query.filter_by(department_id=dept_id).all()
     labels, counts = [], []
     for c in classes:
-        students = Student.query.filter_by(class_id=c.id, approval_status=ApprovalStatus.APPROVED).all()
-        dc = sum(1 for s in students if s.attendance_percentage() < 75)
+        sids = [s.id for s in Student.query.filter_by(class_id=c.id, approval_status=ApprovalStatus.APPROVED).all()]
+        if not sids:
+            labels.append(c.name); counts.append(0)
+            continue
+        # Bulk SQL aggregate - avoids N+1 per student
+        stats = db.session.query(
+            Attendance.student_id,
+            func.count(Attendance.id).label('total'),
+            func.sum(db.case((Attendance.status == True, 1), else_=0)).label('present')
+        ).filter(Attendance.student_id.in_(sids)).group_by(Attendance.student_id).all()
+        dc = sum(1 for r in stats if r.total > 0 and (r.present or 0) / r.total * 100 < 75)
         labels.append(c.name); counts.append(dc)
     return jsonify({'labels': labels, 'data': counts})
 
@@ -307,7 +320,15 @@ def ct_summary():
     sids = [s.id for s in Student.query.filter_by(class_id=cls.id, approval_status=ApprovalStatus.APPROVED).all()]
     p, a, _ = _today_counts(sids)
     pct = _att_pct(sids)
-    def_count = sum(1 for s in Student.query.filter_by(class_id=cls.id, approval_status=ApprovalStatus.APPROVED).all() if s.attendance_percentage() < 75)
+    # Bulk SQL aggregate - avoids N+1 per student
+    def_count = 0
+    if sids:
+        stats = db.session.query(
+            Attendance.student_id,
+            func.count(Attendance.id).label('total'),
+            func.sum(db.case((Attendance.status == True, 1), else_=0)).label('present')
+        ).filter(Attendance.student_id.in_(sids)).group_by(Attendance.student_id).all()
+        def_count = sum(1 for r in stats if r.total > 0 and (r.present or 0) / r.total * 100 < 75)
     return jsonify({'total': len(sids), 'present': p, 'absent': a, 'avg_pct': pct, 'defaulters': def_count})
 
 @analytics_bp.route('/api/ct/weekwise')
@@ -452,6 +473,20 @@ def subject_student_attendance():
 def subject_trend():
     subj_id = request.args.get('subject_id', type=int)
     if not subj_id: return jsonify({'labels': [], 'data': []})
+    subj = Subject.query.get_or_404(subj_id)
+    # Scope check: only the subject's teacher, CT for the class, HOD, or SUPER_ADMIN
+    if current_user.role == Roles.TEACHER:
+        if subj.teacher_id != current_user.id:
+            return jsonify({'error': 'unauthorized'}), 403
+    elif current_user.role == Roles.CLASS_TEACHER:
+        cls = get_class_for_ct(current_user.id)
+        if not cls or subj.class_id != cls.id:
+            return jsonify({'error': 'unauthorized'}), 403
+    elif current_user.role == Roles.HOD:
+        dept_id = get_dept_for_hod(current_user.id)
+        cls = Class.query.get(subj.class_id)
+        if not cls or cls.department_id != dept_id:
+            return jsonify({'error': 'unauthorized'}), 403
     today = date.today()
     labels, data = [], []
     for i in range(29, -1, -1):

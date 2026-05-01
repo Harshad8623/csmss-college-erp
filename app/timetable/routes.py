@@ -106,10 +106,32 @@ def index():
     if current_user.role in [Roles.STUDENT, Roles.CR]:
         student = Student.query.filter_by(user_id=current_user.id).first()
         class_id = student.class_id if student else None
+        # Students can ONLY see their own class; block any attempt to change it
+        classes = []
     else:
         class_id = request.args.get('class_id')
-
-    classes = Class.query.all()
+        # Scope classes list for staff
+        from app.utils.helpers import get_dept_for_hod, get_class_for_ct
+        if current_user.role == Roles.SUPER_ADMIN:
+            classes = Class.query.all()
+        elif current_user.role == Roles.HOD:
+            dept_id = get_dept_for_hod(current_user.id)
+            classes = Class.query.filter_by(department_id=dept_id).all() if dept_id else []
+            # Prevent HOD from viewing other dept classes via URL
+            if class_id:
+                allowed = [str(c.id) for c in classes]
+                if str(class_id) not in allowed:
+                    class_id = None
+        elif current_user.role == Roles.CLASS_TEACHER:
+            ct_cls = get_class_for_ct(current_user.id)
+            classes = [ct_cls] if ct_cls else []
+            class_id = str(ct_cls.id) if ct_cls else None
+        else:  # TEACHER
+            from app.models import Subject as Sub
+            taught_class_ids = list({s.class_id for s in Sub.query.filter_by(teacher_id=current_user.id).all() if s.class_id})
+            classes = Class.query.filter(Class.id.in_(taught_class_ids)).all()
+            if class_id and int(class_id) not in taught_class_ids:
+                class_id = None
     timetable_data = {}
     selected_class = None
 
