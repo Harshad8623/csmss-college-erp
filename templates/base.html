@@ -545,14 +545,21 @@
 
     async function subscribeToPush(registration) {
       try {
+        // Always unsubscribe old subscription and create a fresh one.
+        // This fixes stale subscriptions that were never saved to the DB
+        // (e.g. from before the CSRF bug was fixed).
         const existing = await registration.pushManager.getSubscription();
-        const sub = existing || await registration.pushManager.subscribe({
+        if (existing) {
+          await existing.unsubscribe();
+        }
+
+        const sub = await registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
         });
 
-        // Send subscription to server
-        await fetch(SUBSCRIBE_URL, {
+        // Save fresh subscription to server DB
+        const resp = await fetch(SUBSCRIBE_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -561,8 +568,9 @@
           credentials: 'same-origin',
           body: JSON.stringify(sub.toJSON()),
         });
+        const result = await resp.json().catch(() => ({}));
+        console.debug('[WebPush] Subscription saved:', result);
       } catch (err) {
-        // User blocked notifications or an error occurred — silently ignore
         console.debug('[WebPush] Subscription failed:', err);
       }
     }

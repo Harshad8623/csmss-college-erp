@@ -89,3 +89,33 @@ def unsubscribe():
         ).delete()
         db.session.commit()
     return jsonify({'status': 'unsubscribed'})
+
+
+@notifications_bp.route('/api/push-status')
+@login_required
+def push_status():
+    """Returns how many push subscriptions this user has saved in DB."""
+    count = PushSubscription.query.filter_by(user_id=current_user.id).count()
+    return jsonify({'subscriptions_in_db': count, 'user_id': current_user.id})
+
+
+@notifications_bp.route('/api/push-test', methods=['POST'])
+@login_required
+def push_test():
+    """Send a test Web Push to the current logged-in user's devices."""
+    from app.utils.helpers import send_notification
+    count = PushSubscription.query.filter_by(user_id=current_user.id).count()
+    if count == 0:
+        return jsonify({
+            'status': 'no_subscription',
+            'message': 'No push subscriptions in DB. Grant notification permission in Chrome first.'
+        }), 400
+    send_notification(
+        user_id    = current_user.id,
+        message    = '🔔 Test! Web Push is working. You received this with Chrome closed.',
+        notif_type = 'success',
+        link       = '/notifications/'
+    )
+    db.session.commit()
+    return jsonify({'status': 'sent', 'devices': count,
+                    'message': f'Test push sent to {count} device(s). Check your phone!'})
