@@ -81,32 +81,52 @@ def create():
             flash('Please select a subject.', 'danger')
             return render_template('assignments/create.html', subjects=subjects)
 
+        # Scope check: ensure the submitted subject_id is within this user's scope
+        subject = Subject.query.get(subject_id)
+        if not subject or subject not in subjects:
+            flash('You are not authorised to create an assignment for this subject.', 'danger')
+            return render_template('assignments/create.html', subjects=subjects)
+
         try:
             max_marks = float(max_marks)
         except ValueError:
             max_marks = 10.0
 
         try:
-            deadline_dt = datetime.strptime(deadline, '%Y-%m-%dT%H:%M') if deadline else datetime.utcnow()
+            deadline_dt = datetime.strptime(deadline, '%Y-%m-%dT%H:%M') if deadline else None
         except ValueError:
             flash('Invalid deadline format.', 'danger')
+            return render_template('assignments/create.html', subjects=subjects)
+
+        # Deadline must be in the future
+        if not deadline_dt or deadline_dt <= datetime.utcnow():
+            flash('Deadline must be a future date and time.', 'danger')
             return render_template('assignments/create.html', subjects=subjects)
 
         asgn = Assignment(title=title, description=desc, subject_id=subject_id,
                           deadline=deadline_dt, max_marks=max_marks, created_by=current_user.id)
         db.session.add(asgn)
+        db.session.flush()  # get asgn.id
+
+        # Bulk notify all students at once (avoids N+1 flush per student)
+        from app.models import Notification
+        students = Student.query.filter_by(
+            class_id=subject.class_id,
+            approval_status=ApprovalStatus.APPROVED
+        ).all()
+        notifs = [
+            Notification(
+                user_id=s.user_id,
+                message=f'\U0001f4dd New Assignment: {title} \u2014 Due {deadline_dt.strftime("%d %b %Y %H:%M")}',
+                type='info',
+                link=url_for('assignments.index')
+            )
+            for s in students
+        ]
+        if notifs:
+            db.session.bulk_save_objects(notifs)
+
         db.session.commit()
-
-        # Notify students in the subject's class
-        subject = Subject.query.get(subject_id)
-        if subject:
-            students = Student.query.filter_by(class_id=subject.class_id,
-                approval_status=ApprovalStatus.APPROVED).all()
-            for s in students:
-                send_notification(s.user_id,
-                    f'📝 New Assignment: {title} — Due {deadline_dt.strftime("%d %b %Y %H:%M")}',
-                    'info', url_for('assignments.index'))
-
         flash(f'Assignment "{title}" created!', 'success')
         return redirect(url_for('assignments.index'))
 

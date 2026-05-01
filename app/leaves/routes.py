@@ -80,6 +80,18 @@ def apply():
             flash('End date cannot be before start date.', 'danger')
             return redirect(url_for('leaves.apply'))
 
+        # Leave must be applied for today or a future date
+        from datetime import date as date_type
+        today = date_type.today()
+        if start_date < today:
+            flash('Leave start date cannot be in the past.', 'danger')
+            return redirect(url_for('leaves.apply'))
+
+        # Sanity cap: maximum 30 days per application
+        if (end_date - start_date).days > 30:
+            flash('A single leave application cannot exceed 30 days. Please contact the administration.', 'danger')
+            return redirect(url_for('leaves.apply'))
+
         leave = LeaveApplication(
             student_id=student.id,
             type=leave_type,

@@ -102,7 +102,7 @@ def create_app(config_class=Config):
                     return time_str
 
         unread = 0
-        if current_user.is_authenticated:
+        if current_user.is_authenticated and not request.path.startswith('/static'):
             from app.models import Notification
             unread = db.session.query(
                 db.func.count(Notification.id)
@@ -121,9 +121,14 @@ def create_app(config_class=Config):
     # ── Error Handlers ───────────────────────────────────────────────────────
     @app.errorhandler(403)
     def forbidden_error(error):
-        from flask import flash, redirect, url_for
-        flash('You do not have access to this resource.', 'danger')
-        return redirect(url_for('dashboard.index'))
+        from flask import render_template
+        # Return a proper 403 response — do NOT redirect (could cause infinite loops
+        # if the dashboard itself throws 403, and breaks API clients expecting 403 status)
+        try:
+            return render_template('errors/403.html'), 403
+        except Exception:
+            # Fallback if template doesn't exist yet
+            return '<h1>403 Forbidden</h1><p>You do not have access to this resource.</p>', 403
 
     @app.errorhandler(404)
     def not_found_error(error):
