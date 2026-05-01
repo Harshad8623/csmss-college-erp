@@ -894,12 +894,13 @@ def students():
     if blood:
         query = query.filter(Student.blood_group == blood)
 
-    pagination    = query.order_by(Student.roll_no).paginate(page=page, per_page=20, error_out=False)
-    students_list = pagination.items
-
+    # Count BEFORE paginate to avoid stale query state
     total     = query.count()
     male_ct   = query.filter(Student.gender == 'M').count()
     female_ct = query.filter(Student.gender == 'F').count()
+
+    pagination    = query.order_by(Student.roll_no).paginate(page=page, per_page=20, error_out=False)
+    students_list = pagination.items
 
     categories   = db.session.query(Student.category).filter(
         Student.category != None).distinct().order_by(Student.category).all()

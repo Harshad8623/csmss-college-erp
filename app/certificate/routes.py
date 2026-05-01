@@ -41,8 +41,11 @@ def verify(cert_id, token):
 def index():
     if current_user.role in [Roles.STUDENT, Roles.CR]:
         student = Student.query.filter_by(user_id=current_user.id).first()
+        if not student:
+            flash('Student profile not found. Contact your administrator.', 'warning')
+            return redirect(url_for('dashboard.index'))
         certs = Certificate.query.filter_by(student_id=student.id)\
-            .order_by(Certificate.created_at.desc()).all() if student else []
+            .order_by(Certificate.created_at.desc()).all()
         return render_template('certificate/admin_view.html', certs=certs)
     elif current_user.role == Roles.CLASS_TEACHER:
         # Only show certificates from students in the teacher's class

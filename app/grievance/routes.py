@@ -183,10 +183,37 @@ def detail(id):
     grievance = Grievance.query.get_or_404(id)
     student   = grievance.student
 
+    if not student:
+        flash('Grievance data is corrupt (student not found).', 'danger')
+        return redirect(url_for('grievance.index'))
+
     # Authorization
     if current_user.role in [Roles.STUDENT, Roles.CR] and student.user_id != current_user.id:
         flash('You are not authorised to view this grievance.', 'danger')
         return redirect(url_for('grievance.index'))
+
+    # Staff scope checks
+    if current_user.role == Roles.TEACHER:
+        from app.models import Subject, Class
+        taught_class_ids = [s.class_id for s in Subject.query.filter_by(teacher_id=current_user.id).all() if s.class_id]
+        is_tg = (student.tg_id == current_user.id)
+        if not is_tg and student.class_id not in taught_class_ids:
+            flash('You are not authorised to view this grievance.', 'danger')
+            return redirect(url_for('grievance.index'))
+    elif current_user.role == Roles.CLASS_TEACHER:
+        from app.models import Class
+        cls = Class.query.filter_by(class_teacher_id=current_user.id).first()
+        if not cls or student.class_id != cls.id:
+            flash('You are not authorised to view this grievance.', 'danger')
+            return redirect(url_for('grievance.index'))
+    elif current_user.role == Roles.HOD:
+        from app.models import Class
+        from app.utils.helpers import get_dept_for_hod
+        dept_id = get_dept_for_hod(current_user.id)
+        cls = Class.query.get(student.class_id)
+        if not cls or cls.department_id != dept_id:
+            flash('You are not authorised to view this grievance.', 'danger')
+            return redirect(url_for('grievance.index'))
 
     if request.method == 'POST':
         form_type = request.form.get('form_type')
