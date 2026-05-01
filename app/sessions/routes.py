@@ -53,7 +53,7 @@ def _scoped_subjects():
 @sessions_bp.route('/')
 @login_required
 def index():
-    if current_user.role == Roles.STUDENT:
+    if current_user.role in [Roles.STUDENT, Roles.CR]:
         return redirect(url_for('sessions.student_view'))
 
     classes = _scoped_classes()
@@ -255,8 +255,8 @@ def create_event():
 def event_detail(session_id):
     ev = EventSession.query.get_or_404(session_id)
 
-    # Students can only see their own record
-    if current_user.role == Roles.STUDENT:
+    # Students and CRs can only see their own class event records
+    if current_user.role in [Roles.STUDENT, Roles.CR]:
         student = Student.query.filter_by(user_id=current_user.id).first()
         if not student or student.class_id != ev.class_id:
             abort(403)

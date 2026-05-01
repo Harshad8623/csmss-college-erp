@@ -985,7 +985,40 @@ def add_student():
         cls = _ct_class()
         class_id = cls.id if cls else None
 
-  # ── Upload Students via Excel ────────────────────────────────────────────────
+    if not name or not email:
+        flash('Name and Email are required.', 'danger')
+        return redirect(url_for('admin.students'))
+
+    if User.query.filter_by(email=email).first():
+        flash(f'Email {email} is already registered.', 'danger')
+        return redirect(url_for('admin.students'))
+
+    pw_hash = bcrypt.generate_password_hash(password).decode('utf-8')
+    user = User(name=name, email=email, phone=phone or None,
+                password_hash=pw_hash, role=Roles.STUDENT,
+                status=Status.ACTIVE, must_change_password=True)
+    db.session.add(user)
+    db.session.flush()
+
+    student = Student(
+        user_id=user.id,
+        class_id=class_id,
+        prn=prn or None,
+        roll_no=roll_no or None,
+        approval_status=ApprovalStatus.APPROVED,
+        approved_by=current_user.id,
+        dob=dob or None,
+        gender=gender if gender in ['M', 'F'] else None,
+        category=category or None,
+        mother_name=mother_name or None,
+    )
+    db.session.add(student)
+    db.session.commit()
+    flash(f'Student "{name}" added successfully!', 'success')
+    return redirect(url_for('admin.students'))
+
+
+# ── Upload Students via Excel ────────────────────────────────────────────────
 @admin_bp.route('/students/upload-excel', methods=['POST'])
 @login_required
 @role_required(Roles.SUPER_ADMIN, Roles.HOD, Roles.CLASS_TEACHER)
