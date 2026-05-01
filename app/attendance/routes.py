@@ -186,7 +186,7 @@ def mark():
 
 @attendance_bp.route('/report/<int:class_id>')
 @login_required
-@role_required(Roles.TEACHER, Roles.CLASS_TEACHER, Roles.HOD, Roles.SUPER_ADMIN)
+@role_required(Roles.TEACHER, Roles.CLASS_TEACHER, Roles.HOD, Roles.SUPER_ADMIN, Roles.CR)
 def class_report(class_id):
     class_ = Class.query.get_or_404(class_id)
 
@@ -199,8 +199,15 @@ def class_report(class_id):
         cls = get_class_for_ct(current_user.id)
         if not cls or cls.id != class_id:
             abort(403)
+    elif current_user.role == Roles.CR:
+        student = Student.query.filter_by(user_id=current_user.id).first()
+        if not student or student.class_id != class_id:
+            abort(403)
 
-    students = Student.query.filter_by(class_id=class_id, approval_status=ApprovalStatus.APPROVED).all()
+    students = Student.query.filter_by(
+        class_id=class_id, 
+        approval_status=ApprovalStatus.APPROVED
+    ).order_by(Student.roll_no.asc()).all()
     subjects = Subject.query.filter_by(class_id=class_id).all()
 
     student_ids = [s.id for s in students]

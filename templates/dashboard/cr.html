@@ -1,56 +1,247 @@
 {% extends "base.html" %}
 {% block title %}CR Dashboard{% endblock %}
 {% block content %}
-<div class="page-header">
-  <h1 class="page-title"><div class="title-icon">🎖️</div> Class Representative</h1>
-  <p class="page-subtitle">Class: <strong>{{ class_.name if class_ else 'N/A' }}</strong></p>
+<div class="page-header"
+  style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px;">
+  <div>
+    <h1 class="page-title">
+      <div class="title-icon">🎖️</div> Class Representative
+    </h1>
+    <p class="page-subtitle">Class: <strong>{{ class_.name if class_ else 'N/A' }}</strong></p>
+  </div>
+  <div style="display:flex; gap:10px;">
+    <a href="{{ url_for('attendance.class_report', class_id=student.class_id) }}" class="btn-erp btn-outline-erp"><i
+        class="fa-solid fa-chart-line"></i> Class Attendance</a>
+    <a href="{{ url_for('assignments.index') }}" class="btn-erp btn-outline-erp"><i class="fa-solid fa-file-pen"></i>
+      Assignments</a>
+    <a href="{{ url_for('grievance.create') }}" class="btn-erp btn-primary-erp"><i class="fa-solid fa-envelope"></i>
+      Request Correction</a>
+  </div>
 </div>
+
+<!-- Class Analytics -->
+<h5 style="margin-bottom:16px; font-weight:600; color:var(--text-primary);"><i class="fa-solid fa-chart-pie"
+    style="color:var(--accent-purple);"></i> Class Analytics</h5>
+<div class="grid-4col" style="margin-bottom:28px;">
+  <div class="stat-card">
+    <div class="stat-icon" style="background:rgba(59,130,246,0.1);color:var(--accent-blue);"><i
+        class="fa-solid fa-users"></i></div>
+    <div class="stat-info">
+      <h3>{{ students|length }}</h3>
+      <p>Total Students</p>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:rgba(16,185,129,0.1);color:var(--accent-green);"><i
+        class="fa-solid fa-calendar-check"></i></div>
+    <div class="stat-info">
+      <h3>{{ avg_attendance }}%</h3>
+      <p>Avg Class Attendance</p>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:rgba(239,68,68,0.1);color:var(--accent-red);"><i
+        class="fa-solid fa-triangle-exclamation"></i></div>
+    <div class="stat-info">
+      <h3>{{ low_attendance_students|length }}</h3>
+      <p>Defaulters (< 75%)</p>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:rgba(245,158,11,0.1);color:var(--accent-gold);"><i
+        class="fa-solid fa-file-signature"></i></div>
+    <div class="stat-info">
+      <h3>{{ active_assignments }}</h3>
+      <p>Active Assignments</p>
+    </div>
+  </div>
+</div>
+
 <div class="grid-2col">
   <div class="card-erp">
-    <div class="card-header-erp">
-      <h5><i class="fa-solid fa-users" style="color:var(--accent-blue);"></i> Class Students ({{ students|length }})</h5>
+    <div class="card-header-erp"
+      style="background: linear-gradient(to right, rgba(var(--accent-blue-rgb), 0.1), transparent);">
+      <h5><i class="fa-solid fa-users" style="color:var(--accent-blue);"></i> Student Directory</h5>
     </div>
     <div class="card-body-erp" style="padding:0;">
-      <div class="table-wrap-scroll">
-      <table class="table-erp">
-        <thead><tr><th>Name</th><th>Roll</th><th>Attendance</th></tr></thead>
-        <tbody>
-          {% for s in students %}
-          <tr>
-            <td style="font-weight:600;">{{ s.user.name }}</td>
-            <td>{{ s.roll_no or '—' }}</td>
-            <td>
-              {% set pct = s.attendance_percentage() %}
-              <span style="color:{{ 'var(--accent-red)' if pct < 75 else 'var(--accent-green)' }};font-weight:700;">{{ pct }}%</span>
-            </td>
-          </tr>
-          {% else %}
-          <tr><td colspan="3"><div class="empty-state"><p>No students</p></div></td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
+      <div class="table-wrap-scroll" style="max-height: 400px; overflow-y: auto;">
+        <table class="table-erp">
+          <thead>
+            <tr>
+              <th>Student</th>
+              <th>Roll No</th>
+              <th>Contact</th>
+              <th>Attendance</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in students %}
+            <tr>
+              <td>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <img src="{{ url_for('static', filename='uploads/profiles/' + s.user.profile_pic) }}"
+                    onerror="this.src='{{ url_for('static', filename='img/default.png') }}'"
+                    style="width:28px; height:28px; border-radius:50%; object-fit:cover;">
+                  <span style="font-weight:600; font-size:13px;">{{ s.user.name }}</span>
+                </div>
+              </td>
+              <td style="font-size:13px;">{{ s.roll_no or '—' }}</td>
+              <td style="font-size:12px; color:var(--text-muted);">
+                <div><i class="fa-solid fa-envelope"></i> {{ s.user.email }}</div>
+                {% if s.user.phone %}<div><i class="fa-solid fa-phone"></i> {{ s.user.phone }}</div>{% endif %}
+              </td>
+              <td>
+                {% set pct = s.bulk_pct if s.bulk_pct is defined else 0 %}
+                <span class="badge-erp {{ 'badge-danger' if pct < 75 else 'badge-success' }}">{{ pct }}%</span>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="4">
+                <div class="empty-state">
+                  <p>No students found.</p>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
-  <div class="card-erp">
-    <div class="card-header-erp">
-      <h5><i class="fa-solid fa-bullhorn" style="color:var(--accent-purple);"></i> Recent Notices</h5>
-    </div>
-    <div class="card-body-erp" style="padding:0;">
-      <div class="table-wrap-scroll">
-      <table class="table-erp">
-        <thead><tr><th>Title</th><th>Date</th></tr></thead>
-        <tbody>
-          {% for n in notices %}
-          <tr>
-            <td>{{ '🚨' if n.is_urgent else '📢'}} {{ n.title }}</td>
-            <td style="font-size:12px;color:var(--text-muted);">{{ n.created_at.strftime('%d %b') }}</td>
-          </tr>
-          {% else %}
-          <tr><td colspan="2"><div class="empty-state"><p>No notices</p></div></td></tr>
+
+  <div style="display:flex; flex-direction:column; gap:20px;">
+    <!-- Defaulters Alert -->
+    {% if low_attendance_students %}
+    <div class="card-erp" style="border: 1px solid rgba(239,68,68,0.3);">
+      <div class="card-header-erp" style="background: rgba(239,68,68,0.05);">
+        <h5><i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-red);"></i> Attendance Alerts</h5>
+      </div>
+      <div class="card-body-erp">
+        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">The following students have
+          attendance below 75%.</p>
+        <div style="max-height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
+          {% for item in low_attendance_students %}
+          <div
+            style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:var(--bg-secondary); border-radius:var(--radius); font-size:13px;">
+            <span style="font-weight:600;">{{ item.student.user.name }}</span>
+            <span style="color:var(--accent-red); font-weight:700;">{{ item.pct }}%</span>
+          </div>
           {% endfor %}
-        </tbody>
-      </table>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Notices -->
+    <div class="card-erp">
+      <div class="card-header-erp" style="display:flex; justify-content:space-between; align-items:center;">
+        <h5><i class="fa-solid fa-bullhorn" style="color:var(--accent-purple);"></i> Recent Notices</h5>
+        <a href="{{ url_for('notices.create') }}" class="btn-erp btn-outline-erp btn-sm-erp"><i
+            class="fa-solid fa-plus"></i> Post Notice</a>
+      </div>
+      <div class="card-body-erp" style="padding:0;">
+        <div class="table-wrap-scroll" style="max-height: 250px; overflow-y: auto;">
+          <table class="table-erp">
+            <tbody>
+              {% for n in notices %}
+              <tr>
+                <td>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:16px;">{{ '🚨' if n.is_urgent else '📢'}}</span>
+                    <div style="font-weight:600; font-size:13px;">
+                      {{ n.title }}
+                      {% if n.status == 'PENDING' %}
+                      <span class="badge-erp badge-warning"
+                        style="font-size:9px; padding:2px 4px; margin-left:4px;">Pending</span>
+                      {% elif n.status == 'REJECTED' %}
+                      <span class="badge-erp badge-danger"
+                        style="font-size:9px; padding:2px 4px; margin-left:4px;">Rejected</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                </td>
+                <td style="font-size:12px;color:var(--text-muted);text-align:right;">{{ n.created_at.strftime('%d %b')
+                  }}</td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="2">
+                  <div class="empty-state">
+                    <p>No notices</p>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Today's Attendance -->
+    <div class="card-erp">
+      <div class="card-header-erp" style="background: linear-gradient(to right, rgba(16,185,129,0.1), transparent);">
+        <h5><i class="fa-solid fa-clipboard-user" style="color:var(--accent-green);"></i> Today's Live Attendance</h5>
+      </div>
+      <div class="card-body-erp" style="padding: 16px;">
+        {% if not todays_subject_attendance and not todays_event_attendance %}
+        <div class="empty-state" style="padding: 20px 0;">
+          <p>No attendance recorded today yet.</p>
+        </div>
+        {% else %}
+
+        {% for subject, data in todays_subject_attendance.items() %}
+        <div
+          style="margin-bottom: 16px; border: 1px solid var(--border-color); border-radius: var(--radius); overflow: hidden;">
+          <div
+            style="background: var(--bg-secondary); padding: 8px 12px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+            <strong style="font-size: 13px;"><i class="fa-solid fa-book"
+                style="color:var(--accent-blue); margin-right:6px;"></i> {{ subject.name }}</strong>
+            <span class="badge-erp badge-info" style="font-size: 10px;">{{ data.present|length }} / {{
+              data.present|length + data.absent|length }}</span>
+          </div>
+          <div style="padding: 10px; font-size: 12px;">
+            {% if data.absent %}
+            <strong style="color:var(--accent-red);">Absentees:</strong>
+            <span style="color:var(--text-secondary);">
+              {% for student in data.absent %}{{ student.roll_no or student.user.name }}{% if not loop.last %}, {% endif
+              %}{% endfor %}
+            </span>
+            {% else %}
+            <span style="color:var(--accent-green); font-weight: 600;"><i class="fa-solid fa-check"></i> 100%
+              Attendance!</span>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+
+        {% for session, data in todays_event_attendance.items() %}
+        <div
+          style="margin-bottom: 16px; border: 1px solid var(--border-color); border-radius: var(--radius); overflow: hidden;">
+          <div
+            style="background: var(--bg-secondary); padding: 8px 12px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+            <strong style="font-size: 13px;"><i class="fa-solid fa-flask"
+                style="color:var(--accent-purple); margin-right:6px;"></i> {{ session.name }}</strong>
+            <span class="badge-erp badge-info" style="font-size: 10px;">{{ data.present|length }} / {{
+              data.present|length + data.absent|length }}</span>
+          </div>
+          <div style="padding: 10px; font-size: 12px;">
+            {% if data.absent %}
+            <strong style="color:var(--accent-red);">Absentees:</strong>
+            <span style="color:var(--text-secondary);">
+              {% for student in data.absent %}{{ student.roll_no or student.user.name }}{% if not loop.last %}, {% endif
+              %}{% endfor %}
+            </span>
+            {% else %}
+            <span style="color:var(--accent-green); font-weight: 600;"><i class="fa-solid fa-check"></i> 100%
+              Attendance!</span>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+
+        {% endif %}
       </div>
     </div>
   </div>

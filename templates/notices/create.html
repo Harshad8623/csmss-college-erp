@@ -27,14 +27,19 @@
             </select>
           </div>
           <div class="form-group-erp">
-            <label class="form-label-erp">Target Class (Optional)</label>
-            <select name="target_class_id" class="form-control-erp">
+          <label class="form-label-erp">Target Class</label>
+          <select name="target_class_id" class="form-control-erp" {% if current_user.role == 'CR' %}disabled{% endif %}>
+            {% if current_user.role != 'CR' %}
               <option value="">All Classes</option>
-              {% for cls in classes %}
-              <option value="{{ cls.id }}">{{ cls.name }}</option>
-              {% endfor %}
-            </select>
-          </div>
+            {% endif %}
+            {% for c in classes %}
+            <option value="{{ c.id }}" {% if current_user.role == 'CR' and current_user.student and current_user.student.class_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+          {% if current_user.role == 'CR' %}
+          <small style="color:var(--text-muted);"><i class="fa-solid fa-lock"></i> Locked to your class. This notice will require Class Teacher approval.</small>
+          {% endif %}
+        </div>
         </div>
         <div class="form-group-erp">
           <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:var(--text-primary);">

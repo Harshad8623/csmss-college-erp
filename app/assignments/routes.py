@@ -107,3 +107,22 @@ def submit(id):
     msg = '✅ Assignment submitted!' if not is_late else '⚠️ Assignment submitted (late).'
     flash(msg, 'success' if not is_late else 'warning')
     return redirect(url_for('assignments.index'))
+
+@assignments_bp.route('/<int:id>/submissions')
+@login_required
+@role_required(Roles.TEACHER, Roles.CLASS_TEACHER, Roles.HOD, Roles.SUPER_ADMIN, Roles.CR)
+def submissions(id):
+    assignment = Assignment.query.get_or_404(id)
+    
+    # Scope check
+    if current_user.role == Roles.CR:
+        student = Student.query.filter_by(user_id=current_user.id).first()
+        if not student or assignment.subject.class_id != student.class_id:
+            from flask import abort
+            abort(403)
+    elif current_user.role not in [Roles.SUPER_ADMIN, Roles.HOD] and assignment.created_by != current_user.id:
+        from flask import abort
+        abort(403)
+
+    subs = AssignmentSubmission.query.filter_by(assignment_id=id).all()
+    return render_template('assignments/submissions.html', assignment=assignment, submissions=subs)

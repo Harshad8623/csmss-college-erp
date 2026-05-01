@@ -1,41 +1,86 @@
 {% extends "base.html" %}
+
 {% block title %}Create Assignment{% endblock %}
+
 {% block content %}
-<div class="page-header"><h1 class="page-title"><div class="title-icon">📝</div> Create Assignment</h1></div>
-<div style="max-width:600px;">
-  <div class="card-erp">
-    <div class="card-body-erp">
-      <form method="POST" action="{{ url_for('assignments.create') }}" data-validate>
-        <div class="form-group-erp">
-          <label class="form-label-erp">Assignment Title *</label>
-          <input type="text" name="title" class="form-control-erp" placeholder="e.g. Implement BST in C++" required>
-        </div>
-        <div class="form-group-erp">
-          <label class="form-label-erp">Description</label>
-          <textarea name="description" class="form-control-erp" rows="4" placeholder="Describe the assignment requirements..."></textarea>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-          <div class="form-group-erp">
-            <label class="form-label-erp">Subject *</label>
-            <select name="subject_id" class="form-control-erp" required>
-              {% for sub in subjects %}<option value="{{ sub.id }}">{{ sub.name }}</option>{% endfor %}
-            </select>
-          </div>
-          <div class="form-group-erp">
-            <label class="form-label-erp">Max Marks</label>
-            <input type="number" name="max_marks" class="form-control-erp" value="10" min="1">
-          </div>
-          <div class="form-group-erp" style="grid-column:1/-1;">
-            <label class="form-label-erp">Deadline *</label>
-            <input type="datetime-local" name="deadline" class="form-control-erp" required>
-          </div>
-        </div>
-        <div style="display:flex;gap:12px;">
-          <button type="submit" class="btn-erp btn-primary-erp"><i class="fa-solid fa-plus"></i> Create</button>
-          <a href="{{ url_for('assignments.index') }}" class="btn-erp btn-outline-erp">Cancel</a>
-        </div>
-      </form>
-    </div>
-  </div>
+
+<div class="page-header">
+  <h1 class="page-title">
+    <div class="title-icon">📝</div> Create Assignment
+  </h1>
 </div>
+
+<div style="max-width:600px;">
+
+  <div class="card-erp">
+
+    <div class="card-body-erp">
+
+      <form method="POST" action="{{ url_for('assignments.create') }}" data-validate>
+
+        <div class="form-group-erp">
+
+          <label class="form-label-erp">Assignment Title *</label>
+
+          <input type="text" name="title" class="form-control-erp" placeholder="e.g. Implement BST in C++" required>
+
+        </div>
+
+        <div class="form-group-erp">
+
+          <label class="form-label-erp">Description</label>
+
+          <textarea name="description" class="form-control-erp" rows="4"
+            placeholder="Describe the assignment requirements..."></textarea>
+
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+
+          <div class="form-group-erp">
+
+            <label class="form-label-erp">Subject *</label>
+
+            <select name="subject_id" class="form-control-erp" required>
+
+              {% for sub in subjects %}<option value="{{ sub.id }}">{{ sub.name }}</option>{% endfor %}
+
+            </select>
+
+          </div>
+
+          <div class="form-group-erp">
+
+            <label class="form-label-erp">Max Marks</label>
+
+            <input type="number" name="max_marks" class="form-control-erp" value="10" min="1">
+
+          </div>
+
+          <div class="form-group-erp" style="grid-column:1/-1;">
+
+            <label class="form-label-erp">Deadline *</label>
+
+            <input type="datetime-local" name="deadline" class="form-control-erp" required>
+
+          </div>
+
+        </div>
+
+        <div style="display:flex;gap:12px;">
+
+          <button type="submit" class="btn-erp btn-primary-erp"><i class="fa-solid fa-plus"></i> Create</button>
+
+          <a href="{{ url_for('assignments.index') }}" class="btn-erp btn-outline-erp">Cancel</a>
+
+        </div>
+
+      </form>
+
+    </div>
+
+  </div>
+
+</div>
+
 {% endblock %}

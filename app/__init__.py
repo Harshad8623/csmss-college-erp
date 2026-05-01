@@ -118,4 +118,11 @@ def create_app(config_class=Config):
             format_time_12hr=format_time_12hr,
         )
 
+    # ── Error Handlers ───────────────────────────────────────────────────────
+    @app.errorhandler(403)
+    def forbidden_error(error):
+        from flask import flash, redirect, url_for
+        flash('You do not have access to this resource.', 'danger')
+        return redirect(url_for('dashboard.index'))
+
     return app

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Submissions - {{ assignment.title }}{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px; align-items:flex-start;">
+  <div>
+    <h1 class="page-title"><div class="title-icon">📥</div> Submissions</h1>
+    <p class="page-subtitle">
+      Assignment: <strong>{{ assignment.title }}</strong><br>
+      Subject: {{ assignment.subject.name }} | Deadline: {{ assignment.deadline.strftime('%d %b %Y %H:%M') }}
+    </p>
+  </div>
+  <a href="{{ url_for('assignments.index') }}" class="btn-erp btn-outline-erp">
+    <i class="fa-solid fa-arrow-left"></i> Back
+  </a>
+</div>
+
+<div class="card-erp">
+  <div class="card-header-erp">
+    <h5><i class="fa-solid fa-list-check" style="color:var(--accent-blue);"></i> Submitted Files</h5>
+  </div>
+  <div class="card-body-erp" style="padding:0;">
+    <div class="table-wrap-scroll">
+    <table class="table-erp">
+      <thead>
+        <tr>
+          <th>Roll No</th>
+          <th>Student Name</th>
+          <th>Submitted On</th>
+          <th>Status</th>
+          <th>File</th>
+          <th>Marks</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for sub in submissions %}
+        <tr>
+          <td style="font-weight:600;">{{ sub.student.roll_no or '-' }}</td>
+          <td>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <img src="{{ url_for('static', filename='uploads/profiles/' + sub.student.user.profile_pic) }}" onerror="this.src='{{ url_for('static', filename='img/default.png') }}'" style="width:24px; height:24px; border-radius:50%; object-fit:cover;">
+              {{ sub.student.user.name }}
+            </div>
+          </td>
+          <td>{{ sub.submitted_at.strftime('%d %b %Y %H:%M') }}</td>
+          <td>
+            {% if sub.is_late %}
+            <span class="badge-erp badge-warning">⚠️ Late</span>
+            {% else %}
+            <span class="badge-erp badge-success">✅ On Time</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if sub.file_path %}
+            <a href="{{ url_for('static', filename='uploads/' + sub.file_path) }}" class="btn-erp btn-outline-erp" target="_blank" style="padding:4px 8px; font-size:12px;">
+              <i class="fa-solid fa-download"></i> View
+            </a>
+            {% else %}
+            <span style="color:var(--text-muted); font-size:12px;">No file</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if sub.marks is not none %}
+              <strong>{{ sub.marks }}</strong> / {{ assignment.max_marks|int }}
+            {% else %}
+              <span style="color:var(--text-muted); font-size:12px;">Not graded</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📫</div><p>No submissions received yet</p></div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

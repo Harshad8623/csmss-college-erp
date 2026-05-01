@@ -3,13 +3,53 @@ from flask_login import login_required, current_user
 from app.models import (
     User, Student, Teacher, Department, Class, Subject,
     Attendance, Marks, Grievance, Certificate, Notice,
-    Assignment, Notification, Roles, Status, ApprovalStatus, AbsenteeReason
+    Assignment, Notification, Roles, Status, ApprovalStatus, AbsenteeReason,
+    ExamType, EventRecord, EventSession
 )
 from app.extensions import db
 from sqlalchemy import func
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 
 dashboard_bp = Blueprint('dashboard', __name__)
+
+def get_bulk_attendance_percentages(student_ids, class_id):
+    if not student_ids:
+        return {}
+    
+    # Theory
+    theory_stats = db.session.query(
+        Attendance.student_id,
+        db.func.count(Attendance.id).label('total'),
+        db.func.sum(db.case((Attendance.status == True, 1), else_=0)).label('present')
+    ).filter(Attendance.student_id.in_(student_ids)).group_by(Attendance.student_id).all()
+    
+    # Events
+    event_stats = db.session.query(
+        EventRecord.student_id,
+        db.func.count(EventRecord.id).label('total'),
+        db.func.sum(db.case((EventRecord.status == True, 1), else_=0)).label('present')
+    ).join(EventSession).filter(
+        EventRecord.student_id.in_(student_ids),
+        EventSession.class_id == class_id
+    ).group_by(EventRecord.student_id).all()
+    
+    # Combine
+    results = {sid: {'total': 0, 'present': 0} for sid in student_ids}
+    for row in theory_stats:
+        results[row.student_id]['total'] += row.total
+        results[row.student_id]['present'] += (row.present or 0)
+    for row in event_stats:
+        results[row.student_id]['total'] += row.total
+        results[row.student_id]['present'] += (row.present or 0)
+        
+    percentages = {}
+    for sid, data in results.items():
+        if data['total'] == 0:
+            percentages[sid] = 0
+        else:
+            percentages[sid] = round((data['present'] / data['total']) * 100, 2)
+            
+    return percentages
 
 @dashboard_bp.route('/')
 def landing():
@@ -182,9 +222,65 @@ def student_dashboard():
             AbsenteeReason.status == 'REQUESTED'
         ).all()
 
+    # -------------------------------------------------------------
+    # Leaderboards and Ranks Logic
+    # -------------------------------------------------------------
+    cr_users = User.query.join(Student, User.id == Student.user_id).filter(
+        User.role == Roles.CR,
+        Student.class_id == student.class_id
+    ).all()
+
+    class_students = Student.query.filter_by(
+        class_id=student.class_id, 
+        approval_status=ApprovalStatus.APPROVED
+    ).all()
+    class_student_ids = [s.id for s in class_students]
+    total_class_students = len(class_students)
+
+    # Attendance Leaderboard
+    bulk_pcts = get_bulk_attendance_percentages(class_student_ids, student.class_id)
+    attendance_leaderboard = []
+    for s in class_students:
+        attendance_leaderboard.append({'student': s, 'percentage': bulk_pcts.get(s.id, 0)})
+    attendance_leaderboard.sort(key=lambda x: x['percentage'], reverse=True)
+    
+    attendance_rank = next((i + 1 for i, item in enumerate(attendance_leaderboard) if item['student'].id == student.id), None)
+
+    # Marks Leaderboard (CT1, CT2, MSE)
+    marks_aggs = db.session.query(
+        Marks.student_id,
+        Marks.exam_type,
+        func.sum(Marks.marks).label('total_marks'),
+        func.sum(Marks.max_marks).label('total_max_marks')
+    ).filter(
+        Marks.student_id.in_(class_student_ids),
+        Marks.exam_type.in_([ExamType.CT1, ExamType.CT2, ExamType.MSE])
+    ).group_by(Marks.student_id, Marks.exam_type).all()
+
+    student_marks_map = {ExamType.CT1: {}, ExamType.CT2: {}, ExamType.MSE: {}}
+    for agg in marks_aggs:
+        sid, etype, t_marks, t_max = agg
+        if t_max and t_max > 0:
+            student_marks_map[etype][sid] = round((t_marks / t_max) * 100, 2)
+
+    marks_leaderboards = {}
+    marks_ranks = {}
+    for etype in [ExamType.CT1, ExamType.CT2, ExamType.MSE]:
+        lb = []
+        for s in class_students:
+            if s.id in student_marks_map[etype]:
+                lb.append({'student': s, 'percentage': student_marks_map[etype][s.id]})
+        lb.sort(key=lambda x: x['percentage'], reverse=True)
+        marks_leaderboards[etype] = lb
+        marks_ranks[etype] = next((i + 1 for i, item in enumerate(lb) if item['student'].id == student.id), None)
+
     return render_template('dashboard/student.html',
         student=student, stats=stats, attendance_data=attendance_data,
-        marks_data=marks_data, notices=notices, pending_reasons=pending_reasons)
+        marks_data=marks_data, notices=notices, pending_reasons=pending_reasons,
+        cr_users=cr_users, total_class_students=total_class_students,
+        attendance_leaderboard=attendance_leaderboard[:5], attendance_rank=attendance_rank,
+        marks_leaderboards={k: v[:5] for k, v in marks_leaderboards.items()},
+        marks_ranks=marks_ranks, ExamType=ExamType)
 
 @dashboard_bp.route('/submit-absentee-reason/<int:reason_id>', methods=['POST'])
 @login_required
@@ -205,10 +301,82 @@ def submit_absentee_reason(reason_id):
 
 def cr_dashboard():
     student = Student.query.filter_by(user_id=current_user.id).first()
-    notices = Notice.query.order_by(Notice.created_at.desc()).limit(10).all()
-    class_ = Class.query.get(student.class_id) if student else None
-    students_in_class = Student.query.filter_by(class_id=student.class_id).all() if student else []
+    if not student:
+        from flask import flash, redirect, url_for
+        flash('Student profile not found.', 'danger')
+        return redirect(url_for('auth.login'))
+
+    class_id = student.class_id
+    class_ = Class.query.get(class_id)
+    students_in_class = Student.query.filter_by(class_id=class_id, approval_status=ApprovalStatus.APPROVED).all()
+    
+    # Strictly scoped notices
+    notices = Notice.query.filter(
+        (Notice.is_deleted == False),
+        ((Notice.status == 'APPROVED') & ((Notice.target_role == None) | (Notice.target_role == Roles.STUDENT) | (Notice.target_role == Roles.CR)) & ((Notice.target_class_id == None) | (Notice.target_class_id == class_id))) |
+        (Notice.posted_by == current_user.id)
+    ).order_by(Notice.created_at.desc()).limit(10).all()
+
+    # Analytics: Attendance
+    student_ids = [s.id for s in students_in_class]
+    bulk_pcts = get_bulk_attendance_percentages(student_ids, class_id)
+    
+    total_attendance = 0
+    low_attendance_students = []
+    
+    for s in students_in_class:
+        pct = bulk_pcts.get(s.id, 0)
+        s.bulk_pct = pct # Cache it for the template
+        total_attendance += pct
+        if pct < 75:
+            low_attendance_students.append({'student': s, 'pct': pct})
+            
+    avg_attendance = round(total_attendance / len(students_in_class), 1) if students_in_class else 0
+    low_attendance_students.sort(key=lambda x: x['pct'])
+
+    # Active Assignments
+    from app.models import Subject, Assignment
+    subject_ids = [s.id for s in Subject.query.filter_by(class_id=class_id).all()]
+    active_assignments = Assignment.query.filter(
+        Assignment.subject_id.in_(subject_ids),
+        Assignment.deadline >= datetime.utcnow()
+    ).count()
+
+    # Today's Attendance Overview
+    today_date = date.today()
+    
+    todays_attendance_query = Attendance.query.join(Subject).filter(
+        Subject.class_id == class_id,
+        Attendance.date == today_date
+    ).all()
+    
+    todays_subject_attendance = {}
+    for att in todays_attendance_query:
+        if att.subject not in todays_subject_attendance:
+            todays_subject_attendance[att.subject] = {'present': [], 'absent': []}
+        if att.status:
+            todays_subject_attendance[att.subject]['present'].append(att.student)
+        else:
+            todays_subject_attendance[att.subject]['absent'].append(att.student)
+            
+    todays_event_query = EventRecord.query.join(EventSession).filter(
+        EventSession.class_id == class_id,
+        EventSession.date == today_date
+    ).all()
+    
+    todays_event_attendance = {}
+    for rec in todays_event_query:
+        if rec.session not in todays_event_attendance:
+            todays_event_attendance[rec.session] = {'present': [], 'absent': []}
+        if rec.status:
+            todays_event_attendance[rec.session]['present'].append(rec.student)
+        else:
+            todays_event_attendance[rec.session]['absent'].append(rec.student)
 
     return render_template('dashboard/cr.html',
         student=student, notices=notices, class_=class_,
-        students=students_in_class)
+        students=students_in_class, avg_attendance=avg_attendance,
+        low_attendance_students=low_attendance_students,
+        active_assignments=active_assignments,
+        todays_subject_attendance=todays_subject_attendance,
+        todays_event_attendance=todays_event_attendance)

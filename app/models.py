@@ -380,9 +380,17 @@ class Notice(db.Model):
     target_class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=True)
     posted_by      = db.Column(db.Integer, db.ForeignKey('users.id'))
     is_urgent      = db.Column(db.Boolean, default=False)
+    
+    # Advanced Workflow fields
+    status         = db.Column(db.String(30), default='APPROVED') # PENDING, APPROVED, REJECTED
+    approved_by    = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    approved_at    = db.Column(db.DateTime, nullable=True)
+    is_deleted     = db.Column(db.Boolean, default=False)
+    
     created_at     = db.Column(db.DateTime, default=datetime.utcnow)
 
     poster       = db.relationship('User', foreign_keys=[posted_by])
+    approver     = db.relationship('User', foreign_keys=[approved_by])
     target_class = db.relationship('Class', foreign_keys=[target_class_id])
 
 

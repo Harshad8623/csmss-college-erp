@@ -26,7 +26,11 @@
             </span>
           </td>
           <td>{{ a.max_marks|int }}</td>
-          <td><span class="badge-erp badge-info">{{ a.submissions.count() }}</span></td>
+          <td>
+            <a href="{{ url_for('assignments.submissions', id=a.id) }}" class="badge-erp badge-info" style="text-decoration:none; display:inline-block; transition:0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+              {{ a.submissions.count() }} <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:10px; margin-left:4px;"></i>
+            </a>
+          </td>
         </tr>
         {% else %}
         <tr><td colspan="5"><div class="empty-state"><div class="empty-icon">📝</div><p>No assignments yet</p></div></td></tr>
