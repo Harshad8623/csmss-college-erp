@@ -1,4 +1,5 @@
 import os
+import uuid
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
 from flask_login import login_required, current_user
 from app.extensions import db
@@ -25,6 +26,8 @@ def _save_attachment(file):
     if not _allowed_file(file.filename):
         return None
     fname = secure_filename(file.filename)
+    # Prepend UUID to avoid filename collision between students
+    fname = f"{uuid.uuid4().hex[:8]}_{fname}"
     upload_dir = os.path.join(current_app.static_folder, 'uploads', UPLOAD_SUBDIR)
     os.makedirs(upload_dir, exist_ok=True)
     filepath = os.path.join(upload_dir, fname)
@@ -44,7 +47,8 @@ def index():
     if current_user.role in [Roles.STUDENT, Roles.CR]:
         student = Student.query.filter_by(user_id=current_user.id).first()
         if not student:
-            return render_template('grievance/student_view.html', grievances=[])
+            return render_template('grievance/student_view.html',
+                                   grievances=[], now=datetime.utcnow())
         grievances = Grievance.query.filter_by(student_id=student.id) \
             .order_by(Grievance.created_at.desc()).all()
         return render_template('grievance/student_view.html',
@@ -222,6 +226,11 @@ def detail(id):
         new_status = status_map.get(action)
         if not new_status:
             flash('Invalid action.', 'danger')
+            return redirect(url_for('grievance.detail', id=id))
+
+        # Prevent re-escalating an already-escalated grievance
+        if new_status == 'escalated' and grievance.status == 'escalated':
+            flash('This grievance is already escalated to HOD.', 'warning')
             return redirect(url_for('grievance.detail', id=id))
 
         grievance.status      = new_status

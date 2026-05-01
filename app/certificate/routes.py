@@ -44,9 +44,23 @@ def index():
         certs = Certificate.query.filter_by(student_id=student.id)\
             .order_by(Certificate.created_at.desc()).all() if student else []
         return render_template('certificate/admin_view.html', certs=certs)
+    elif current_user.role == Roles.CLASS_TEACHER:
+        # Only show certificates from students in the teacher's class
+        from app.models import Class
+        cls = Class.query.filter_by(class_teacher_id=current_user.id).first()
+        if cls:
+            student_ids = [s.id for s in cls.students.all()]
+            certs = Certificate.query.filter(
+                Certificate.student_id.in_(student_ids)
+            ).order_by(Certificate.created_at.desc()).all()
+        else:
+            certs = []
+        return render_template('certificate/admin_view.html', certs=certs)
     else:
+        # HOD / Super Admin see all
         certs = Certificate.query.order_by(Certificate.created_at.desc()).all()
         return render_template('certificate/admin_view.html', certs=certs)
+
 
 @certificate_bp.route('/apply', methods=['GET', 'POST'])
 @login_required

@@ -114,6 +114,10 @@ def index():
     selected_class = None
 
     if class_id:
+        try:
+            class_id = int(class_id)
+        except (ValueError, TypeError):
+            class_id = None
         selected_class = Class.query.get(class_id)
         entries = Timetable.query.filter_by(class_id=class_id).all()
         for day in DAYS:
