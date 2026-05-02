@@ -1,27 +1,34 @@
 // CSMSS College ERP — Service Worker for Web Push Notifications
 // This file runs in the background even when the browser tab is closed.
+// IMPORTANT: This file is served from the ROOT (/sw.js) so it can control all pages.
 
-const CACHE_NAME = 'csmss-erp-v1';
+const CACHE_NAME = 'csmss-erp-v2';
 
-// ── Install: cache the app shell ─────────────────────────────────────────────
+// The site origin is injected by the server via the /sw.js route
+// For background push, all asset URLs MUST be absolute (full https://... URLs)
+const SITE_URL = self.registration.scope.replace(/\/$/, ''); // e.g. https://csmss-erp.onrender.com
+
+// ── Install: activate immediately ────────────────────────────────────────────
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
+  console.log('[SW] Installed');
+  self.skipWaiting(); // Activate immediately, don't wait for old SW to die
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(clients.claim());
+  console.log('[SW] Activated, claiming clients...');
+  event.waitUntil(clients.claim()); // Take control of all open pages immediately
 });
 
 // ── Push: fires when server sends a Web Push ──────────────────────────────────
+// This fires even when the browser is CLOSED (on Android/Desktop Chrome)
 self.addEventListener('push', (event) => {
+  console.log('[SW] Push event received');
+
   let data = {
     title: 'CSMSS College ERP',
     body: 'You have a new notification.',
-    icon: '/static/img/college_logo.png',
-    badge: '/static/img/college_logo.png',
-    tag: 'csmss-notif',
-    url: '/notifications/',
     type: 'info',
+    url: '/notifications/',
   };
 
   if (event.data) {
@@ -33,25 +40,34 @@ self.addEventListener('push', (event) => {
     }
   }
 
-  // Color the notification badge based on type
-  const vibrate = data.type === 'danger' ? [200, 100, 200] : [100];
+  console.log('[SW] Showing notification:', data.title, data.body);
+
+  // Vibration pattern: urgent = double pulse, otherwise single
+  const vibrate = data.type === 'danger' ? [200, 100, 200, 100, 200] : [150, 50, 150];
 
   const options = {
     body: data.body,
-    icon: data.icon || '/static/img/college_logo.png',
-    badge: data.badge || '/static/img/college_logo.png',
-    tag: data.tag || 'csmss-notif',
-    renotify: true,         // Always show even if same tag exists
+    // MUST use absolute URLs here — relative paths don't work when browser is closed
+    icon: SITE_URL + '/static/img/college_logo.png',
+    badge: SITE_URL + '/static/img/college_logo.png',
+    tag: 'csmss-notif-' + (data.type || 'info'),
+    renotify: true,           // Always show even if same tag exists
     vibrate: vibrate,
-    data: { url: data.url || '/notifications/' },
+    requireInteraction: false, // Auto-dismiss after a few seconds
+    data: {
+      url: data.url || '/notifications/',
+      type: data.type,
+    },
     actions: [
-      { action: 'view', title: '👁 View' },
+      { action: 'view',    title: '👁 View' },
       { action: 'dismiss', title: '✕ Dismiss' },
     ],
   };
 
   event.waitUntil(
     self.registration.showNotification(data.title || 'CSMSS ERP', options)
+      .then(() => console.log('[SW] Notification shown successfully'))
+      .catch(err => console.error('[SW] showNotification failed:', err))
   );
 });
 
@@ -61,15 +77,17 @@ self.addEventListener('notificationclick', (event) => {
 
   if (event.action === 'dismiss') return;
 
-  const targetUrl = (event.notification.data && event.notification.data.url)
-    ? event.notification.data.url
-    : '/notifications/';
+  const targetUrl = SITE_URL + (
+    (event.notification.data && event.notification.data.url)
+      ? event.notification.data.url
+      : '/notifications/'
+  );
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // If there's already an open window, focus it and navigate
+      // If there's already an open window for this site, focus it and navigate
       for (const client of windowClients) {
-        if ('focus' in client) {
+        if (client.url.startsWith(SITE_URL) && 'focus' in client) {
           client.focus();
           client.navigate(targetUrl);
           return;
@@ -81,4 +99,11 @@ self.addEventListener('notificationclick', (event) => {
       }
     })
   );
+});
+
+// ── Push subscription change: re-subscribe automatically ─────────────────────
+// Fires when the push server invalidates our subscription (e.g. key rotation)
+self.addEventListener('pushsubscriptionchange', (event) => {
+  console.log('[SW] Push subscription changed — will re-subscribe on next page load');
+  // The browser will call initPush() on next page load which handles re-subscription
 });

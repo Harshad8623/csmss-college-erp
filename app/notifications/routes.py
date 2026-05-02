@@ -114,11 +114,12 @@ def push_test():
     subs = PushSubscription.query.filter_by(user_id=current_user.id).all()
     if not subs:
         return jsonify({'status': 'no_subscription',
-                        'message': 'No subscriptions in DB. Grant Chrome notification permission first.'}), 400
+                        'message': 'No subscriptions in DB. Grant Chrome/Safari notification permission first.'}), 400
 
     pub_key      = current_app.config.get('VAPID_PUBLIC_KEY', '')
     priv_key     = current_app.config.get('VAPID_PRIVATE_KEY', '')
     claims_email = current_app.config.get('VAPID_CLAIMS_EMAIL', '')
+    site_url     = current_app.config.get('SITE_URL', 'https://csmss-college-erp.onrender.com')
 
     results = []
     for sub in subs:
@@ -126,11 +127,13 @@ def push_test():
         try:
             from pywebpush import webpush, WebPushException
             payload = json.dumps({
-                'title': 'CSMSS ERP — Push Test',
-                'body':  '🔔 Background push working! You received this with Chrome closed.',
+                'title': 'CSMSS ERP — Push Test 🔔',
+                'body':  'Background push is working! You received this even with Chrome closed.',
                 'type':  'success',
                 'url':   '/notifications/',
-                'icon':  '/static/img/college_logo.png',
+                # Absolute URLs required for background push
+                'icon':  f'{site_url}/static/img/college_logo.png',
+                'badge': f'{site_url}/static/img/college_logo.png',
             })
             resp = webpush(
                 subscription_info={'endpoint': sub.endpoint,
@@ -138,16 +141,19 @@ def push_test():
                 data=payload,
                 vapid_private_key=priv_key,
                 vapid_claims={'sub': f'mailto:{claims_email}'},
+                content_encoding='aes128gcm',
             )
             entry['result'] = f'HTTP {resp.status_code}'
         except Exception as e:
-            entry['error'] = str(e)[:300]
+            entry['error'] = str(e)[:500]
         results.append(entry)
 
     return jsonify({
         'vapid_public_key_set':  bool(pub_key),
         'vapid_private_key_set': bool(priv_key),
+        'vapid_public_key_prefix': pub_key[:20] + '...' if pub_key else '',
         'claims_email':          claims_email,
+        'site_url':              site_url,
         'devices_attempted':     len(subs),
         'results':               results,
     })

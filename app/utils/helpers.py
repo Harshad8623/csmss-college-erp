@@ -7,36 +7,46 @@ logger = logging.getLogger(__name__)
 
 def _fire_web_push(user_id, message, notif_type, link):
     """Send a Web Push notification to all of a user's registered browsers.
-    Runs in a background thread — never blocks the main request."""
+    Runs in a background thread with its own app context — never blocks the request."""
     try:
         from flask import current_app
         from app.models import PushSubscription
         from pywebpush import webpush, WebPushException
-        import json, threading
+        import json
+
+        # Use a fresh DB session in this thread
+        db.session.remove()
 
         subs = PushSubscription.query.filter_by(user_id=user_id).all()
         if not subs:
+            logger.debug(f"[WebPush] No subscriptions for user {user_id} — skipping push")
             return
 
-        pub_key   = current_app.config.get('VAPID_PUBLIC_KEY', '')
-        priv_key  = current_app.config.get('VAPID_PRIVATE_KEY', '')
+        pub_key      = current_app.config.get('VAPID_PUBLIC_KEY', '')
+        priv_key     = current_app.config.get('VAPID_PRIVATE_KEY', '')
         claims_email = current_app.config.get('VAPID_CLAIMS_EMAIL', 'admin@college.edu')
+        site_url     = current_app.config.get('SITE_URL', 'https://csmss-college-erp.onrender.com')
 
         if not pub_key or not priv_key:
+            logger.error("[WebPush] VAPID keys not configured! Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY_RAW in env.")
             return
+
+        logger.debug(f"[WebPush] Sending to user {user_id}, {len(subs)} subscription(s)")
 
         payload = json.dumps({
             'title': 'CSMSS College ERP',
             'body':  message,
             'type':  notif_type,
             'url':   link or '/notifications/',
-            'icon':  '/static/img/college_logo.png',
+            # Absolute URLs required for background push (when browser is closed)
+            'icon':  f'{site_url}/static/img/college_logo.png',
+            'badge': f'{site_url}/static/img/college_logo.png',
         })
 
         dead_endpoints = []
         for sub in subs:
             try:
-                webpush(
+                resp = webpush(
                     subscription_info={
                         'endpoint': sub.endpoint,
                         'keys': {'p256dh': sub.p256dh, 'auth': sub.auth},
@@ -44,24 +54,34 @@ def _fire_web_push(user_id, message, notif_type, link):
                     data=payload,
                     vapid_private_key=priv_key,
                     vapid_claims={'sub': f'mailto:{claims_email}'},
+                    content_encoding='aes128gcm',
                 )
+                logger.debug(f"[WebPush] ✅ Sent to user {user_id}, endpoint ...{sub.endpoint[-20:]}")
             except WebPushException as e:
-                # 410 Gone = subscription expired/unregistered
-                if e.response and e.response.status_code in (404, 410):
+                status = e.response.status_code if e.response is not None else 0
+                logger.warning(f"[WebPush] ❌ HTTP {status} for user {user_id}: {e}")
+                # 404/410 = subscription expired/unregistered. 401/403 = bad VAPID key.
+                if status in (404, 410):
                     dead_endpoints.append(sub.endpoint)
-                else:
-                    logger.warning(f"[WebPush] Failed for user {user_id}: {e}")
+                # Log 401/403 separately — indicates VAPID key mismatch
+                elif status in (401, 403):
+                    logger.error(f"[WebPush] VAPID key rejected (HTTP {status}) for user {user_id}. "
+                                 f"Re-generate VAPID keys and clear push_subscriptions table.")
             except Exception as e:
                 logger.warning(f"[WebPush] Unexpected error for user {user_id}: {e}")
 
         if dead_endpoints:
+            logger.info(f"[WebPush] Removing {len(dead_endpoints)} dead subscription(s) for user {user_id}")
             PushSubscription.query.filter(
                 PushSubscription.endpoint.in_(dead_endpoints)
             ).delete(synchronize_session=False)
             db.session.commit()
 
     except Exception as e:
-        logger.warning(f"[WebPush] _fire_web_push crashed: {e}")
+        logger.error(f"[WebPush] _fire_web_push crashed for user {user_id}: {e}", exc_info=True)
+    finally:
+        # Always release the DB session back to the pool
+        db.session.remove()
 
 
 def send_notification(user_id, message, notif_type='info', link=None):

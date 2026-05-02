@@ -539,14 +539,16 @@
   })();
   </script>
 
-  <!-- Web Push: register service worker + auto-request permission -->
+  <!-- Web Push: register service worker + subscribe for background push -->
   <script>
   (function() {
     const VAPID_PUBLIC_KEY = '{{ config.VAPID_PUBLIC_KEY | default("") }}';
     const SUBSCRIBE_URL    = '{{ url_for("notifications.subscribe") }}';
+    const SITE_ORIGIN     = window.location.origin; // e.g. https://csmss-college-erp.onrender.com
 
     if (!VAPID_PUBLIC_KEY || !('serviceWorker' in navigator) || !('PushManager' in window)) {
-      return; // Browser doesn't support push — gracefully skip
+      console.debug('[WebPush] Browser does not support push notifications.');
+      return;
     }
 
     function urlBase64ToUint8Array(base64String) {
@@ -558,53 +560,86 @@
       return outputArray;
     }
 
+    async function saveSubscriptionToServer(sub) {
+      const payload = sub.toJSON();
+      const resp = await fetch(SUBSCRIBE_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || '',
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload),
+      });
+      if (!resp.ok) throw new Error(`Server returned ${resp.status}`);
+      const result = await resp.json().catch(() => ({}));
+      console.debug('[WebPush] ✅ Subscription saved to server:', result);
+      return result;
+    }
+
     async function subscribeToPush(registration) {
       try {
-        // Always unsubscribe old subscription and create a fresh one.
-        // This fixes stale subscriptions that were never saved to the DB
-        // (e.g. from before the CSRF bug was fixed).
-        const existing = await registration.pushManager.getSubscription();
-        if (existing) {
-          await existing.unsubscribe();
+        // Check if we already have a valid subscription
+        let sub = await registration.pushManager.getSubscription();
+
+        if (sub) {
+          // We have an existing subscription — check if it uses our current VAPID key
+          // (If VAPID key changed, getSubscription() returns null automatically)
+          console.debug('[WebPush] Existing subscription found, saving to server...');
+          await saveSubscriptionToServer(sub);
+          return;
         }
 
-        const sub = await registration.pushManager.subscribe({
+        // No subscription yet — create one
+        console.debug('[WebPush] Creating new push subscription...');
+        sub = await registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
         });
 
-        // Save fresh subscription to server DB
-        const resp = await fetch(SUBSCRIBE_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || '',
-          },
-          credentials: 'same-origin',
-          body: JSON.stringify(sub.toJSON()),
-        });
-        const result = await resp.json().catch(() => ({}));
-        console.debug('[WebPush] Subscription saved:', result);
+        console.debug('[WebPush] New subscription created:', sub.endpoint.slice(-20));
+        await saveSubscriptionToServer(sub);
+
       } catch (err) {
-        console.debug('[WebPush] Subscription failed:', err);
+        console.warn('[WebPush] ❌ Subscription failed:', err.message || err);
       }
     }
 
     async function initPush() {
       try {
-        const reg = await navigator.serviceWorker.register('/sw.js');
-        await navigator.serviceWorker.ready;
+        // Register (or update) the service worker
+        const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+        console.debug('[WebPush] Service Worker registered, scope:', reg.scope);
 
-        const permission = await Notification.requestPermission();
+        // Wait until SW is ready to control the page
+        await navigator.serviceWorker.ready;
+        console.debug('[WebPush] Service Worker is active and ready.');
+
+        // Check current permission state
+        const permission = Notification.permission;
+        console.debug('[WebPush] Notification permission:', permission);
+
         if (permission === 'granted') {
           await subscribeToPush(reg);
+        } else if (permission === 'default') {
+          // Ask for permission — IMPORTANT: must be triggered by user gesture in some browsers
+          // We attempt it here; if blocked, user must manually enable from browser settings
+          const result = await Notification.requestPermission();
+          console.debug('[WebPush] Permission result:', result);
+          if (result === 'granted') {
+            await subscribeToPush(reg);
+          } else {
+            console.warn('[WebPush] ⚠️ User denied notification permission.');
+          }
+        } else {
+          console.warn('[WebPush] ⚠️ Notifications are blocked by user. They must enable from browser settings.');
         }
       } catch (err) {
-        console.debug('[WebPush] Init failed:', err);
+        console.warn('[WebPush] ❌ Init failed:', err.message || err);
       }
     }
 
-    // Auto-trigger push permission on page load (fires once after SW is ready)
+    // Run after DOM is fully loaded
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', initPush);
     } else {
