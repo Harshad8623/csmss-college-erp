@@ -34,7 +34,7 @@
               <option value="">All Classes</option>
             {% endif %}
             {% for c in classes %}
-            <option value="{{ c.id }}" {% if current_user.role == 'CR' and current_user.student and current_user.student.class_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+            <option value="{{ c.id }}" {% if current_user.role == 'CR' %}selected{% endif %}>{{ c.name }}</option>
             {% endfor %}
           </select>
           {% if current_user.role == 'CR' %}

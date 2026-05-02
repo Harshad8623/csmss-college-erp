@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Marks Overview{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;align-items:center;">
+  <div>
+    <h1 class="page-title"><div class="title-icon">📊</div> Marks Overview</h1>
+    <p class="page-subtitle">Select a subject to upload or review marks</p>
+  </div>
+  <a href="{{ url_for('marks.upload') }}" class="btn-erp btn-primary-erp">
+    <i class="fa-solid fa-upload"></i> Upload Marks
+  </a>
+</div>
+
+{% if subjects %}
+<div class="card-erp">
+  <div class="card-body-erp" style="padding:0;">
+    <div class="table-wrap-scroll">
+    <table class="table-erp">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Subject</th>
+          <th>Code</th>
+          <th>Class</th>
+          <th>Type</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for sub in subjects %}
+        <tr>
+          <td style="color:var(--text-muted);">{{ loop.index }}</td>
+          <td>
+            <div style="font-weight:600;">{{ sub.name }}</div>
+            {% if sub.is_elective %}
+            <span class="badge-erp badge-purple" style="font-size:10px;">Elective</span>
+            {% endif %}
+          </td>
+          <td style="color:var(--text-muted);font-size:12px;">{{ sub.code or '—' }}</td>
+          <td>
+            <span class="badge-erp badge-info">{{ sub.class_.name if sub.class_ else 'N/A' }}</span>
+          </td>
+          <td>
+            <span class="badge-erp badge-purple" style="font-size:11px;">
+              {{ sub.subject_type.replace('_',' ').title() if sub.subject_type else 'Theory' }}
+            </span>
+          </td>
+          <td>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <a href="{{ url_for('marks.upload', subject_id=sub.id) }}"
+                 class="btn-erp btn-primary-erp btn-sm-erp"
+                 title="Upload marks for this subject">
+                <i class="fa-solid fa-upload"></i> Upload
+              </a>
+              <a href="{{ url_for('marks.class_report', class_id=sub.class_id) }}"
+                 class="btn-erp btn-outline-erp btn-sm-erp"
+                 title="View class report">
+                <i class="fa-solid fa-chart-bar"></i> Report
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+<!-- Per-exam quick links -->
+<div class="card-erp" style="margin-top:20px;">
+  <div class="card-header-erp">
+    <h5><i class="fa-solid fa-bolt" style="color:var(--accent-yellow);"></i> Quick Upload by Exam Type</h5>
+  </div>
+  <div class="card-body-erp">
+    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+      {% for sub in subjects %}
+      <div class="card-erp" style="min-width:220px;flex:1;background:rgba(59,130,246,0.04);border-color:rgba(59,130,246,0.2);">
+        <div class="card-body-erp" style="padding:14px 16px;">
+          <div style="font-weight:700;font-size:14px;margin-bottom:10px;">
+            {{ sub.name }}
+            <span style="font-size:11px;color:var(--text-muted);font-weight:400;">· {{ sub.class_.name if sub.class_ else '' }}</span>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <a href="{{ url_for('marks.upload', subject_id=sub.id, exam_type='CT1') }}"
+               class="btn-erp btn-ghost-erp btn-sm-erp">CT1</a>
+            <a href="{{ url_for('marks.upload', subject_id=sub.id, exam_type='CT2') }}"
+               class="btn-erp btn-ghost-erp btn-sm-erp">CT2</a>
+            <a href="{{ url_for('marks.upload', subject_id=sub.id, exam_type='MSE') }}"
+               class="btn-erp btn-ghost-erp btn-sm-erp">MSE</a>
+            <a href="{{ url_for('marks.upload', subject_id=sub.id, exam_type='ESE') }}"
+               class="btn-erp btn-ghost-erp btn-sm-erp">ESE</a>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% else %}
+<div class="card-erp">
+  <div class="card-body-erp">
+    <div class="empty-state">
+      <div class="empty-icon">📊</div>
+      <h6>No Subjects Assigned</h6>
+      <p>No subjects are currently assigned to you. Contact your administrator.</p>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
