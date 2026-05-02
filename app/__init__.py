@@ -181,24 +181,40 @@ def create_app(config_class=Config):
     # ── Error Handlers ───────────────────────────────────────────────────────
     @app.errorhandler(403)
     def forbidden_error(error):
-        from flask import render_template
-        # Return a proper 403 response — do NOT redirect (could cause infinite loops
-        # if the dashboard itself throws 403, and breaks API clients expecting 403 status)
+        from flask import render_template, request as req, redirect, url_for, flash, jsonify
+        from flask_login import current_user as cu
+        # API requests → return JSON 403
+        if req.path.startswith('/api/') or req.headers.get('Accept', '').startswith('application/json'):
+            return jsonify({'error': 'Forbidden', 'message': 'You do not have permission to access this resource.'}), 403
+        # Web requests → flash and redirect to dashboard
+        if cu.is_authenticated:
+            flash('You do not have permission to access that page.', 'danger')
+            return redirect(url_for('dashboard.index'))
         try:
             return render_template('errors/403.html'), 403
         except Exception:
-            # Fallback if template doesn't exist yet
             return '<h1>403 Forbidden</h1><p>You do not have access to this resource.</p>', 403
 
     @app.errorhandler(404)
     def not_found_error(error):
-        from flask import render_template
-        return render_template('errors/404.html'), 404
+        from flask import render_template, request as req, jsonify
+        if req.path.startswith('/api/'):
+            return jsonify({'error': 'Not found'}), 404
+        try:
+            return render_template('errors/404.html'), 404
+        except Exception:
+            return '<h1>404 Not Found</h1>', 404
 
     @app.errorhandler(500)
     def internal_error(error):
         db.session.rollback()  # Rollback any broken transaction
-        from flask import render_template
-        return render_template('errors/500.html'), 500
+        from flask import render_template, request as req, jsonify
+        if req.path.startswith('/api/'):
+            return jsonify({'error': 'Internal server error'}), 500
+        try:
+            return render_template('errors/500.html'), 500
+        except Exception:
+            return '<h1>500 Internal Server Error</h1><p>Something went wrong. Please try again.</p>', 500
 
     return app
+

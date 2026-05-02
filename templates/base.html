@@ -4,7 +4,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="description" content="CSMSS College ERP — Role-Based College Management System for Students, Teachers and Administration">
+  <meta name="description"
+    content="CSMSS College ERP — Role-Based College Management System for Students, Teachers and Administration">
   <title>{% block title %}Dashboard{% endblock %} | {{ college_short }} ERP</title>
 
   <!-- Preconnect -->
@@ -36,6 +37,7 @@
       gap: 10px;
       pointer-events: none;
     }
+
     .notif-toast {
       pointer-events: all;
       display: flex;
@@ -47,53 +49,163 @@
       max-width: 380px;
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
-      box-shadow: 0 8px 32px rgba(0,0,0,0.35), 0 1px 0 rgba(255,255,255,0.05) inset;
-      border: 1px solid rgba(255,255,255,0.1);
-      animation: toastIn 0.4s cubic-bezier(0.22,1,0.36,1) forwards;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255, 255, 255, 0.05) inset;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      animation: toastIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
       cursor: pointer;
     }
-    .notif-toast:hover { opacity: 0.92; }
-    .notif-toast.toast-info    { background: rgba(59,130,246,0.88); }
-    .notif-toast.toast-success { background: rgba(16,185,129,0.88); }
-    .notif-toast.toast-warning { background: rgba(245,158,11,0.88); }
-    .notif-toast.toast-danger  { background: rgba(239,68,68,0.88);  }
-    .notif-toast.toast-out     { animation: toastOut 0.35s ease forwards; }
-    .toast-icon { font-size: 20px; color: rgba(255,255,255,0.9); flex-shrink: 0; margin-top: 1px; }
-    .toast-body { flex: 1; }
-    .toast-title { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.75); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
-    .toast-msg   { font-size: 13px; color: #fff; line-height: 1.5; word-break: break-word; }
-    .toast-close { font-size: 18px; color: rgba(255,255,255,0.6); background: none; border: none; cursor: pointer; padding: 0; line-height: 1; flex-shrink: 0; }
-    .toast-close:hover { color: #fff; }
+
+    .notif-toast:hover {
+      opacity: 0.92;
+    }
+
+    .notif-toast.toast-info {
+      background: rgba(59, 130, 246, 0.88);
+    }
+
+    .notif-toast.toast-success {
+      background: rgba(16, 185, 129, 0.88);
+    }
+
+    .notif-toast.toast-warning {
+      background: rgba(245, 158, 11, 0.88);
+    }
+
+    .notif-toast.toast-danger {
+      background: rgba(239, 68, 68, 0.88);
+    }
+
+    .notif-toast.toast-out {
+      animation: toastOut 0.35s ease forwards;
+    }
+
+    .toast-icon {
+      font-size: 20px;
+      color: rgba(255, 255, 255, 0.9);
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .toast-body {
+      flex: 1;
+    }
+
+    .toast-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.75);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 3px;
+    }
+
+    .toast-msg {
+      font-size: 13px;
+      color: #fff;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .toast-close {
+      font-size: 18px;
+      color: rgba(255, 255, 255, 0.6);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .toast-close:hover {
+      color: #fff;
+    }
+
     .toast-progress {
       position: absolute;
-      bottom: 0; left: 0;
-      height: 3px; border-radius: 0 0 12px 12px;
-      background: rgba(255,255,255,0.4);
+      bottom: 0;
+      left: 0;
+      height: 3px;
+      border-radius: 0 0 12px 12px;
+      background: rgba(255, 255, 255, 0.4);
       animation: toastProgress 5s linear forwards;
     }
-    .notif-toast { position: relative; overflow: hidden; }
+
+    .notif-toast {
+      position: relative;
+      overflow: hidden;
+    }
+
     @keyframes toastIn {
-      from { opacity: 0; transform: translateX(110%); }
-      to   { opacity: 1; transform: translateX(0); }
+      from {
+        opacity: 0;
+        transform: translateX(110%);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
     }
+
     @keyframes toastOut {
-      from { opacity: 1; transform: translateX(0);    max-height: 100px; margin-bottom: 0; }
-      to   { opacity: 0; transform: translateX(110%); max-height: 0;     margin-bottom: -10px; }
+      from {
+        opacity: 1;
+        transform: translateX(0);
+        max-height: 100px;
+        margin-bottom: 0;
+      }
+
+      to {
+        opacity: 0;
+        transform: translateX(110%);
+        max-height: 0;
+        margin-bottom: -10px;
+      }
     }
+
     @keyframes toastProgress {
-      from { width: 100%; }
-      to   { width: 0%; }
+      from {
+        width: 100%;
+      }
+
+      to {
+        width: 0%;
+      }
     }
+
     /* Bell pulse animation when new notification arrives */
     @keyframes bellPulse {
-      0%,100% { transform: rotate(0);    }
-      15%      { transform: rotate(15deg);  }
-      30%      { transform: rotate(-12deg); }
-      45%      { transform: rotate(8deg);   }
-      60%      { transform: rotate(-5deg);  }
-      75%      { transform: rotate(3deg);   }
+
+      0%,
+      100% {
+        transform: rotate(0);
+      }
+
+      15% {
+        transform: rotate(15deg);
+      }
+
+      30% {
+        transform: rotate(-12deg);
+      }
+
+      45% {
+        transform: rotate(8deg);
+      }
+
+      60% {
+        transform: rotate(-5deg);
+      }
+
+      75% {
+        transform: rotate(3deg);
+      }
     }
-    .bell-ring { animation: bellPulse 0.7s ease; }
+
+    .bell-ring {
+      animation: bellPulse 0.7s ease;
+    }
   </style>
 </head>
 
@@ -135,19 +247,23 @@
     <!-- User Menu -->
     <div class="dropdown-erp" id="userDropdown">
       <div class="user-avatar-btn" data-dropdown>
-        {% if current_user.profile_pic and current_user.profile_pic != 'default.png' %}
-        {% set _pic = profile_pic_url(current_user.profile_pic) %}
-        {% if _pic %}
-        <img src="{{ _pic }}" class="user-avatar" style="object-fit:cover;">
+        {% if current_user.is_authenticated %}
+          {% if current_user.profile_pic and current_user.profile_pic != 'default.png' %}
+          {% set _pic = profile_pic_url(current_user.profile_pic) %}
+          {% if _pic %}
+          <img src="{{ _pic }}" class="user-avatar" style="object-fit:cover;">
+          {% else %}
+          <div class="user-avatar">{{ current_user.name[0].upper() }}</div>
+          {% endif %}
+          {% else %}
+          <div class="user-avatar">{{ current_user.name[0].upper() }}</div>
+          {% endif %}
         {% else %}
-        <div class="user-avatar">{{ current_user.name[0].upper() }}</div>
-        {% endif %}
-        {% else %}
-        <div class="user-avatar">{{ current_user.name[0].upper() }}</div>
+          <div class="user-avatar"><i class="fa-solid fa-user"></i></div>
         {% endif %}
         <div class="user-info">
-          <span class="user-name">{{ current_user.name.split()[0] }}</span>
-          <span class="user-role">{{ current_user.role.replace('_', ' ') }}</span>
+          <span class="user-name">{{ current_user.name.split()[0] if current_user.is_authenticated else 'Guest' }}</span>
+          <span class="user-role">{{ current_user.role.replace('_', ' ') if current_user.is_authenticated else '' }}</span>
         </div>
         <i class="fa-solid fa-chevron-down" style="font-size:10px;color:var(--text-muted);margin-left:4px;"></i>
       </div>
@@ -336,7 +452,7 @@
           <span style="color:var(--text-muted);font-weight:400;">&amp;</span>
           Pradeep Kale
         </div>
-        <div style="font-size:8px;color:var(--text-muted);margin-top:2px;">CSMSS CHH. Shahu CoE &copy; 2025</div>
+        <div style="font-size:8px;color:var(--text-muted);margin-top:2px;">CSMSS CHH. Shahu CoE &copy; 2026</div>
       </div>
     </div>
   </aside>
@@ -405,269 +521,269 @@
   <!-- Real-time notification polling -->
   <div id="notif-toast-container"></div>
   <script>
-  (function() {
-    const POLL_INTERVAL = 15000; // 15 seconds
-    const POLL_URL = '{{ url_for("notifications.unread_api") }}';
+    (function () {
+      const POLL_INTERVAL = 15000; // 15 seconds
+      const POLL_URL = '{{ url_for("notifications.unread_api") }}';
 
-    // Track by ID — never show the same notification twice
-    const shownIds = new Set();
-    // Max notification ID seen at page-load; we only toast notifications *newer* than this
-    let highWaterMark = 0;
-    let initialised = false;
+      // Track by ID — never show the same notification twice
+      const shownIds = new Set();
+      // Max notification ID seen at page-load; we only toast notifications *newer* than this
+      let highWaterMark = 0;
+      let initialised = false;
 
-    const typeIcon = {
-      info:    'fa-circle-info',
-      success: 'fa-circle-check',
-      warning: 'fa-triangle-exclamation',
-      danger:  'fa-circle-xmark',
-    };
-    const typeLabel = {
-      info:    'New Notification',
-      success: 'Success',
-      warning: 'Alert',
-      danger:  'Important',
-    };
+      const typeIcon = {
+        info: 'fa-circle-info',
+        success: 'fa-circle-check',
+        warning: 'fa-triangle-exclamation',
+        danger: 'fa-circle-xmark',
+      };
+      const typeLabel = {
+        info: 'New Notification',
+        success: 'Success',
+        warning: 'Alert',
+        danger: 'Important',
+      };
 
-    function dismissToast(el) {
-      el.classList.add('toast-out');
-      setTimeout(() => el.remove(), 360);
-    }
-
-    function showToast(notif) {
-      const container = document.getElementById('notif-toast-container');
-      const type = notif.type || 'info';
-      const icon = typeIcon[type] || 'fa-circle-info';
-      const label = typeLabel[type] || 'Notification';
-
-      const toast = document.createElement('div');
-      toast.className = `notif-toast toast-${type}`;
-
-      // Build DOM safely (no innerHTML for user content — prevents XSS)
-      const iconEl = document.createElement('i');
-      iconEl.className = `fa-solid ${icon} toast-icon`;
-
-      const bodyEl = document.createElement('div');
-      bodyEl.className = 'toast-body';
-
-      const titleEl = document.createElement('div');
-      titleEl.className = 'toast-title';
-      titleEl.textContent = label;  // safe
-
-      const msgEl = document.createElement('div');
-      msgEl.className = 'toast-msg';
-      msgEl.textContent = notif.message;  // safe — never use innerHTML for user content
-
-      bodyEl.appendChild(titleEl);
-      bodyEl.appendChild(msgEl);
-
-      const closeBtn = document.createElement('button');
-      closeBtn.className = 'toast-close';
-      closeBtn.setAttribute('aria-label', 'Close');
-      closeBtn.textContent = '×';
-
-      const progress = document.createElement('div');
-      progress.className = 'toast-progress';
-
-      toast.appendChild(iconEl);
-      toast.appendChild(bodyEl);
-      toast.appendChild(closeBtn);
-      toast.appendChild(progress);
-
-      // Click anywhere on toast → navigate to notif link
-      toast.addEventListener('click', () => {
-        if (notif.link) window.location.href = notif.link;
-        dismissToast(toast);
-      });
-      closeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        dismissToast(toast);
-      });
-
-      container.appendChild(toast);
-
-      // Auto-dismiss after 5 seconds
-      setTimeout(() => { if (toast.isConnected) dismissToast(toast); }, 5000);
-    }
-
-    function updateBadge(count) {
-      const badge = document.getElementById('notifBadge');
-      if (!badge) return;
-      if (count > 0) {
-        badge.textContent = count > 99 ? '99+' : count;
-        badge.style.display = '';
-      } else {
-        badge.style.display = 'none';
+      function dismissToast(el) {
+        el.classList.add('toast-out');
+        setTimeout(() => el.remove(), 360);
       }
-    }
 
-    function ringBell() {
-      const bell = document.getElementById('notifBell');
-      if (!bell) return;
-      bell.classList.remove('bell-ring');
-      void bell.offsetWidth; // force reflow to restart animation
-      bell.classList.add('bell-ring');
-      setTimeout(() => bell.classList.remove('bell-ring'), 800);
-    }
+      function showToast(notif) {
+        const container = document.getElementById('notif-toast-container');
+        const type = notif.type || 'info';
+        const icon = typeIcon[type] || 'fa-circle-info';
+        const label = typeLabel[type] || 'Notification';
 
-    function processResponse(data, isInit) {
-      if (!data) return;
+        const toast = document.createElement('div');
+        toast.className = `notif-toast toast-${type}`;
 
-      // Always update the badge
-      updateBadge(data.count || 0);
+        // Build DOM safely (no innerHTML for user content — prevents XSS)
+        const iconEl = document.createElement('i');
+        iconEl.className = `fa-solid ${icon} toast-icon`;
 
-      const notifications = data.notifications || [];
+        const bodyEl = document.createElement('div');
+        bodyEl.className = 'toast-body';
 
-      if (isInit) {
-        // On first load: record all current unread IDs so we don't re-toast them
-        notifications.forEach(n => {
-          shownIds.add(n.id);
-          if (n.id > highWaterMark) highWaterMark = n.id;
+        const titleEl = document.createElement('div');
+        titleEl.className = 'toast-title';
+        titleEl.textContent = label;  // safe
+
+        const msgEl = document.createElement('div');
+        msgEl.className = 'toast-msg';
+        msgEl.textContent = notif.message;  // safe — never use innerHTML for user content
+
+        bodyEl.appendChild(titleEl);
+        bodyEl.appendChild(msgEl);
+
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'toast-close';
+        closeBtn.setAttribute('aria-label', 'Close');
+        closeBtn.textContent = '×';
+
+        const progress = document.createElement('div');
+        progress.className = 'toast-progress';
+
+        toast.appendChild(iconEl);
+        toast.appendChild(bodyEl);
+        toast.appendChild(closeBtn);
+        toast.appendChild(progress);
+
+        // Click anywhere on toast → navigate to notif link
+        toast.addEventListener('click', () => {
+          if (notif.link) window.location.href = notif.link;
+          dismissToast(toast);
         });
-        initialised = true;
-        return;
+        closeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          dismissToast(toast);
+        });
+
+        container.appendChild(toast);
+
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => { if (toast.isConnected) dismissToast(toast); }, 5000);
       }
 
-      // On subsequent polls: only toast notifications we haven't seen yet
-      // AND that are newer than our high-water mark (prevents re-toasting on page reload)
-      let hasNew = false;
-      notifications.forEach(n => {
-        if (!shownIds.has(n.id) && n.id > highWaterMark) {
-          showToast(n);
-          shownIds.add(n.id);
-          if (n.id > highWaterMark) highWaterMark = n.id;
-          hasNew = true;
+      function updateBadge(count) {
+        const badge = document.getElementById('notifBadge');
+        if (!badge) return;
+        if (count > 0) {
+          badge.textContent = count > 99 ? '99+' : count;
+          badge.style.display = '';
+        } else {
+          badge.style.display = 'none';
         }
-      });
+      }
 
-      if (hasNew) ringBell();
-    }
+      function ringBell() {
+        const bell = document.getElementById('notifBell');
+        if (!bell) return;
+        bell.classList.remove('bell-ring');
+        void bell.offsetWidth; // force reflow to restart animation
+        bell.classList.add('bell-ring');
+        setTimeout(() => bell.classList.remove('bell-ring'), 800);
+      }
 
-    function poll() {
-      if (!initialised) return; // Don't poll until initial seed is done
+      function processResponse(data, isInit) {
+        if (!data) return;
+
+        // Always update the badge
+        updateBadge(data.count || 0);
+
+        const notifications = data.notifications || [];
+
+        if (isInit) {
+          // On first load: record all current unread IDs so we don't re-toast them
+          notifications.forEach(n => {
+            shownIds.add(n.id);
+            if (n.id > highWaterMark) highWaterMark = n.id;
+          });
+          initialised = true;
+          return;
+        }
+
+        // On subsequent polls: only toast notifications we haven't seen yet
+        // AND that are newer than our high-water mark (prevents re-toasting on page reload)
+        let hasNew = false;
+        notifications.forEach(n => {
+          if (!shownIds.has(n.id) && n.id > highWaterMark) {
+            showToast(n);
+            shownIds.add(n.id);
+            if (n.id > highWaterMark) highWaterMark = n.id;
+            hasNew = true;
+          }
+        });
+
+        if (hasNew) ringBell();
+      }
+
+      function poll() {
+        if (!initialised) return; // Don't poll until initial seed is done
+        fetch(POLL_URL, { credentials: 'same-origin' })
+          .then(r => r.ok ? r.json() : null)
+          .then(data => processResponse(data, false))
+          .catch(() => { /* silent fail */ });
+      }
+
+      // Seed: capture all currently-unread IDs so we don't toast them on first load
       fetch(POLL_URL, { credentials: 'same-origin' })
         .then(r => r.ok ? r.json() : null)
-        .then(data => processResponse(data, false))
-        .catch(() => { /* silent fail */ });
-    }
+        .then(data => processResponse(data, true))
+        .catch(() => { initialised = true; }); // Still mark initialised even on error
 
-    // Seed: capture all currently-unread IDs so we don't toast them on first load
-    fetch(POLL_URL, { credentials: 'same-origin' })
-      .then(r => r.ok ? r.json() : null)
-      .then(data => processResponse(data, true))
-      .catch(() => { initialised = true; }); // Still mark initialised even on error
-
-    // Start polling — stagger by 5s so first poll doesn't race with init fetch
-    setTimeout(() => setInterval(poll, POLL_INTERVAL), 5000);
-  })();
+      // Start polling — stagger by 5s so first poll doesn't race with init fetch
+      setTimeout(() => setInterval(poll, POLL_INTERVAL), 5000);
+    })();
   </script>
 
   <!-- Web Push: register service worker + subscribe for background push -->
   <script>
-  (function() {
-    const VAPID_PUBLIC_KEY = '{{ config.VAPID_PUBLIC_KEY | default("") }}';
-    const SUBSCRIBE_URL    = '{{ url_for("notifications.subscribe") }}';
-    const SITE_ORIGIN     = window.location.origin; // e.g. https://csmss-college-erp.onrender.com
+    (function () {
+      const VAPID_PUBLIC_KEY = '{{ config.VAPID_PUBLIC_KEY | default("") }}';
+      const SUBSCRIBE_URL = '{{ url_for("notifications.subscribe") }}';
+      const SITE_ORIGIN = window.location.origin; // e.g. https://csmss-college-erp.onrender.com
 
-    if (!VAPID_PUBLIC_KEY || !('serviceWorker' in navigator) || !('PushManager' in window)) {
-      console.debug('[WebPush] Browser does not support push notifications.');
-      return;
-    }
+      if (!VAPID_PUBLIC_KEY || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+        console.debug('[WebPush] Browser does not support push notifications.');
+        return;
+      }
 
-    function urlBase64ToUint8Array(base64String) {
-      const padding = '='.repeat((4 - base64String.length % 4) % 4);
-      const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-      const rawData = window.atob(base64);
-      const outputArray = new Uint8Array(rawData.length);
-      for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
-      return outputArray;
-    }
+      function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+        return outputArray;
+      }
 
-    async function saveSubscriptionToServer(sub) {
-      const payload = sub.toJSON();
-      const resp = await fetch(SUBSCRIBE_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || '',
-        },
-        credentials: 'same-origin',
-        body: JSON.stringify(payload),
-      });
-      if (!resp.ok) throw new Error(`Server returned ${resp.status}`);
-      const result = await resp.json().catch(() => ({}));
-      console.debug('[WebPush] ✅ Subscription saved to server:', result);
-      return result;
-    }
-
-    async function subscribeToPush(registration) {
-      try {
-        // Check if we already have a valid subscription
-        let sub = await registration.pushManager.getSubscription();
-
-        if (sub) {
-          // We have an existing subscription — check if it uses our current VAPID key
-          // (If VAPID key changed, getSubscription() returns null automatically)
-          console.debug('[WebPush] Existing subscription found, saving to server...');
-          await saveSubscriptionToServer(sub);
-          return;
-        }
-
-        // No subscription yet — create one
-        console.debug('[WebPush] Creating new push subscription...');
-        sub = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      async function saveSubscriptionToServer(sub) {
+        const payload = sub.toJSON();
+        const resp = await fetch(SUBSCRIBE_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || '',
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify(payload),
         });
-
-        console.debug('[WebPush] New subscription created:', sub.endpoint.slice(-20));
-        await saveSubscriptionToServer(sub);
-
-      } catch (err) {
-        console.warn('[WebPush] ❌ Subscription failed:', err.message || err);
+        if (!resp.ok) throw new Error(`Server returned ${resp.status}`);
+        const result = await resp.json().catch(() => ({}));
+        console.debug('[WebPush] ✅ Subscription saved to server:', result);
+        return result;
       }
-    }
 
-    async function initPush() {
-      try {
-        // Register (or update) the service worker
-        const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-        console.debug('[WebPush] Service Worker registered, scope:', reg.scope);
+      async function subscribeToPush(registration) {
+        try {
+          // Check if we already have a valid subscription
+          let sub = await registration.pushManager.getSubscription();
 
-        // Wait until SW is ready to control the page
-        await navigator.serviceWorker.ready;
-        console.debug('[WebPush] Service Worker is active and ready.');
-
-        // Check current permission state
-        const permission = Notification.permission;
-        console.debug('[WebPush] Notification permission:', permission);
-
-        if (permission === 'granted') {
-          await subscribeToPush(reg);
-        } else if (permission === 'default') {
-          // Ask for permission — IMPORTANT: must be triggered by user gesture in some browsers
-          // We attempt it here; if blocked, user must manually enable from browser settings
-          const result = await Notification.requestPermission();
-          console.debug('[WebPush] Permission result:', result);
-          if (result === 'granted') {
-            await subscribeToPush(reg);
-          } else {
-            console.warn('[WebPush] ⚠️ User denied notification permission.');
+          if (sub) {
+            // We have an existing subscription — check if it uses our current VAPID key
+            // (If VAPID key changed, getSubscription() returns null automatically)
+            console.debug('[WebPush] Existing subscription found, saving to server...');
+            await saveSubscriptionToServer(sub);
+            return;
           }
-        } else {
-          console.warn('[WebPush] ⚠️ Notifications are blocked by user. They must enable from browser settings.');
-        }
-      } catch (err) {
-        console.warn('[WebPush] ❌ Init failed:', err.message || err);
-      }
-    }
 
-    // Run after DOM is fully loaded
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initPush);
-    } else {
-      initPush();
-    }
-  })();
+          // No subscription yet — create one
+          console.debug('[WebPush] Creating new push subscription...');
+          sub = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+          });
+
+          console.debug('[WebPush] New subscription created:', sub.endpoint.slice(-20));
+          await saveSubscriptionToServer(sub);
+
+        } catch (err) {
+          console.warn('[WebPush] ❌ Subscription failed:', err.message || err);
+        }
+      }
+
+      async function initPush() {
+        try {
+          // Register (or update) the service worker
+          const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+          console.debug('[WebPush] Service Worker registered, scope:', reg.scope);
+
+          // Wait until SW is ready to control the page
+          await navigator.serviceWorker.ready;
+          console.debug('[WebPush] Service Worker is active and ready.');
+
+          // Check current permission state
+          const permission = Notification.permission;
+          console.debug('[WebPush] Notification permission:', permission);
+
+          if (permission === 'granted') {
+            await subscribeToPush(reg);
+          } else if (permission === 'default') {
+            // Ask for permission — IMPORTANT: must be triggered by user gesture in some browsers
+            // We attempt it here; if blocked, user must manually enable from browser settings
+            const result = await Notification.requestPermission();
+            console.debug('[WebPush] Permission result:', result);
+            if (result === 'granted') {
+              await subscribeToPush(reg);
+            } else {
+              console.warn('[WebPush] ⚠️ User denied notification permission.');
+            }
+          } else {
+            console.warn('[WebPush] ⚠️ Notifications are blocked by user. They must enable from browser settings.');
+          }
+        } catch (err) {
+          console.warn('[WebPush] ❌ Init failed:', err.message || err);
+        }
+      }
+
+      // Run after DOM is fully loaded
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initPush);
+      } else {
+        initPush();
+      }
+    })();
   </script>
   {% endif %}
 
