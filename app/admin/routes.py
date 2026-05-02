@@ -435,6 +435,7 @@ def bulk_approve_students():
     student_ids = [int(s.strip()) for s in student_ids_str.split(',') if s.strip().isdigit()]
     students = Student.query.filter(Student.id.in_(student_ids)).all()
     approved = 0
+    approved_students = []  # Track only students that were actually approved
     for student in students:
         if current_user.role == Roles.HOD:
             dept_id = _hod_dept_id()
@@ -450,9 +451,10 @@ def bulk_approve_students():
             student.approval_status = ApprovalStatus.APPROVED
             student.approved_by     = current_user.id
             student.user.status     = Status.ACTIVE
+            approved_students.append(student)
             approved += 1
 
-    # Bulk-notify newly approved students in one batch insert
+    # Bulk-notify only the students that were actually approved in this request
     from app.models import Notification
     notifs = [
         Notification(
@@ -461,8 +463,7 @@ def bulk_approve_students():
             type='success',
             link='/dashboard'
         )
-        for s in students
-        if s.approval_status == ApprovalStatus.APPROVED
+        for s in approved_students
     ]
     if notifs:
         db.session.bulk_save_objects(notifs)

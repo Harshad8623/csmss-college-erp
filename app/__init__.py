@@ -27,9 +27,15 @@ def create_app(config_class=Config):
         from flask_login import current_user
         # Only intercept authenticated users who still have default password
         if current_user.is_authenticated and getattr(current_user, 'must_change_password', False):
-            # Allow the change-password page, OTP flow, and logout — nothing else
-            allowed = ('auth.change_password', 'auth.logout', 'auth.forgot_password',
-                       'auth.verify_otp', 'auth.reset_password', 'static', 'service_worker')
+            # Allow the change-password page, auth flows, static files, SW, and API endpoints
+            allowed = (
+                'auth.change_password', 'auth.logout', 'auth.forgot_password',
+                'auth.verify_otp', 'auth.reset_password',
+                'static', 'service_worker', 'health',
+                # Notification API must work even during first-login (polling, push subscribe)
+                'notifications.unread_api', 'notifications.subscribe',
+                'notifications.unsubscribe', 'notifications.push_status',
+            )
             if request.endpoint not in allowed:
                 return redirect(url_for('auth.change_password'))
 
@@ -99,6 +105,12 @@ def create_app(config_class=Config):
     from app.notifications.routes import subscribe, unsubscribe
     csrf.exempt(subscribe)
     csrf.exempt(unsubscribe)
+
+    # ── Health check endpoint (used by Render, no auth or rate limiting) ──────
+    @app.route('/health')
+    def health():
+        from flask import jsonify
+        return jsonify({'status': 'ok', 'service': 'csmss-erp'}), 200
 
     # Inject globals into all templates
     @app.context_processor

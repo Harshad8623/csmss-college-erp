@@ -13,6 +13,8 @@ services:
         value: "0"
       - key: WEB_CONCURRENCY
         value: "2"
+      - key: SITE_URL
+        value: https://csmss-college-erp.onrender.com  # Update if your Render URL changes
       - key: SECRET_KEY
         sync: false          # Set manually in Render Dashboard
       - key: DATABASE_URL
@@ -29,10 +31,12 @@ services:
         sync: false          # Set manually in Render Dashboard (use Gmail App Password)
       - key: MAIL_DEFAULT_SENDER
         sync: false          # Set manually in Render Dashboard
+      - key: BREVO_API_KEY
+        sync: false          # Optional: Brevo API key for email (preferred over SMTP on free tier)
       - key: VAPID_PUBLIC_KEY
         sync: false          # Set manually in Render Dashboard
-      - key: VAPID_PRIVATE_KEY
-        sync: false          # Set manually in Render Dashboard
+      - key: VAPID_PRIVATE_KEY_RAW
+        sync: false          # Set manually — raw base64url EC private key (from generate_vapid.py)
       - key: VAPID_CLAIMS_EMAIL
         sync: false          # Set manually in Render Dashboard
       - key: CLOUDINARY_CLOUD_NAME
@@ -42,4 +46,4 @@ services:
       - key: CLOUDINARY_API_SECRET
         sync: false          # Set manually in Render Dashboard
     autoDeploy: true
-    healthCheckPath: /auth/login
+    healthCheckPath: /health  # Dedicated health endpoint — avoids rate-limiting on /auth/login

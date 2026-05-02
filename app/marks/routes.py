@@ -239,6 +239,7 @@ def upload_excel():
         roll_students = {s.roll_no: s for s in get_students_for_subject(subject) if s.roll_no}
         
         count = 0
+        notified_user_ids = set()  # Collect here during first loop (avoid 2nd worksheet iteration)
         for row in ws.iter_rows(min_row=2, values_only=True):
             prn = str(row[prn_idx]).strip() if prn_idx != -1 and row[prn_idx] is not None else None
             roll = str(row[roll_idx]).strip() if roll_idx != -1 and row[roll_idx] is not None else None
@@ -252,7 +253,7 @@ def upload_excel():
             try:
                 marks_float = float(marks_val)
                 max_float = float(max_val)
-            except ValueError:
+            except (ValueError, TypeError):  # TypeError: can't convert list/datetime to float
                 continue
                 
             student = students.get(prn) or roll_students.get(roll)
@@ -281,19 +282,12 @@ def upload_excel():
                           uploaded_by=current_user.id)
                 db.session.add(m)
             count += 1
+            # Collect user_id for notification (done here — avoids second ws iteration below)
+            if student.user_id:
+                notified_user_ids.add(student.user_id)
 
         # Batch notify only students whose marks were actually processed
         from app.models import Notification
-        notified_user_ids = set()
-        for row in ws.iter_rows(min_row=2, values_only=True):
-            prn  = str(row[prn_idx]).strip()  if prn_idx  != -1 and len(row) > prn_idx  and row[prn_idx]  is not None else None
-            roll = str(row[roll_idx]).strip() if roll_idx != -1 and len(row) > roll_idx and row[roll_idx] is not None else None
-            marks_val = row[marks_idx] if marks_idx != -1 and len(row) > marks_idx else None
-            if marks_val is None or str(marks_val).strip() == '':
-                continue
-            s = students.get(prn) or roll_students.get(roll)
-            if s and s.user_id:
-                notified_user_ids.add(s.user_id)
         notifs = [
             Notification(
                 user_id=uid,

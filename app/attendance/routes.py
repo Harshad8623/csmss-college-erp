@@ -523,8 +523,11 @@ def upload_excel():
             return redirect(url_for('attendance.mark', subject_id=subject_id))
 
         # Validate all dates are in a sensible range
+        # max_allowed = tomorrow UTC to handle IST (+5:30) timezone — teachers in IST
+        # can upload 'today' attendance after midnight IST (= still 'today' IST, but tomorrow UTC)
+        from datetime import timedelta
         min_allowed = date(2020, 1, 1)
-        max_allowed = date.today()
+        max_allowed = date.today() + timedelta(days=1)  # 1-day buffer for IST offset
         for dt in date_cols.values():
             if dt < min_allowed or dt > max_allowed:
                 flash(f'Date {dt} is out of allowed range (2020-01-01 to today). Please check your template.', 'danger')
