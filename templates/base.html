@@ -406,11 +406,14 @@
   <div id="notif-toast-container"></div>
   <script>
   (function() {
-    const POLL_INTERVAL = 30000; // 30 seconds
+    const POLL_INTERVAL = 15000; // 15 seconds
     const POLL_URL = '{{ url_for("notifications.unread_api") }}';
 
-    let lastKnownCount = {{ unread_notifications }};  // set from server on page load
-    let lastKnownIds = new Set();                     // track which notif IDs we've toasted
+    // Track by ID — never show the same notification twice
+    const shownIds = new Set();
+    // Max notification ID seen at page-load; we only toast notifications *newer* than this
+    let highWaterMark = 0;
+    let initialised = false;
 
     const typeIcon = {
       info:    'fa-circle-info',
@@ -484,43 +487,55 @@
       setTimeout(() => bell.classList.remove('bell-ring'), 800);
     }
 
-    function poll() {
-      fetch(POLL_URL, { credentials: 'same-origin' })
-        .then(r => r.ok ? r.json() : null)
-        .then(data => {
-          if (!data) return;
-          const newCount = data.count;
+    function processResponse(data, isInit) {
+      if (!data) return;
 
-          // Update badge
-          updateBadge(newCount);
+      // Always update the badge
+      updateBadge(data.count || 0);
 
-          // Check for genuinely new (unread) notifications we haven't shown yet
-          if (newCount > lastKnownCount) {
-            // Show toasts only for brand-new unread ones
-            (data.notifications || []).forEach(n => {
-              if (!n.is_read && !lastKnownIds.has(n.id)) {
-                showToast(n);
-                lastKnownIds.add(n.id);
-              }
-            });
-            ringBell();
-          }
+      const notifications = data.notifications || [];
 
-          // Always track which IDs we know about
-          (data.notifications || []).forEach(n => lastKnownIds.add(n.id));
-          lastKnownCount = newCount;
-        })
-        .catch(() => { /* silent fail — no internet? just retry next interval */ });
+      if (isInit) {
+        // On first load: record all current unread IDs so we don't re-toast them
+        notifications.forEach(n => {
+          shownIds.add(n.id);
+          if (n.id > highWaterMark) highWaterMark = n.id;
+        });
+        initialised = true;
+        return;
+      }
+
+      // On subsequent polls: only toast notifications we haven't seen yet
+      // AND that are newer than our high-water mark (prevents re-toasting on page reload)
+      let hasNew = false;
+      notifications.forEach(n => {
+        if (!shownIds.has(n.id) && n.id > highWaterMark) {
+          showToast(n);
+          shownIds.add(n.id);
+          if (n.id > highWaterMark) highWaterMark = n.id;
+          hasNew = true;
+        }
+      });
+
+      if (hasNew) ringBell();
     }
 
-    // Seed initial known IDs from the first poll on page load
+    function poll() {
+      if (!initialised) return; // Don't poll until initial seed is done
+      fetch(POLL_URL, { credentials: 'same-origin' })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => processResponse(data, false))
+        .catch(() => { /* silent fail */ });
+    }
+
+    // Seed: capture all currently-unread IDs so we don't toast them on first load
     fetch(POLL_URL, { credentials: 'same-origin' })
       .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data) (data.notifications || []).forEach(n => lastKnownIds.add(n.id)); })
-      .catch(() => {});
+      .then(data => processResponse(data, true))
+      .catch(() => { initialised = true; }); // Still mark initialised even on error
 
-    // Start polling
-    setInterval(poll, POLL_INTERVAL);
+    // Start polling — stagger by 5s so first poll doesn't race with init fetch
+    setTimeout(() => setInterval(poll, POLL_INTERVAL), 5000);
   })();
   </script>
 

@@ -231,25 +231,8 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
-  // ── Notification Polling ───────────────────────────────────────
-  const notifBadge = document.getElementById('notifBadge');
-  if (notifBadge) {
-    function refreshNotifCount() {
-      fetch('/notifications/api/unread')
-        .then(r => r.json())
-        .then(data => {
-          if (data.count > 0) {
-            notifBadge.textContent = data.count;
-            notifBadge.style.display = 'flex';
-          } else {
-            notifBadge.style.display = 'none';
-          }
-        })
-        .catch(() => {});
-    }
-    refreshNotifCount();
-    setInterval(refreshNotifCount, 30000); // Every 30s
-  }
+  // ── Notification Badge: updated by real-time polling in base.html ───────────
+  // (Badge updates are handled by the inline polling script in base.html)
 
   // ── Confirm Dialogs ────────────────────────────────────────────
   document.querySelectorAll('[data-confirm]').forEach(el => {

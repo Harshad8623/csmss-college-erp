@@ -32,13 +32,17 @@ def mark_read(id):
 @notifications_bp.route('/api/unread')
 @login_required
 def unread_api():
-    count = Notification.query.filter_by(user_id=current_user.id, is_read=False).count()
-    recent = Notification.query.filter_by(user_id=current_user.id)\
-        .order_by(Notification.created_at.desc()).limit(5).all()
+    """Returns unread count + up to 10 most recent UNREAD notifications for toasting."""
+    unread = Notification.query.filter_by(user_id=current_user.id, is_read=False)\
+        .order_by(Notification.created_at.desc()).limit(10).all()
+    count = len(unread)
+    # Also return the overall total unread count for the badge (may be > 10)
+    total_unread = Notification.query.filter_by(user_id=current_user.id, is_read=False).count()
     return jsonify({
-        'count': count,
+        'count': total_unread,
         'notifications': [{'id': n.id, 'message': n.message, 'type': n.type,
-                           'link': n.link, 'is_read': n.is_read} for n in recent]
+                           'link': n.link, 'is_read': False,
+                           'created_at': n.created_at.isoformat()} for n in unread]
     })
 
 @notifications_bp.route('/api/subscribe', methods=['POST'])
