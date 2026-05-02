@@ -16,18 +16,21 @@ interface MenuItem {
 }
 
 const ALL_ITEMS: MenuItem[] = [
-  { icon: 'calendar-outline',     label: 'Timetable',         route: '/(more)/timetable',          color: '#8b5cf6' },
-  { icon: 'document-text-outline',label: 'Assignments',       route: '/(more)/assignments',         color: '#f59e0b' },
-  { icon: 'walk-outline',         label: 'Leave Application', route: '/(more)/leaves',              color: '#10b981' },
-  { icon: 'alert-circle-outline', label: 'Grievances',        route: '/(more)/grievances',          color: '#ef4444' },
-  { icon: 'ribbon-outline',       label: 'Certificates',      route: '/(more)/certificates',        color: '#06b6d4' },
-  { icon: 'flask-outline',        label: 'Practicals',        route: '/(more)/sessions',            color: '#a78bfa' },
-  { icon: 'analytics-outline',    label: 'Analytics',         route: '/(more)/analytics',           color: '#3b82f6', roles: ['TEACHER', 'CLASS_TEACHER', 'HOD', 'SUPER_ADMIN'] },
-  { icon: 'people-outline',       label: 'My Students',       route: '/(more)/students',            color: '#10b981', roles: ['CLASS_TEACHER', 'TEACHER', 'HOD'] },
-  { icon: 'person-add-outline',   label: 'Pending Approvals', route: '/(more)/approvals',           color: '#f59e0b', roles: ['CLASS_TEACHER', 'HOD', 'SUPER_ADMIN'] },
-  { icon: 'settings-outline',     label: 'User Management',   route: '/(more)/admin/users',         color: '#6366f1', roles: ['HOD', 'SUPER_ADMIN'] },
-  { icon: 'person-outline',       label: 'My Profile',        route: '/(more)/profile',             color: '#ec4899' },
+  { icon: 'calendar-outline',     label: 'Timetable',          route: '/(more)/timetable',          color: '#8b5cf6' },
+  { icon: 'document-text-outline',label: 'Assignments',        route: '/(more)/assignments',         color: '#f59e0b' },
+  { icon: 'walk-outline',         label: 'Leave Application',  route: '/(more)/leaves',              color: '#10b981' },
+  { icon: 'checkmark-done',       label: 'Leave Approvals',    route: '/(more)/leave-approvals',     color: '#10b981', roles: ['TEACHER', 'CLASS_TEACHER', 'HOD', 'SUPER_ADMIN'] },
+  { icon: 'alert-circle-outline', label: 'Grievances',         route: '/(more)/grievances',          color: '#ef4444' },
+  { icon: 'ribbon-outline',       label: 'Certificates',       route: '/(more)/certificates',        color: '#06b6d4' },
+  { icon: 'flask-outline',        label: 'Practicals',         route: '/(more)/sessions',            color: '#a78bfa' },
+  { icon: 'people-outline',       label: 'Class Attendance',   route: '/(more)/class-attendance',    color: '#3b82f6', roles: ['CLASS_TEACHER', 'HOD', 'SUPER_ADMIN'] },
+  { icon: 'megaphone-outline',    label: 'Post Notice',        route: '/(more)/create-notice',       color: '#f59e0b', roles: ['TEACHER', 'CLASS_TEACHER', 'HOD', 'SUPER_ADMIN'] },
+  { icon: 'analytics-outline',    label: 'Analytics',          route: '/(more)/analytics',           color: '#3b82f6', roles: ['TEACHER', 'CLASS_TEACHER', 'HOD', 'SUPER_ADMIN'] },
+  { icon: 'person-add-outline',   label: 'Pending Approvals',  route: '/(more)/approvals',           color: '#f59e0b', roles: ['CLASS_TEACHER', 'HOD', 'SUPER_ADMIN'] },
+  { icon: 'settings-outline',     label: 'User Management',    route: '/(more)/admin/users',         color: '#6366f1', roles: ['HOD', 'SUPER_ADMIN'] },
+  { icon: 'person-outline',       label: 'My Profile',         route: '/(more)/profile',             color: '#ec4899' },
 ];
+
 
 export default function MoreTab() {
   const role = useAuthStore(s => s.user?.role ?? '');
