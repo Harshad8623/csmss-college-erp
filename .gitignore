@@ -11,7 +11,7 @@ instance/college_erp.db-shm
 instance/college_erp.db-wal
 .DS_Store
 
-# AI assistant working files — never commit
+# Dev working files — never commit
 .gemini/
 
 
@@ -22,11 +22,13 @@ static/uploads/
 .pytest_cache/
 test_app.py
 
-# One-off scripts
+# One-off and utility scripts
 seed.py
 gen_students.py
 add_timetable_batch.py
 migrate_grievance.py
+check_templates.py
+deep_audit.py
 
 # Editor / OS
 *.swp
