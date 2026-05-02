@@ -81,8 +81,8 @@ def _student_dashboard(user, today):
     # Pending assignments
     assignments = Assignment.query.join(Subject).filter(
         Subject.class_id == sp.class_id,
-        Assignment.due_date >= today
-    ).order_by(Assignment.due_date).limit(3).all()
+        Assignment.deadline >= today
+    ).order_by(Assignment.deadline).limit(3).all()
 
     # Recent marks (last 3)
     recent_marks = Marks.query.filter_by(student_id=sp.id)\
@@ -243,7 +243,7 @@ def _assign_brief(a):
         'id': a.id,
         'title': a.title,
         'subject': a.subject.name if a.subject else None,
-        'due_date': a.due_date.isoformat() if a.due_date else None,
+        'due_date': a.deadline.isoformat() if a.deadline else None,
     }
 
 def _mark_brief(m):

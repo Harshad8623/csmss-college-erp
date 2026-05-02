@@ -229,7 +229,7 @@ def list_notices():
     per_page = min(int(request.args.get('per_page', 20)), 50)
 
     from sqlalchemy import or_
-    q = Notice.query.filter_by(is_approved=True)
+    q = Notice.query.filter(Notice.status == 'approved', Notice.is_deleted == False)
 
     # Scope notices by role/class
     if user.role in (Roles.STUDENT, Roles.CR):
@@ -283,7 +283,7 @@ def create_notice():
     if not title or not content:
         return jsonify({'error': 'Title and content are required'}), 400
 
-    is_approved = user.role not in (Roles.CR,)  # CR notices need approval
+    is_approved_val = user.role not in (Roles.CR,)  # CR notices need approval
     notice = Notice(
         title=title,
         content=content,
@@ -291,22 +291,24 @@ def create_notice():
         target_role=data.get('target_role'),
         target_class_id=data.get('target_class_id'),
         is_urgent=bool(data.get('is_urgent', False)),
-        is_approved=is_approved,
+        status='approved' if is_approved_val else 'pending',
     )
     db.session.add(notice)
     db.session.commit()
 
-    msg = 'Notice posted.' if is_approved else 'Notice submitted for approval.'
+    msg = 'Notice posted.' if is_approved_val else 'Notice submitted for approval.'
     return jsonify({'message': msg, 'notice': _notice_dict(notice)}), 201
 
 
 def _notice_dict(n):
+    from app.models import User as U
+    poster = U.query.get(n.posted_by) if n.posted_by else None
     return {
         'id':        n.id,
         'title':     n.title,
         'content':   n.content,
         'is_urgent': n.is_urgent,
-        'posted_by': n.author.name if hasattr(n, 'author') and n.author else None,
+        'posted_by': poster.name if poster else None,
         'created_at': n.created_at.isoformat(),
         'target_role': getattr(n, 'target_role', None),
     }
@@ -453,7 +455,7 @@ def my_timetable():
             return jsonify({'error': 'No student profile'}), 404
         entries = Timetable.query.filter_by(
             class_id=sp.class_id, day=day
-        ).order_by(Timetable.period_no).all()
+        ).order_by(Timetable.start_time).all()
     else:
         # Teacher: timetable across all their subjects' classes
         from app.models import Subject as Sub
@@ -462,7 +464,7 @@ def my_timetable():
         entries = Timetable.query.filter(
             Timetable.class_id.in_(class_ids),
             Timetable.day == day
-        ).order_by(Timetable.class_id, Timetable.period_no).all()
+        ).order_by(Timetable.class_id, Timetable.start_time).all()
 
     days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
     return jsonify({
@@ -471,7 +473,7 @@ def my_timetable():
         'entries': [
             {
                 'id':         e.id,
-                'period':     e.period_no,
+                'period':     str(e.start_time)[:5] if e.start_time else '—',
                 'subject':    e.subject.name if e.subject else 'Free',
                 'code':       e.subject.code if e.subject else None,
                 'teacher':    e.subject.teacher_user.name if e.subject and e.subject.teacher_user else None,
@@ -512,7 +514,7 @@ def list_assignments():
         sids = [s.id for s in subjects]
         q = Assignment.query.filter(Assignment.subject_id.in_(sids)) if sids else Assignment.query.filter_by(id=0)
 
-    q = q.order_by(Assignment.due_date.desc())
+    q = q.order_by(Assignment.deadline.desc())
     pagination = q.paginate(page=page, per_page=per_page, error_out=False)
 
     sp = user.student_profile if user.role in (Roles.STUDENT, Roles.CR) else None
@@ -528,8 +530,8 @@ def list_assignments():
             'title':       a.title,
             'description': a.description,
             'subject':     a.subject.name if a.subject else None,
-            'due_date':    a.due_date.isoformat() if a.due_date else None,
-            'is_overdue':  a.due_date < date.today() if a.due_date else False,
+            'due_date':    a.deadline.isoformat() if a.deadline else None,
+            'is_overdue':  a.deadline < date.today() if a.deadline else False,
             'submitted':   submitted,
         }
 
@@ -539,16 +541,19 @@ def list_assignments():
     })
 
 
+
 # ════════════════════════════════════════════════════════════════════════════
 # LEAVES
 # ════════════════════════════════════════════════════════════════════════════
 @leaves_api_bp.route('/', methods=['GET'])
 @jwt_required()
 def list_leaves():
-    """Student: own leave applications"""
+    """Student: own leave applications. Staff: pending leaves in their scope."""
     user = get_current_api_user()
     if not user:
         return jsonify({'error': 'User not found'}), 404
+
+    role_param = request.args.get('role', '')
 
     if user.role in (Roles.STUDENT, Roles.CR):
         sp = user.student_profile
@@ -556,14 +561,21 @@ def list_leaves():
             return jsonify({'leaves': []}), 200
         leaves = LeaveApplication.query.filter_by(student_id=sp.id)\
             .order_by(LeaveApplication.created_at.desc()).limit(20).all()
-    else:
-        # TG sees their students' pending leaves
+    elif user.role == Roles.CLASS_TEACHER:
+        # CT sees ALL leaves in their class (pending + reviewed)
+        cls = Class.query.filter_by(class_teacher_id=user.id).first()
+        if not cls:
+            return jsonify({'leaves': []}), 200
         leaves = LeaveApplication.query.join(Student).filter(
-            Student.tg_id == user.id,
-            LeaveApplication.status == LeaveStatus.PENDING_TG
-        ).order_by(LeaveApplication.created_at.desc()).limit(20).all()
+            Student.class_id == cls.id
+        ).order_by(LeaveApplication.created_at.desc()).limit(50).all()
+    else:
+        # TG/HOD/ADMIN: their students' leaves
+        leaves = LeaveApplication.query.join(Student).filter(
+            Student.tg_id == user.id
+        ).order_by(LeaveApplication.created_at.desc()).limit(30).all()
 
-    return jsonify({'leaves': [_leave_dict(l) for l in leaves]})
+    return jsonify({'leaves': [_leave_dict(l, include_student=user.role not in (Roles.STUDENT, Roles.CR)) for l in leaves]})
 
 
 @leaves_api_bp.route('/apply', methods=['POST'])
@@ -587,7 +599,7 @@ def apply_leave():
 
     leave = LeaveApplication(
         student_id=sp.id,
-        leave_type=data.get('leave_type', 'multi_day'),
+        type=data.get('leave_type', 'multi_day'),
         start_date=start,
         end_date=end,
         reason=data.get('reason', '').strip()[:500],
@@ -598,16 +610,58 @@ def apply_leave():
     return jsonify({'message': 'Leave application submitted', 'leave': _leave_dict(leave)}), 201
 
 
-def _leave_dict(l):
-    return {
+@leaves_api_bp.route('/<int:leave_id>/review', methods=['POST'])
+@jwt_required()
+def review_leave(leave_id):
+    """TG/CT/HOD: approve or reject a leave application"""
+    user = get_current_api_user()
+    if not user or user.role in (Roles.STUDENT, Roles.CR):
+        return jsonify({'error': 'Staff only'}), 403
+
+    leave = LeaveApplication.query.get_or_404(leave_id)
+    data   = request.get_json(silent=True) or {}
+    action = data.get('action', '').lower()  # 'approve' or 'reject'
+
+    if action not in ('approve', 'reject'):
+        return jsonify({'error': "action must be 'approve' or 'reject'"}), 400
+
+    if action == 'approve':
+        leave.status = LeaveStatus.APPROVED
+        msg = 'Leave approved.'
+    else:
+        leave.status = LeaveStatus.REJECTED
+        msg = 'Leave rejected.'
+
+    db.session.commit()
+    return jsonify({'message': msg, 'leave': _leave_dict(leave, include_student=True)}), 200
+
+
+
+def _leave_dict(l, include_student=False):
+    # Determine combined status from tg_status and ct_status
+    if getattr(l, 'tg_status', None) == 'rejected' or getattr(l, 'ct_status', None) == 'rejected':
+        combined_status = 'REJECTED'
+    elif getattr(l, 'ct_status', None) == 'approved':
+        combined_status = 'APPROVED'
+    elif getattr(l, 'tg_status', None) == 'approved':
+        combined_status = 'PENDING_CT'
+    else:
+        combined_status = 'PENDING_TG'
+
+    d = {
         'id':         l.id,
-        'leave_type': l.leave_type,
+        'leave_type': getattr(l, 'type', 'multi_day'),
         'start_date': l.start_date.isoformat() if l.start_date else None,
         'end_date':   l.end_date.isoformat() if l.end_date else None,
         'reason':     l.reason,
-        'status':     l.status,
+        'status':     combined_status,
         'created_at': l.created_at.isoformat(),
     }
+    if include_student and l.student:
+        d['student_name'] = l.student.user.name if l.student.user else '—'
+        d['roll_no']      = l.student.roll_no
+        d['class_name']   = l.student.class_.name if l.student.class_ else '—'
+    return d
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -689,11 +743,11 @@ def list_certificates():
         .order_by(Certificate.created_at.desc()).all()
     return jsonify({'certificates': [
         {
-            'id':            c.id,
-            'type':          c.type,
-            'purpose':       getattr(c, 'purpose', None),
-            'status':        c.status,
-            'created_at':    c.created_at.isoformat(),
+            'id':         c.id,
+            'type':       c.type,
+            'purpose':    getattr(c, 'reason', None),
+            'status':     c.status,
+            'created_at': c.created_at.isoformat(),
         }
         for c in certs
     ]})
@@ -717,7 +771,7 @@ def apply_certificate():
     cert = Certificate(
         student_id=sp.id,
         type=cert_type,
-        purpose=purpose,
+        reason=purpose,
         status=ApprovalStatus.PENDING,
     )
     db.session.add(cert)
