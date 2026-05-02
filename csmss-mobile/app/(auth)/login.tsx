@@ -3,11 +3,12 @@ import { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
   KeyboardAvoidingView, Platform, ActivityIndicator, Alert,
-  StyleSheet, Image,
+  StyleSheet,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/auth.store';
+import { API_BASE } from '../../services/api';
 
 export default function LoginScreen() {
   const { login } = useAuthStore();
@@ -15,23 +16,35 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPw,   setShowPw]   = useState(false);
   const [loading,  setLoading]  = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
-      Alert.alert('Error', 'Please enter email and password');
+      setErrorMsg('Please enter email and password');
       return;
     }
+    setErrorMsg('');
     setLoading(true);
     try {
       await login(email.trim().toLowerCase(), password);
       // AuthGate in _layout.tsx handles redirect
     } catch (err: any) {
-      const msg = err?.response?.data?.error ?? 'Login failed. Please try again.';
-      Alert.alert('Login Failed', msg);
+      // Network error — cannot reach the server at all
+      if (!err.response) {
+        setErrorMsg(
+          `❌ Cannot reach server.\n\nServer URL: ${API_BASE}\n\n` +
+          `Make sure:\n1. Flask is running (python run.py)\n2. Phone & PC on same WiFi\n3. URL has correct IP`
+        );
+      } else {
+        // Server responded with an error
+        const msg = err.response.data?.error ?? `Server error ${err.response.status}`;
+        setErrorMsg(`❌ ${msg}`);
+      }
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <KeyboardAvoidingView
@@ -108,6 +121,13 @@ export default function LoginScreen() {
             <Text style={s.forgotText}>Forgot password?</Text>
           </TouchableOpacity>
 
+          {/* Error Message */}
+          {errorMsg ? (
+            <View style={s.errorBox}>
+              <Text style={s.errorText}>{errorMsg}</Text>
+            </View>
+          ) : null}
+
           {/* Login Button */}
           <TouchableOpacity
             style={[s.loginBtn, loading && s.loginBtnDisabled]}
@@ -182,4 +202,7 @@ const s = StyleSheet.create({
   footer:            { alignItems: 'center', paddingBottom: 20 },
   footerText:        { color: '#5a7499', fontSize: 12, fontWeight: '600' },
   footerSub:         { color: '#3a4d66', fontSize: 11, marginTop: 2 },
+
+  errorBox:          { backgroundColor: 'rgba(239,68,68,0.08)', borderRadius: 10, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)' },
+  errorText:         { color: '#ef4444', fontSize: 12, lineHeight: 18 },
 });

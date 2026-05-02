@@ -2,10 +2,15 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-// ── Change this to your Render URL for production ──────────────────────────
+// ── API URL Configuration ─────────────────────────────────────────────────────
+// For LOCAL testing (phone + PC on same WiFi):
+//   Use your PC's IPv4 address shown by `ipconfig` on port 5000
+// For PRODUCTION (deployed on Render):
+//   Use your Render URL
 export const API_BASE = __DEV__
-  ? 'http://192.168.1.100:5000/api/v1'    // ← Replace with your local IP when testing
+  ? 'http://10.19.218.227:5001/api/v1'    // ← Your PC's WiFi IP + Flask port
   : 'https://csmss-college-erp.onrender.com/api/v1';
+
 
 const TOKEN_KEY   = 'csmss_access_token';
 const REFRESH_KEY = 'csmss_refresh_token';
