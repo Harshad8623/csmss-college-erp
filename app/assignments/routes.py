@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
 from flask_login import login_required, current_user
-from app.extensions import db
+from app.extensions import db, limiter
 from app.models import Assignment, AssignmentSubmission, Subject, Student, Roles, ApprovalStatus, Class
 from app.utils.decorators import role_required
 from app.utils.helpers import send_notification
@@ -135,6 +135,7 @@ def create():
 @assignments_bp.route('/<int:id>/submit', methods=['POST'])
 @login_required
 @role_required(Roles.STUDENT, Roles.CR)
+@limiter.limit("5 per hour")
 def submit(id):
     assignment = Assignment.query.get_or_404(id)
     student = Student.query.filter_by(user_id=current_user.id).first()

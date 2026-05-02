@@ -9,67 +9,6 @@ from app.utils.helpers import send_notification
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
 
-@auth_bp.route('/smtp-test')
-@login_required
-def smtp_test():
-    """Admin-only SMTP diagnostic — visit /auth/smtp-test to see exact error."""
-    if current_user.role not in (Roles.SUPER_ADMIN, Roles.HOD):
-        return jsonify({'error': 'Forbidden'}), 403
-    import smtplib
-    cfg = current_app.config
-    server   = cfg.get('MAIL_SERVER', '')
-    port     = cfg.get('MAIL_PORT', 587)
-    username = cfg.get('MAIL_USERNAME', '')
-    password = cfg.get('MAIL_PASSWORD', '')
-    use_tls  = cfg.get('MAIL_USE_TLS', True)
-    result   = {
-        'MAIL_SERVER':   server,
-        'MAIL_PORT':     port,
-        'MAIL_USERNAME': username,
-        'MAIL_PASSWORD': f'{password[:4]}...{password[-2:]}' if password and len(password) > 6 else '(empty or short)',
-        'MAIL_USE_TLS':  use_tls,
-        'password_length': len(password) if password else 0,
-        'has_spaces': ' ' in (password or ''),
-    }
-    try:
-        s = smtplib.SMTP(server, port, timeout=10)
-        s.ehlo()
-        s.starttls()
-        s.ehlo()
-        s.login(username, password)
-        s.quit()
-        result['status'] = 'SUCCESS — SMTP login works!'
-    except smtplib.SMTPAuthenticationError as e:
-        result['status'] = f'AUTH FAILED — {e}'
-    except Exception as e:
-        result['status'] = f'ERROR — {type(e).__name__}: {e}'
-    # Also test Brevo API if key is configured
-    brevo_key = current_app.config.get('BREVO_API_KEY', '')
-    if brevo_key:
-        try:
-            import urllib.request, urllib.error, json as _json
-            _payload = _json.dumps({
-                "sender": {"name": "CSMSS ERP", "email": username},
-                "to": [{"email": username}],
-                "subject": "SMTP Diagnostic Test",
-                "textContent": "Test from CSMSS ERP smtp-test route."
-            }).encode('utf-8')
-            _req = urllib.request.Request(
-                "https://api.brevo.com/v3/smtp/email",
-                data=_payload,
-                headers={"accept": "application/json", "content-type": "application/json", "api-key": brevo_key},
-                method="POST"
-            )
-            with urllib.request.urlopen(_req, timeout=15) as _resp:
-                result['brevo_status'] = f'SUCCESS ({_resp.status})'
-        except urllib.error.HTTPError as e:
-            result['brevo_status'] = f'HTTP {e.code}: {e.read().decode()}'
-        except Exception as e:
-            result['brevo_status'] = f'ERROR: {e}'
-    else:
-        result['brevo_status'] = 'BREVO_API_KEY not set'
-
-    return jsonify(result)
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 @limiter.limit("10 per minute")   # Prevents brute-force at scale
@@ -224,13 +163,13 @@ def forgot_password():
 
         user = User.query.filter_by(email=email).first()
         if user:
-            import random
+            import secrets
             from datetime import datetime, timedelta
             from flask import session
             from app.utils.email_utils import send_otp_email
 
-            # Generate 6-digit OTP
-            otp_code = f"{random.randint(100000, 999999)}"
+            # Generate cryptographically secure 6-digit OTP
+            otp_code = str(secrets.randbelow(900000) + 100000)
             otp_hash = bcrypt.generate_password_hash(otp_code).decode('utf-8')
 
             # Delete existing OTP requests for this user first
