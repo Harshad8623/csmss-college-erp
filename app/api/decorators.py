@@ -19,8 +19,8 @@ def jwt_role_required(*roles):
         @wraps(fn)
         def wrapper(*args, **kwargs):
             verify_jwt_in_request()
-            identity = get_jwt_identity()
-            user = User.query.get(identity)
+            identity = get_jwt_identity()         # JWT v4 returns string
+            user = User.query.get(int(identity))  # convert back to int PK
             if not user:
                 return jsonify({'error': 'User not found'}), 404
             if user.role not in roles:
@@ -35,6 +35,7 @@ def jwt_role_required(*roles):
 
 
 def get_current_api_user():
-    """Helper to get current user from JWT identity."""
+    """Helper to get current user from JWT identity (JWT v4 returns str)."""
     identity = get_jwt_identity()
-    return User.query.get(identity)
+    return User.query.get(int(identity))
+

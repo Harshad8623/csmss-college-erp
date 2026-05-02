@@ -70,8 +70,8 @@ def login():
     if user.status == Status.PENDING:
         return jsonify({'error': 'Account pending approval. Please wait for admin activation.'}), 403
 
-    access_token  = create_access_token(identity=user.id)
-    refresh_token = create_refresh_token(identity=user.id)
+    access_token  = create_access_token(identity=str(user.id))
+    refresh_token = create_refresh_token(identity=str(user.id))
 
     # Build user profile payload
     profile = _build_user_profile(user)
@@ -95,7 +95,7 @@ def refresh():
       200:
         description: New access token
     """
-    identity     = get_jwt_identity()
+    identity     = get_jwt_identity()        # str in JWT v4
     access_token = create_access_token(identity=identity)
     return jsonify({'access_token': access_token}), 200
 
