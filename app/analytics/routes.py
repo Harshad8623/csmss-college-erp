@@ -358,10 +358,15 @@ def hod_lecture_today():
         return jsonify({'error': 'unauthorized'}), 403
     sids = [s.id for s in Student.query.filter_by(class_id=class_id).all()]
     recs = Attendance.query.filter(Attendance.student_id.in_(sids), Attendance.date == date.today()).all()
+    # Pre-fetch subject names to avoid lazy-load N+1 inside loop
+    subject_ids = list({r.subject_id for r in recs})
+    subj_name_map = {
+        s.id: s.name for s in Subject.query.filter(Subject.id.in_(subject_ids)).all()
+    } if subject_ids else {}
     subj_map = {}
     for r in recs:
         k = r.subject_id
-        if k not in subj_map: subj_map[k] = {'p': 0, 'a': 0, 'name': r.subject.name if r.subject else str(k)}
+        if k not in subj_map: subj_map[k] = {'p': 0, 'a': 0, 'name': subj_name_map.get(k, str(k))}
         if r.status: subj_map[k]['p'] += 1
         else: subj_map[k]['a'] += 1
     return jsonify({'labels': [v['name'] for v in subj_map.values()],
@@ -421,9 +426,20 @@ def ct_student_list():
     cls = _ct_class()
     if not cls: return jsonify({'labels': [], 'data': [], 'students': []})
     students = Student.query.filter_by(class_id=cls.id, approval_status=ApprovalStatus.APPROVED).order_by(Student.roll_no).all()
+    sids = [s.id for s in students]
     labels, data, student_info = [], [], []
+    # Bulk aggregate to avoid N+1 s.attendance_percentage() calls
+    stats = db.session.query(
+        Attendance.student_id,
+        func.count(Attendance.id).label('total'),
+        func.sum(db.case((Attendance.status == True, 1), else_=0)).label('present')
+    ).filter(Attendance.student_id.in_(sids)).group_by(Attendance.student_id).all() if sids else []
+    pct_map = {
+        r.student_id: round((r.present or 0) / r.total * 100, 2) if r.total > 0 else 0
+        for r in stats
+    }
     for s in students:
-        pct = s.attendance_percentage()
+        pct = pct_map.get(s.id, 0)
         labels.append(s.user.name if s.user else 'N/A')
         data.append(pct)
         student_info.append({'name': s.user.name if s.user else 'N/A', 'roll': s.roll_no, 'pct': pct, 'defaulter': pct < 75})
@@ -455,8 +471,13 @@ def tg_summary():
     sids = get_tg_student_ids(current_user.id)
     if not sids: return jsonify({'total': 0, 'present': 0, 'absent': 0, 'defaulters': 0, 'avg_pct': 0})
     p, a, _ = _today_counts(sids)
-    students = Student.query.filter(Student.id.in_(sids)).all()
-    def_count = sum(1 for s in students if s.attendance_percentage() < 75)
+    # Bulk SQL aggregate — replaces N+1 s.attendance_percentage() loop
+    stats = db.session.query(
+        Attendance.student_id,
+        func.count(Attendance.id).label('total'),
+        func.sum(db.case((Attendance.status == True, 1), else_=0)).label('present')
+    ).filter(Attendance.student_id.in_(sids)).group_by(Attendance.student_id).all()
+    def_count = sum(1 for r in stats if r.total > 0 and (r.present or 0) / r.total * 100 < 75)
     pct = _att_pct(sids)
     return jsonify({'total': len(sids), 'present': p, 'absent': a, 'defaulters': def_count, 'avg_pct': pct})
 
@@ -467,8 +488,18 @@ def tg_student_attendance():
     if not sids: return jsonify({'labels': [], 'data': [], 'students': []})
     students = Student.query.filter(Student.id.in_(sids)).all()
     labels, data, info = [], [], []
+    # Bulk aggregate — replaces N+1 s.attendance_percentage() calls
+    stats = db.session.query(
+        Attendance.student_id,
+        func.count(Attendance.id).label('total'),
+        func.sum(db.case((Attendance.status == True, 1), else_=0)).label('present')
+    ).filter(Attendance.student_id.in_(sids)).group_by(Attendance.student_id).all()
+    pct_map = {
+        r.student_id: round((r.present or 0) / r.total * 100, 2) if r.total > 0 else 0
+        for r in stats
+    }
     for s in students:
-        pct = s.attendance_percentage()
+        pct  = pct_map.get(s.id, 0)
         name = s.user.name if s.user else 'N/A'
         labels.append(name); data.append(pct)
         info.append({'name': name, 'roll': s.roll_no, 'pct': pct, 'defaulter': pct < 75})
@@ -510,7 +541,16 @@ def subject_summary():
     sids = [s.id for s in students]
     lectures = Attendance.query.filter(Attendance.subject_id==subj_id).with_entities(Attendance.date).distinct().count()
     pct = _att_pct(sids, subject_id=subj_id)
-    def_count = sum(1 for s in students if s.attendance_percentage(subject_id=subj_id) < 75)
+    # Bulk aggregate per subject — replaces N+1 s.attendance_percentage(subject_id=subj_id) calls
+    stats = db.session.query(
+        Attendance.student_id,
+        func.count(Attendance.id).label('total'),
+        func.sum(db.case((Attendance.status == True, 1), else_=0)).label('present')
+    ).filter(
+        Attendance.student_id.in_(sids),
+        Attendance.subject_id == subj_id
+    ).group_by(Attendance.student_id).all() if sids else []
+    def_count = sum(1 for r in stats if r.total > 0 and (r.present or 0) / r.total * 100 < 75)
     return jsonify({'total': len(students), 'avg_pct': pct, 'defaulters': def_count, 'lectures': lectures})
 
 @analytics_bp.route('/api/subject/student-attendance')
@@ -522,9 +562,23 @@ def subject_student_attendance():
     if subj.teacher_id != current_user.id and current_user.role not in [Roles.HOD, Roles.SUPER_ADMIN]:
         return jsonify({'error': 'unauthorized'}), 403
     students = get_students_for_subject(subj)
+    sids = [s.id for s in students]
     labels, data, info = [], [], []
+    # Bulk aggregate per subject — replaces N+1 s.attendance_percentage(subject_id=subj_id) calls
+    stats = db.session.query(
+        Attendance.student_id,
+        func.count(Attendance.id).label('total'),
+        func.sum(db.case((Attendance.status == True, 1), else_=0)).label('present')
+    ).filter(
+        Attendance.student_id.in_(sids),
+        Attendance.subject_id == subj_id
+    ).group_by(Attendance.student_id).all() if sids else []
+    pct_map = {
+        r.student_id: round((r.present or 0) / r.total * 100, 2) if r.total > 0 else 0
+        for r in stats
+    }
     for s in students:
-        pct = s.attendance_percentage(subject_id=subj_id)
+        pct = pct_map.get(s.id, 0)
         name = s.user.name if s.user else 'N/A'
         labels.append(name); data.append(pct)
         info.append({'name': name, 'roll': s.roll_no, 'pct': pct, 'defaulter': pct < 75})
@@ -550,13 +604,19 @@ def subject_trend():
         if not cls or cls.department_id != dept_id:
             return jsonify({'error': 'unauthorized'}), 403
     today = date.today()
-    labels, data = [], []
-    for i in range(29, -1, -1):
-        d = today - timedelta(days=i)
-        total = Attendance.query.filter_by(subject_id=subj_id, date=d).count()
-        if total == 0: continue
-        present = Attendance.query.filter_by(subject_id=subj_id, date=d, status=True).count()
-        labels.append(d.strftime('%d %b')); data.append(present)
+    start = today - timedelta(days=29)
+    # Single GROUP BY query instead of 60 sequential COUNT queries (2 per day × 30 days)
+    rows = db.session.query(
+        Attendance.date,
+        func.sum(db.case((Attendance.status == True, 1), else_=0)).label('present'),
+        func.count(Attendance.id).label('total')
+    ).filter(
+        Attendance.subject_id == subj_id,
+        Attendance.date >= start,
+        Attendance.date <= today
+    ).group_by(Attendance.date).order_by(Attendance.date).all()
+    labels = [r.date.strftime('%d %b') for r in rows if r.total > 0]
+    data   = [int(r.present or 0) for r in rows if r.total > 0]
     return jsonify({'labels': labels, 'data': data})
 
 # Legacy endpoints kept for backward compatibility
@@ -573,8 +633,19 @@ def defaulters():
     classes = Class.query.all()
     labels, counts = [], []
     for c in classes:
-        students = Student.query.filter_by(class_id=c.id, approval_status=ApprovalStatus.APPROVED).all()
-        dc = sum(1 for s in students if s.attendance_percentage() < 75)
+        sids = [s.id for s in Student.query.filter_by(
+            class_id=c.id, approval_status=ApprovalStatus.APPROVED
+        ).with_entities(Student.id).all()]
+        if not sids:
+            labels.append(c.name); counts.append(0)
+            continue
+        # Bulk SQL aggregate — replaces N+1 s.attendance_percentage() per student
+        stats = db.session.query(
+            Attendance.student_id,
+            func.count(Attendance.id).label('total'),
+            func.sum(db.case((Attendance.status == True, 1), else_=0)).label('present')
+        ).filter(Attendance.student_id.in_(sids)).group_by(Attendance.student_id).all()
+        dc = sum(1 for r in stats if r.total > 0 and (r.present or 0) / r.total * 100 < 75)
         labels.append(c.name); counts.append(dc)
     return jsonify({'labels': labels, 'data': counts})
 
