@@ -1,6 +1,6 @@
 from flask import Flask, session, redirect, url_for, request
 from config import Config
-from app.extensions import db, login_manager, bcrypt, migrate, cache, limiter, csrf
+from app.extensions import db, login_manager, bcrypt, migrate, cache, limiter, csrf, jwt
 import os
 
 def create_app(config_class=Config):
@@ -15,6 +15,17 @@ def create_app(config_class=Config):
     cache.init_app(app)
     limiter.init_app(app)
     csrf.init_app(app)
+    jwt.init_app(app)
+
+    # Exempt all /api/v1/ routes from CSRF (they use JWT Bearer tokens)
+    csrf.exempt_views = getattr(csrf, 'exempt_views', set())
+    @app.after_request
+    def _cors_api(response):
+        if request.path.startswith('/api/'):
+            response.headers['Access-Control-Allow-Origin']  = '*'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
+        return response
 
     # ── Session: make permanent so PERMANENT_SESSION_LIFETIME applies ────────
     @app.before_request
@@ -87,6 +98,24 @@ def create_app(config_class=Config):
     app.register_blueprint(notifications_bp)
     app.register_blueprint(leaves_bp)
     app.register_blueprint(sessions_bp)
+
+    # ── Mobile REST API (/api/v1/) ────────────────────────────────────────────
+    from app.api import register_api
+    from app.api.v1.auth       import auth_api_bp
+    from app.api.v1.dashboard  import dashboard_api_bp
+    from app.api.v1.attendance import attendance_api_bp
+    from app.api.v1.resources  import (
+        marks_api_bp, notices_api_bp, notifications_api_bp,
+        timetable_api_bp, assignments_api_bp, leaves_api_bp,
+        grievances_api_bp, certificates_api_bp
+    )
+    # Exempt all API blueprints from CSRF (they use JWT Bearer tokens instead)
+    for bp in [auth_api_bp, dashboard_api_bp, attendance_api_bp,
+               marks_api_bp, notices_api_bp, notifications_api_bp,
+               timetable_api_bp, assignments_api_bp, leaves_api_bp,
+               grievances_api_bp, certificates_api_bp]:
+        csrf.exempt(bp)
+    register_api(app)
 
     # ── Service Worker: must be served from root with Service-Worker-Allowed header ──
     # Without this, Chrome blocks the SW from controlling pages outside /static/

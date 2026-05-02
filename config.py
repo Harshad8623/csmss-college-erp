@@ -87,6 +87,16 @@ class Config:
     WTF_CSRF_ENABLED      = True
     WTF_CSRF_TIME_LIMIT   = 3600   # CSRF token expires in 1 hour
 
+    # ── JWT (Mobile API) ──────────────────────────────────────────────────────
+    # Separate secret from web SECRET_KEY for better isolation
+    JWT_SECRET_KEY          = os.environ.get('JWT_SECRET_KEY') or \
+                              os.environ.get('SECRET_KEY') or 'jwt-dev-key-DO-NOT-USE-IN-PROD'
+    from datetime import timedelta
+    JWT_ACCESS_TOKEN_EXPIRES  = timedelta(hours=24)     # Mobile stays logged in 24h
+    JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)      # Refresh token lasts 30 days
+    JWT_ALGORITHM             = 'HS256'
+
+
     # ── Session Security ──────────────────────────────────────────────────────
     from datetime import timedelta
     PERMANENT_SESSION_LIFETIME = timedelta(hours=8)   # Auto-logout after 8h
