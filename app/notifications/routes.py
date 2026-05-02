@@ -35,8 +35,6 @@ def unread_api():
     """Returns unread count + up to 10 most recent UNREAD notifications for toasting."""
     unread = Notification.query.filter_by(user_id=current_user.id, is_read=False)\
         .order_by(Notification.created_at.desc()).limit(10).all()
-    count = len(unread)
-    # Also return the overall total unread count for the badge (may be > 10)
     total_unread = Notification.query.filter_by(user_id=current_user.id, is_read=False).count()
     return jsonify({
         'count': total_unread,

@@ -441,22 +441,44 @@
 
       const toast = document.createElement('div');
       toast.className = `notif-toast toast-${type}`;
-      toast.innerHTML = `
-        <i class="fa-solid ${icon} toast-icon"></i>
-        <div class="toast-body">
-          <div class="toast-title">${label}</div>
-          <div class="toast-msg">${notif.message}</div>
-        </div>
-        <button class="toast-close" aria-label="Close">&times;</button>
-        <div class="toast-progress"></div>
-      `;
+
+      // Build DOM safely (no innerHTML for user content — prevents XSS)
+      const iconEl = document.createElement('i');
+      iconEl.className = `fa-solid ${icon} toast-icon`;
+
+      const bodyEl = document.createElement('div');
+      bodyEl.className = 'toast-body';
+
+      const titleEl = document.createElement('div');
+      titleEl.className = 'toast-title';
+      titleEl.textContent = label;  // safe
+
+      const msgEl = document.createElement('div');
+      msgEl.className = 'toast-msg';
+      msgEl.textContent = notif.message;  // safe — never use innerHTML for user content
+
+      bodyEl.appendChild(titleEl);
+      bodyEl.appendChild(msgEl);
+
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'toast-close';
+      closeBtn.setAttribute('aria-label', 'Close');
+      closeBtn.textContent = '×';
+
+      const progress = document.createElement('div');
+      progress.className = 'toast-progress';
+
+      toast.appendChild(iconEl);
+      toast.appendChild(bodyEl);
+      toast.appendChild(closeBtn);
+      toast.appendChild(progress);
 
       // Click anywhere on toast → navigate to notif link
       toast.addEventListener('click', () => {
         if (notif.link) window.location.href = notif.link;
         dismissToast(toast);
       });
-      toast.querySelector('.toast-close').addEventListener('click', (e) => {
+      closeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         dismissToast(toast);
       });

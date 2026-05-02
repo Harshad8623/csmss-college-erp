@@ -102,8 +102,37 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 // ── Push subscription change: re-subscribe automatically ─────────────────────
-// Fires when the push server invalidates our subscription (e.g. key rotation)
+// Fires when the browser invalidates our subscription (e.g. push server rotates keys)
+// IMPORTANT: we must re-subscribe HERE — the page is not open when this fires.
 self.addEventListener('pushsubscriptionchange', (event) => {
-  console.log('[SW] Push subscription changed — will re-subscribe on next page load');
-  // The browser will call initPush() on next page load which handles re-subscription
+  console.log('[SW] pushsubscriptionchange fired — re-subscribing...');
+
+  const SITE_URL_BASE = self.registration.scope.replace(/\/$/, '');
+
+  event.waitUntil(
+    (async () => {
+      try {
+        // Re-subscribe with the same application server key as before
+        const appServerKey = event.oldSubscription
+          ? event.oldSubscription.options.applicationServerKey
+          : null;
+
+        const newSub = await self.registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          ...(appServerKey ? { applicationServerKey: appServerKey } : {}),
+        });
+
+        // POST the new subscription to our server
+        await fetch(SITE_URL_BASE + '/notifications/api/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newSub.toJSON()),
+          credentials: 'include',
+        });
+        console.log('[SW] Re-subscribed successfully after pushsubscriptionchange');
+      } catch (err) {
+        console.error('[SW] Failed to re-subscribe after pushsubscriptionchange:', err);
+      }
+    })()
+  );
 });

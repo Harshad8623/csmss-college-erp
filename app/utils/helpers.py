@@ -103,19 +103,25 @@ def send_notification(user_id, message, notif_type='info', link=None):
     except Exception as e:
         logger.warning(f"[Notification] Failed to queue notification for user {user_id}: {e}")
 
-    # Fire Web Push in a background thread — never blocks the request
+    # Fire Web Push in a background thread — only if user has push subscriptions
     try:
         import threading
         from flask import current_app
-        app = current_app._get_current_object()
-        # Capture values for the closure explicitly to avoid late-binding issues
-        _uid, _msg, _type, _link = user_id, message, notif_type, link
+        from app.models import PushSubscription
+        # Fast check: only spawn thread if user actually has subscriptions registered
+        has_subs = db.session.query(
+            db.exists().where(PushSubscription.user_id == user_id)
+        ).scalar()
+        if has_subs:
+            app = current_app._get_current_object()
+            # Capture values for the closure explicitly to avoid late-binding issues
+            _uid, _msg, _type, _link = user_id, message, notif_type, link
 
-        def _push_worker():
-            with app.app_context():
-                _fire_web_push(_uid, _msg, _type, _link)
+            def _push_worker():
+                with app.app_context():
+                    _fire_web_push(_uid, _msg, _type, _link)
 
-        threading.Thread(target=_push_worker, daemon=True).start()
+            threading.Thread(target=_push_worker, daemon=True).start()
     except Exception:
         pass  # Web push is best-effort
 
