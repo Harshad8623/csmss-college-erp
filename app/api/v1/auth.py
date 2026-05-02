@@ -220,6 +220,49 @@ def change_password():
     return jsonify({'message': 'Password changed successfully'}), 200
 
 
+@auth_api_bp.route('/forgot-password-api', methods=['POST'])
+def forgot_password_api():
+    """
+    Mobile forgot password — sends OTP email
+    ---
+    tags: [Auth]
+    parameters:
+      - in: body
+        name: body
+        schema:
+          required: [email]
+          properties:
+            email: {type: string}
+    responses:
+      200:
+        description: OTP sent (or silently skipped if email not found)
+    """
+    import secrets
+    from datetime import datetime, timedelta
+    from app.models import OTPRequest
+    from app.utils.email_utils import send_otp_email
+
+    data  = request.get_json(silent=True) or {}
+    email = (data.get('email') or '').strip().lower()
+    if not email:
+        return jsonify({'error': 'Email is required'}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if user:
+        otp_code = str(secrets.randbelow(900000) + 100000)
+        otp_hash = bcrypt.generate_password_hash(otp_code).decode('utf-8')
+        OTPRequest.query.filter_by(user_id=user.id).delete()
+        expires_at = datetime.utcnow() + timedelta(minutes=10)
+        db.session.add(OTPRequest(user_id=user.id, otp_hash=otp_hash, expires_at=expires_at))
+        db.session.commit()
+        send_otp_email(user.email, otp_code, user.name)
+
+    # Always return same message (don't reveal if email exists)
+    return jsonify({'message': 'If your email is registered, an OTP has been sent.'}), 200
+
+
+
+
 # ── Internal helper ──────────────────────────────────────────────────────────
 def _build_user_profile(user):
     """Build a consistent user profile dict for API responses."""
