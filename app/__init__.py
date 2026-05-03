@@ -1,6 +1,6 @@
 from flask import Flask, session, redirect, url_for, request
 from config import Config
-from app.extensions import db, login_manager, bcrypt, migrate, cache, limiter, csrf, jwt
+from app.extensions import db, login_manager, bcrypt, migrate, cache, limiter, csrf, jwt, compress
 import os
 
 def create_app(config_class=Config):
@@ -16,6 +16,11 @@ def create_app(config_class=Config):
     limiter.init_app(app)
     csrf.init_app(app)
     jwt.init_app(app)
+    compress.init_app(app)  # gzip/brotli compress all HTML/JSON responses
+
+    # Fix client IP when behind Render/Nginx reverse proxy (needed for rate limiting)
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
     # Exempt all /api/v1/ routes from CSRF (they use JWT Bearer tokens)
     csrf.exempt_views = getattr(csrf, 'exempt_views', set())
@@ -164,12 +169,17 @@ def create_app(config_class=Config):
         unread = 0
         if current_user.is_authenticated and not request.path.startswith('/static'):
             from app.models import Notification
-            unread = db.session.query(
-                db.func.count(Notification.id)
-            ).filter(
-                Notification.user_id == current_user.id,
-                Notification.is_read == False
-            ).scalar() or 0
+            # Cache per-user unread count for 30s — runs on every page load
+            _ck = f'unread_notif_{current_user.id}'
+            unread = cache.get(_ck)
+            if unread is None:
+                unread = db.session.query(
+                    db.func.count(Notification.id)
+                ).filter(
+                    Notification.user_id == current_user.id,
+                    Notification.is_read == False
+                ).scalar() or 0
+                cache.set(_ck, unread, timeout=30)
         return dict(
             college_name=app.config['COLLEGE_NAME'],
             college_short=app.config['COLLEGE_SHORT'],

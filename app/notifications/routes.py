@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, jsonify, request
 from flask_login import login_required, current_user
 from app.models import Notification, PushSubscription
-from app.extensions import db
+from app.extensions import db, cache
 
 notifications_bp = Blueprint('notifications', __name__, url_prefix='/notifications')
 
@@ -15,6 +15,7 @@ def index():
         Notification.query.filter(Notification.id.in_(shown_ids))\
             .update({'is_read': True}, synchronize_session=False)
         db.session.commit()
+        cache.delete(f'unread_notif_{current_user.id}')  # refresh bell badge
     return render_template('notifications/index.html', notifications=notifications)
 
 @notifications_bp.route('/mark-read/<int:id>', methods=['POST'])
@@ -24,6 +25,7 @@ def mark_read(id):
     if n.user_id == current_user.id:
         n.is_read = True
         db.session.commit()
+        cache.delete(f'unread_notif_{current_user.id}')  # refresh bell badge
     target = n.link or url_for('dashboard.index')
     if target.startswith('http') or target.startswith('//'):
         target = url_for('dashboard.index')

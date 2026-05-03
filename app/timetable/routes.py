@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
-from app.extensions import db
+from app.extensions import db, cache
 from app.models import Timetable, Class, Subject, Roles, Student
 from app.utils.decorators import role_required
 from datetime import datetime
@@ -141,7 +141,12 @@ def index():
         except (ValueError, TypeError):
             class_id = None
         selected_class = Class.query.get(class_id)
-        entries = Timetable.query.filter_by(class_id=class_id).all()
+        # Cache timetable per class for 10 minutes — timetable rarely changes
+        cache_key = f'timetable_class_{class_id}'
+        entries = cache.get(cache_key)
+        if entries is None:
+            entries = Timetable.query.filter_by(class_id=class_id).all()
+            cache.set(cache_key, entries, timeout=600)
         for day in DAYS:
             day_entries = sorted(
                 [e for e in entries if e.day == day],
@@ -226,6 +231,7 @@ def manage():
                           entry_type=entry_type, batch=batch)
         db.session.add(entry)
         db.session.commit()
+        cache.delete(f'timetable_class_{class_id}')  # invalidate cached timetable
         flash('Timetable entry added!', 'success')
         return redirect(url_for('timetable.manage', class_id=class_id))
 
@@ -262,6 +268,7 @@ def edit(id):
     batch = request.form.get('batch', '').strip() or None
     entry.batch = batch if entry.entry_type == 'practical' else None
     db.session.commit()
+    cache.delete(f'timetable_class_{class_id}')  # invalidate cached timetable
     flash('Timetable entry updated!', 'success')
     return redirect(url_for('timetable.manage', class_id=class_id))
 

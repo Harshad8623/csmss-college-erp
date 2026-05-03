@@ -56,6 +56,19 @@ class Config:
     RATELIMIT_DEFAULT          = '200 per minute'
     RATELIMIT_HEADERS_ENABLED  = True
 
+    # ── Flask-Compress (gzip/brotli for all HTML, JSON, CSS, JS) ─────────────
+    COMPRESS_REGISTER          = True
+    COMPRESS_LEVEL             = 6        # gzip level 6 = best speed/size balance
+    COMPRESS_MIN_SIZE          = 500      # Only compress responses > 500 bytes
+    COMPRESS_MIMETYPES         = [
+        'text/html', 'text/css', 'application/json',
+        'application/javascript', 'text/javascript',
+        'text/xml', 'application/xml',
+    ]
+
+    # ── Performance: disable SQLAlchemy overhead in production ────────────────
+    SQLALCHEMY_RECORD_QUERIES  = False
+
     # ── General ───────────────────────────────────────────────────────────────
     UPLOAD_FOLDER         = os.environ.get('UPLOAD_FOLDER', 'static/uploads')
     MAX_CONTENT_LENGTH    = 16 * 1024 * 1024  # 16 MB
