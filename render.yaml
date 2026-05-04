@@ -4,7 +4,7 @@ services:
     runtime: python
     region: singapore
     plan: starter
-    buildCommand: "pip install -r requirements.txt && flask db upgrade"
+    buildCommand: "pip install -r requirements.txt && flask db stamp bba8d69cd7a5 && flask db upgrade"
     startCommand: "gunicorn -c gunicorn.conf.py run:app"
     envVars:
       - key: FLASK_ENV
