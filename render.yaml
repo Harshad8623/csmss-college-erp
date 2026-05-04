@@ -4,8 +4,8 @@ services:
     runtime: python
     region: singapore
     plan: starter
-    buildCommand: "pip install -r requirements.txt && python fix_db_migration.py && flask db upgrade"
-    startCommand: "gunicorn -c gunicorn.conf.py run:app"
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python fix_db_migration.py && flask db upgrade && gunicorn -c gunicorn.conf.py run:app"
     envVars:
       - key: FLASK_ENV
         value: production
