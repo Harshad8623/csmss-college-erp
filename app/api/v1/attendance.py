@@ -8,8 +8,7 @@ GET  /api/v1/attendance/report/<class_id> → CT/HOD: class attendance report
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 from sqlalchemy import func, cast, Integer
-from datetime import date, datetime
-import pytz
+from datetime import date, datetime, timezone, timedelta
 
 from app.extensions import db
 from app.models import (
@@ -20,11 +19,12 @@ from app.api.decorators import get_current_api_user, jwt_role_required
 
 attendance_api_bp = Blueprint('attendance_api', __name__)
 
-IST = pytz.timezone('Asia/Kolkata')
+# IST = UTC+5:30 — use stdlib only, no pytz dependency
+_IST = timezone(timedelta(hours=5, minutes=30))
 
 
 def _today_ist():
-    return datetime.now(IST).date()
+    return datetime.now(_IST).date()
 
 
 @attendance_api_bp.route('/my', methods=['GET'])
