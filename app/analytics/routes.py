@@ -452,10 +452,15 @@ def ct_lecture_today():
     if not cls: return jsonify({'labels': [], 'present': [], 'absent': []})
     sids = [s.id for s in Student.query.filter_by(class_id=cls.id).all()]
     recs = Attendance.query.filter(Attendance.student_id.in_(sids), Attendance.date == date.today()).all()
+    # Pre-fetch subject names to avoid lazy-load N+1 inside loop
+    subject_ids = list({r.subject_id for r in recs})
+    subj_name_map = {
+        s.id: s.name for s in Subject.query.filter(Subject.id.in_(subject_ids)).all()
+    } if subject_ids else {}
     subj_map = {}
     for r in recs:
         k = r.subject_id
-        if k not in subj_map: subj_map[k] = {'p': 0, 'a': 0, 'name': r.subject.name if r.subject else str(k)}
+        if k not in subj_map: subj_map[k] = {'p': 0, 'a': 0, 'name': subj_name_map.get(k, str(k))}
         if r.status: subj_map[k]['p'] += 1
         else: subj_map[k]['a'] += 1
     return jsonify({'labels': [v['name'] for v in subj_map.values()],
@@ -519,11 +524,27 @@ def tg_subject_breakdown(student_id):
     allowed = get_tg_student_ids(current_user.id)
     if student_id not in allowed: return jsonify({'error': 'unauthorized'}), 403
     student = Student.query.get_or_404(student_id)
-    subjects = Subject.query.filter_by(class_id=student.class_id).all()
-    labels, data = [], []
-    for subj in subjects:
-        pct = student.attendance_percentage(subject_id=subj.id)
-        labels.append(subj.name); data.append(pct)
+    subjects = Subject.query.filter_by(
+        class_id=student.class_id,
+        count_in_attendance=True
+    ).all()
+    sids = [student.id]
+    subj_ids = [s.id for s in subjects]
+    # Single bulk query instead of N+1 attendance_percentage(subject_id=...) per subject
+    stats = db.session.query(
+        Attendance.subject_id,
+        func.count(Attendance.id).label('total'),
+        func.sum(db.case((Attendance.status == True, 1), else_=0)).label('present')
+    ).filter(
+        Attendance.student_id == student.id,
+        Attendance.subject_id.in_(subj_ids)
+    ).group_by(Attendance.subject_id).all() if subj_ids else []
+    pct_map = {
+        r.subject_id: round((r.present or 0) / r.total * 100, 2) if r.total > 0 else 0
+        for r in stats
+    }
+    labels = [s.name for s in subjects]
+    data   = [pct_map.get(s.id, 0) for s in subjects]
     return jsonify({'labels': labels, 'data': data, 'student': student.user.name if student.user else ''})
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -628,7 +649,8 @@ def attendance_overview():
 @analytics_bp.route('/api/defaulters')
 @login_required
 def defaulters():
-    if current_user.role not in STAFF_ROLES:
+    # Scoped: only SUPER_ADMIN gets college-wide defaulter data
+    if current_user.role != Roles.SUPER_ADMIN:
         return jsonify({'error': 'unauthorized'}), 403
     classes = Class.query.all()
     labels, counts = [], []
@@ -652,16 +674,27 @@ def defaulters():
 @analytics_bp.route('/api/attendance-trend')
 @login_required
 def attendance_trend():
-    if current_user.role not in STAFF_ROLES:
+    # Scoped: only SUPER_ADMIN sees college-wide trend via this legacy endpoint
+    if current_user.role != Roles.SUPER_ADMIN:
         return jsonify({'error': 'unauthorized'}), 403
     today = date.today()
+    start = today - timedelta(days=29)
+    # Single GROUP BY query — replaces 60 sequential COUNT queries (2 per day * 30 days)
+    rows = db.session.query(
+        Attendance.date,
+        func.count(Attendance.id).label('total'),
+        func.sum(db.case((Attendance.status == True, 1), else_=0)).label('present')
+    ).filter(
+        Attendance.date >= start,
+        Attendance.date <= today
+    ).group_by(Attendance.date).all()
+    day_map = {r.date: (r.present or 0, r.total - (r.present or 0)) for r in rows}
     labels, p_data, a_data = [], [], []
-    for i in range(29, -1, -1):
-        d = today - timedelta(days=i)
-        total = Attendance.query.filter_by(date=d).count()
-        present = Attendance.query.filter_by(date=d, status=True).count()
+    for i in range(30):
+        d = start + timedelta(days=i)
+        p, a = day_map.get(d, (0, 0))
         labels.append(d.strftime('%d %b'))
-        p_data.append(present); a_data.append(total - present)
+        p_data.append(p); a_data.append(a)
     return jsonify({'labels': labels, 'present': p_data, 'absent': a_data})
 
 @analytics_bp.route('/api/summary')

@@ -53,6 +53,9 @@ def logout():
 @auth_bp.route('/pending')
 @login_required
 def pending():
+    # SYSTEM_ADMIN has no student profile — redirect directly to their console
+    if current_user.role == Roles.SYSTEM_ADMIN:
+        return redirect(url_for('sysadmin.index'))
     return render_template('auth/pending.html')
 
 @auth_bp.route('/profile', methods=['GET', 'POST'])
@@ -141,7 +144,10 @@ def change_password():
         current_user.password_hash       = bcrypt.generate_password_hash(new_pw).decode('utf-8')
         current_user.must_change_password = False
         db.session.commit()
-        flash('✅ Password changed successfully! Welcome to CSMSS ERP.', 'success')
+        flash('Password changed successfully! Welcome to CSMSS ERP.', 'success')
+        # SYSTEM_ADMIN goes directly to their console, not the regular dashboard
+        if current_user.role == Roles.SYSTEM_ADMIN:
+            return redirect(url_for('sysadmin.index'))
         return redirect(url_for('dashboard.index'))
 
     return render_template('auth/change_password.html')

@@ -1,0 +1,265 @@
+{% extends 'sysadmin/base.html' %}
+{% block title %}{{ meta.label }}{% endblock %}
+{% block topbar_title %}{{ meta.icon }} {{ meta.label }} Table{% endblock %}
+
+{% block topbar_actions %}
+<div class="btn-group">
+  <a href="{{ url_for('sysadmin.export_excel', slug=slug, q=search) }}" class="btn btn-success btn-sm">
+    <i class="fa fa-file-excel"></i> Excel
+  </a>
+  <a href="{{ url_for('sysadmin.export_csv', slug=slug, q=search) }}" class="btn btn-secondary btn-sm">
+    <i class="fa fa-file-csv"></i> CSV
+  </a>
+  <a href="{{ url_for('sysadmin.export_json', slug=slug, q=search) }}" class="btn btn-secondary btn-sm">
+    <i class="fa fa-file-code"></i> JSON
+  </a>
+  <button onclick="window.print()" class="btn btn-secondary btn-sm">
+    <i class="fa fa-print"></i> Print
+  </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div style="font-size:12px;color:var(--text2);margin-bottom:16px">
+  <a href="{{ url_for('sysadmin.index') }}" style="color:var(--accent);text-decoration:none">Dashboard</a>
+  <span style="margin:0 6px">/</span>
+  <span>{{ meta.label }}</span>
+  <span style="margin-left:8px" class="badge badge-blue">{{ pagination.total }} records</span>
+</div>
+
+<!-- Search + filter bar -->
+<form method="GET" class="search-bar">
+  <input class="search-input" name="q" placeholder="🔍 Search across text columns…" value="{{ search }}">
+  <select name="per_page" class="search-input" style="min-width:auto;width:100px" onchange="this.form.submit()">
+    {% for n in [25, 50, 100, 250] %}
+    <option value="{{ n }}" {{ 'selected' if per_page==n }}>{{ n }} / page</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn btn-primary">Search</button>
+  {% if search %}
+  <a href="{{ url_for('sysadmin.table_view', slug=slug) }}" class="btn btn-secondary">Clear</a>
+  {% endif %}
+</form>
+
+<!-- Bulk action form -->
+<form method="POST" action="{{ url_for('sysadmin.bulk_delete', slug=slug) }}" id="bulkForm" onsubmit="return confirm('Delete selected records? This cannot be undone.')">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+    <div style="font-size:12px;color:var(--text2)">
+      Showing <strong style="color:var(--text1)">{{ records | length }}</strong>
+      of <strong style="color:var(--text1)">{{ pagination.total }}</strong> records
+      {% if search %} matching "<em style="color:var(--accent)">{{ search }}</em>"{% endif %}
+    </div>
+    <div class="btn-group">
+      <button type="button" onclick="toggleAll()" class="btn btn-secondary btn-xs">
+        <i class="fa fa-check-square"></i> Toggle All
+      </button>
+      <button type="submit" class="btn btn-danger btn-xs" id="bulkDeleteBtn" disabled>
+        <i class="fa fa-trash"></i> Delete Selected
+      </button>
+      <button type="button" onclick="copySelected()" class="btn btn-secondary btn-xs">
+        <i class="fa fa-copy"></i> Copy Selected
+      </button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrapper">
+    <table class="db-table" id="mainTable">
+      <thead>
+        <tr>
+          <th style="width:36px"><input type="checkbox" id="checkAll" onchange="handleCheckAll(this)"></th>
+          <th style="width:70px">Actions</th>
+          {% for col in columns %}
+          <th>
+            <a href="{{ url_for('sysadmin.table_view', slug=slug, sort=col.name, dir='desc' if sort_col==col.name and sort_dir=='asc' else 'asc', q=search, per_page=per_page) }}"
+               style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:4px">
+              {{ col.name.replace('_',' ').title() }}
+              {% if sort_col == col.name %}
+                <span class="sort-icon" style="opacity:1;color:var(--accent)">{{ '↓' if sort_dir=='desc' else '↑' }}</span>
+              {% else %}
+                <span class="sort-icon">⇅</span>
+              {% endif %}
+            </a>
+          </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in records %}
+        <tr>
+          <td><input type="checkbox" name="ids" value="{{ row.id or '' }}" class="row-check" onchange="updateBulkBtn()"></td>
+          <td class="actions">
+            <button type="button" onclick="openEdit({{ row | tojson | e }})"
+                    class="btn btn-warning btn-xs" data-tip="Edit record">
+              ✏️
+            </button>
+            <button type="button"
+                    onclick="if(confirm('Delete record #{{ row.id }}?')) { document.getElementById('del-{{ row.id }}').submit(); }"
+                    class="btn btn-danger btn-xs" data-tip="Delete record">
+              🗑️
+            </button>
+          </td>
+          {% for col in columns %}
+          <td title="{{ row[col.name] or '' }}"
+              onclick="copyCell(this)" style="cursor:pointer" data-tip="Click to copy">
+            {% set val = row[col.name] %}
+            {% if val is none or val == '' %}
+              <span style="color:var(--text3)">null</span>
+            {% elif val | string | length > 40 %}
+              {{ val | string | truncate(40, true, '…') }}
+            {% else %}
+              {{ val }}
+            {% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        <!-- Hidden delete form for each row -->
+        <form id="del-{{ row.id }}" method="POST"
+              action="{{ url_for('sysadmin.delete_record', slug=slug, record_id=row.id or 0) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        </form>
+        {% else %}
+        <tr><td colspan="{{ columns|length + 2 }}" style="text-align:center;color:var(--text2);padding:40px">
+          No records found.
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</form>
+
+<!-- Pagination -->
+{% if pagination.pages > 1 %}
+<div class="pagination">
+  <a href="{{ url_for('sysadmin.table_view', slug=slug, page=pagination.prev_num, q=search, sort=sort_col, dir=sort_dir, per_page=per_page) }}"
+     class="page-btn {{ 'disabled' if not pagination.has_prev }}">← Prev</a>
+
+  {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+    {% if p %}
+    <a href="{{ url_for('sysadmin.table_view', slug=slug, page=p, q=search, sort=sort_col, dir=sort_dir, per_page=per_page) }}"
+       class="page-btn {{ 'active' if p==pagination.page }}">{{ p }}</a>
+    {% else %}
+    <span class="page-btn disabled">…</span>
+    {% endif %}
+  {% endfor %}
+
+  <a href="{{ url_for('sysadmin.table_view', slug=slug, page=pagination.next_num, q=search, sort=sort_col, dir=sort_dir, per_page=per_page) }}"
+     class="page-btn {{ 'disabled' if not pagination.has_next }}">Next →</a>
+  <span class="page-info">Page {{ pagination.page }} of {{ pagination.pages }}</span>
+</div>
+{% endif %}
+
+<!-- ── Edit Modal ── -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">✏️ Edit Record</div>
+      <button class="modal-close" onclick="closeEdit()">×</button>
+    </div>
+    <form method="POST" id="editForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% for col in columns %}
+      <div class="form-group">
+        <label class="form-label">
+          {{ col.name.replace('_',' ').title() }}
+          {% if col.primary_key %}<span class="badge badge-purple" style="margin-left:4px">PK</span>{% endif %}
+          {% if not col.nullable %}<span style="color:var(--red)">*</span>{% endif %}
+        </label>
+        {% if col.primary_key %}
+        <input class="form-input" name="{{ col.name }}" id="edit_{{ col.name }}" readonly
+               style="opacity:.5;cursor:not-allowed">
+        {% else %}
+        <input class="form-input" name="{{ col.name }}" id="edit_{{ col.name }}"
+               {% if not col.nullable %}required{% endif %}>
+        {% endif %}
+        <div class="form-hint">type: {{ col.type }}</div>
+      </div>
+      {% endfor %}
+      <div class="btn-group" style="margin-top:20px">
+        <button type="submit" class="btn btn-primary">💾 Save Changes</button>
+        <button type="button" class="btn btn-secondary" onclick="closeEdit()">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const slug = "{{ slug }}";
+const baseEditUrl = "{{ url_for('sysadmin.edit_record', slug=slug, record_id=0) }}".replace('/0', '/');
+
+function openEdit(row) {
+  const modal = document.getElementById('editModal');
+  const form  = document.getElementById('editForm');
+  // Set form action
+  form.action = baseEditUrl + row.id;
+  // Populate fields
+  for (const [key, val] of Object.entries(row)) {
+    const input = document.getElementById('edit_' + key);
+    if (input) input.value = val === null ? '' : val;
+  }
+  modal.classList.add('open');
+}
+
+function closeEdit() {
+  document.getElementById('editModal').classList.remove('open');
+}
+
+function toggleAll() {
+  const all = document.querySelectorAll('.row-check');
+  const anyUnchecked = [...all].some(c => !c.checked);
+  all.forEach(c => c.checked = anyUnchecked);
+  updateBulkBtn();
+}
+
+function handleCheckAll(cb) {
+  document.querySelectorAll('.row-check').forEach(c => c.checked = cb.checked);
+  updateBulkBtn();
+}
+
+function updateBulkBtn() {
+  const checked = document.querySelectorAll('.row-check:checked').length;
+  const btn = document.getElementById('bulkDeleteBtn');
+  btn.disabled = checked === 0;
+  btn.textContent = checked > 0 ? `🗑️ Delete ${checked} selected` : '🗑️ Delete Selected';
+}
+
+function copyCell(td) {
+  const text = td.title || td.textContent.trim();
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = td.style.background;
+    td.style.background = 'rgba(88,166,255,.15)';
+    setTimeout(() => td.style.background = orig, 500);
+  });
+}
+
+function copySelected() {
+  const checks = document.querySelectorAll('.row-check:checked');
+  if (!checks.length) { alert('No rows selected.'); return; }
+  const rows = [];
+  checks.forEach(c => {
+    const tr = c.closest('tr');
+    const cells = tr.querySelectorAll('td');
+    const rowData = [];
+    cells.forEach((td, i) => { if (i > 1) rowData.push(td.title || td.textContent.trim()); });
+    rows.push(rowData.join('\t'));
+  });
+  navigator.clipboard.writeText(rows.join('\n'));
+  alert(`Copied ${rows.length} row(s) to clipboard`);
+}
+
+// Close modal on overlay click
+document.getElementById('editModal').addEventListener('click', function(e) {
+  if (e.target === this) closeEdit();
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeEdit();
+});
+</script>
+{% endblock %}

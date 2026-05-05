@@ -124,10 +124,7 @@ def apply():
         return redirect(url_for('certificate.index'))
 
     return render_template('certificate/apply.html', cert_types=[
-        (CertificateType.BONAFIDE,  'Bonafide Certificate'),
-        (CertificateType.LEAVING,   'Leaving Certificate'),
-        (CertificateType.CHARACTER, 'Character Certificate'),
-        (CertificateType.TRANSFER,  'Transfer Certificate'),
+        (CertificateType.BONAFIDE, 'Bonafide Certificate'),
     ])
 
 @certificate_bp.route('/<int:id>/action', methods=['POST'])

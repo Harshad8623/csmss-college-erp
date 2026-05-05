@@ -1,0 +1,123 @@
+{% extends 'sysadmin/base.html' %}
+{% block title %}SQL Console{% endblock %}
+{% block topbar_title %}⌨️ Raw SQL Console{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom:20px">
+  <div style="font-size:13px;font-weight:700;margin-bottom:4px">Raw SQL Query</div>
+  <div style="font-size:12px;color:var(--text2);margin-bottom:14px">
+    ⚠️ Be careful — DELETE / UPDATE / DROP statements are executed immediately.
+  </div>
+  <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <textarea class="sql-editor" name="query" placeholder="SELECT * FROM users LIMIT 10;">{{ query_text }}</textarea>
+    <div class="btn-group" style="margin-top:12px">
+      <button type="submit" class="btn btn-primary">▶ Execute</button>
+      <button type="button" onclick="document.querySelector('.sql-editor').value=''" class="btn btn-secondary">Clear</button>
+    </div>
+  </form>
+</div>
+
+<!-- Quick templates -->
+<div class="card" style="margin-bottom:20px">
+  <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">Quick Templates</div>
+  <div class="btn-group">
+    {% set templates = [
+      ('All Users', 'SELECT id, name, email, role, status, created_at FROM users ORDER BY created_at DESC LIMIT 50;'),
+      ('Defaulters', 'SELECT u.name, s.roll_no, COUNT(a.id) AS total, SUM(CASE WHEN a.status THEN 1 ELSE 0 END) AS present FROM attendance a JOIN students s ON s.id=a.student_id JOIN users u ON u.id=s.user_id GROUP BY s.id, u.name, s.roll_no HAVING (SUM(CASE WHEN a.status THEN 1 ELSE 0 END)::float / COUNT(a.id) * 100) < 75 ORDER BY present;'),
+      ('Dept Summary', 'SELECT d.name, COUNT(DISTINCT c.id) AS classes, COUNT(DISTINCT s.id) AS students FROM departments d LEFT JOIN classes c ON c.department_id=d.id LEFT JOIN students s ON s.class_id=c.id GROUP BY d.id, d.name;'),
+      ('Recent Logins', 'SELECT name, email, role, last_login_at FROM users ORDER BY last_login_at DESC NULLS LAST LIMIT 20;'),
+      ('Table Sizes', 'SELECT schemaname, tablename, pg_size_pretty(pg_total_relation_size(schemaname||\'.\' ||tablename)) AS size FROM pg_tables WHERE schemaname=\'public\' ORDER BY pg_total_relation_size(schemaname||\'.\' ||tablename) DESC;'),
+    ] %}
+    {% for label, sql in templates %}
+    <button type="button" onclick="setQuery({{ sql | tojson }})" class="btn btn-secondary btn-sm">
+      {{ label }}
+    </button>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Error -->
+{% if error %}
+<div class="flash-msg flash-danger">
+  <strong>SQL Error:</strong><br>
+  <code style="font-family:'JetBrains Mono',monospace;font-size:12px">{{ error }}</code>
+</div>
+{% endif %}
+
+<!-- Results -->
+{% if result is not none %}
+<div class="card">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <div style="font-size:13px;font-weight:700">
+      Results — <span style="color:var(--accent)">{{ result | length }} rows</span>
+    </div>
+    <button onclick="copyTable()" class="btn btn-secondary btn-sm">
+      <i class="fa fa-copy"></i> Copy All
+    </button>
+  </div>
+  {% if result %}
+  <div class="table-wrapper">
+    <table class="db-table" id="resultTable">
+      <thead>
+        <tr>
+          {% for col in columns %}
+          <th>{{ col }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in result %}
+        <tr>
+          {% for cell in row %}
+          <td onclick="copyCell(this)" style="cursor:pointer" title="{{ cell or '' }}">
+            {{ cell if cell is not none else '' }}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="color:var(--text2);text-align:center;padding:30px">No rows returned.</div>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function setQuery(sql) {
+  document.querySelector('.sql-editor').value = sql;
+}
+
+function copyCell(td) {
+  const text = td.title || td.textContent.trim();
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = td.style.background;
+    td.style.background = 'rgba(88,166,255,.15)';
+    setTimeout(() => td.style.background = orig, 500);
+  });
+}
+
+function copyTable() {
+  const table = document.getElementById('resultTable');
+  if (!table) return;
+  const rows = [];
+  for (const tr of table.querySelectorAll('tr')) {
+    const cells = [...tr.querySelectorAll('th,td')].map(c => c.textContent.trim());
+    rows.push(cells.join('\t'));
+  }
+  navigator.clipboard.writeText(rows.join('\n'));
+  alert('Table copied to clipboard');
+}
+
+// Ctrl+Enter to run query
+document.querySelector('.sql-editor').addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    this.closest('form').submit();
+  }
+});
+</script>
+{% endblock %}

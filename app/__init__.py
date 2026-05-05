@@ -88,6 +88,7 @@ def create_app(config_class=Config):
     from app.notifications.routes import notifications_bp
     from app.leaves.routes import leaves_bp
     from app.sessions.routes import sessions_bp
+    from app.sysadmin.routes import sysadmin_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
@@ -103,6 +104,7 @@ def create_app(config_class=Config):
     app.register_blueprint(notifications_bp)
     app.register_blueprint(leaves_bp)
     app.register_blueprint(sessions_bp)
+    app.register_blueprint(sysadmin_bp)
 
     # ── Mobile REST API (/api/v1/) ────────────────────────────────────────────
     from app.api import register_api
@@ -225,6 +227,14 @@ def create_app(config_class=Config):
             return render_template('errors/500.html'), 500
         except Exception:
             return '<h1>500 Internal Server Error</h1><p>Something went wrong. Please try again.</p>', 500
+
+    # ── CLI: create system admin account ─────────────────────────────────────
+    import click
+    @app.cli.command('create-sysadmin')
+    def create_sysadmin_cmd():
+        """Create the SYSTEM_ADMIN account (run once)."""
+        from app.sysadmin.routes import create_system_admin
+        create_system_admin(app)
 
     return app
 

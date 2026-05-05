@@ -423,3 +423,138 @@ def performance_data(student_id):
             for s in subjects
         ]
     return jsonify({'labels': labels, 'datasets': datasets, 'exam_labels': ExamType.LABELS})
+
+
+# ── Report Cards ───────────────────────────────────────────────────────────────
+@marks_bp.route('/report-cards/<int:class_id>')
+@login_required
+@role_required(Roles.CLASS_TEACHER, Roles.HOD, Roles.SUPER_ADMIN)
+def report_cards(class_id):
+    """
+    Generate printable Attendance & Performance Report Cards for all students
+    in a class — matching the CSMSS college format.
+    Class Teacher can only view their own class.
+    """
+    from app.models import Attendance
+    from sqlalchemy import func
+
+    class_ = Class.query.get_or_404(class_id)
+
+    # Scope check
+    if current_user.role == Roles.CLASS_TEACHER:
+        cls = get_class_for_ct(current_user.id)
+        if not cls or cls.id != class_id:
+            abort(403)
+    elif current_user.role == Roles.HOD:
+        dept_id = get_dept_for_hod(current_user.id)
+        if class_.department_id != dept_id:
+            abort(403)
+
+    students = (Student.query
+                .filter_by(class_id=class_id, approval_status=ApprovalStatus.APPROVED)
+                .order_by(Student.roll_no)
+                .all())
+    subjects = Subject.query.filter_by(class_id=class_id).all()
+
+    student_ids = [s.id for s in students]
+    subject_ids = [s.id for s in subjects]
+
+    # ── Bulk-fetch attendance counts per (student_id, subject_id) ─────────────
+    att_rows = (db.session.query(
+                    Attendance.student_id,
+                    Attendance.subject_id,
+                    func.count(Attendance.id).label('total'),
+                    func.sum(db.cast(Attendance.status, db.Integer)).label('present')
+                )
+                .filter(Attendance.student_id.in_(student_ids),
+                        Attendance.subject_id.in_(subject_ids))
+                .group_by(Attendance.student_id, Attendance.subject_id)
+                .all()) if student_ids and subject_ids else []
+
+    # Build lookup {student_id: {subject_id: (total, present)}}
+    import collections
+    att_lookup = collections.defaultdict(dict)
+    for row in att_rows:
+        att_lookup[row.student_id][row.subject_id] = (int(row.total or 0), int(row.present or 0))
+
+    # ── Bulk-fetch all marks ───────────────────────────────────────────────────
+    all_marks = (Marks.query
+                 .filter(Marks.student_id.in_(student_ids),
+                         Marks.subject_id.in_(subject_ids))
+                 .all()) if student_ids and subject_ids else []
+
+    marks_lookup = collections.defaultdict(dict)   # {student_id: {(subject_id, exam_type): marks_obj}}
+    for m in all_marks:
+        marks_lookup[m.student_id][(m.subject_id, m.exam_type)] = m
+
+    # ── Build per-student card data ────────────────────────────────────────────
+    cards = []
+    for student in students:
+        att_data = []   # list of {subject, total, present, pct, counted}
+        grand_total = grand_present = 0
+        for sub in subjects:
+            total, present = att_lookup[student.id].get(sub.id, (0, 0))
+            pct = round((present / total * 100), 1) if total else 0
+            counted = sub.count_in_attendance
+            att_data.append({'subject': sub, 'total': total, 'present': present, 'pct': pct, 'counted': counted})
+            if counted:   # only count toward the final attendance %
+                grand_total += total
+                grand_present += present
+
+        overall_att_pct = round((grand_present / grand_total * 100), 1) if grand_total else 0
+
+        marks_data = []  # list of {subject, ct1, mse, ct2} — only counted subjects
+        for sub in subjects:
+            if not sub.count_in_attendance:
+                continue   # skip subjects not counted in attendance (e.g. Aptitude, Skill Dev)
+            def _m(et, _sub=sub):
+                obj = marks_lookup[student.id].get((_sub.id, et))
+                return f"{obj.marks:.0f}/{obj.max_marks:.0f}" if obj else '—'
+            marks_data.append({
+                'subject': sub,
+                'ct1': _m(ExamType.CT1),
+                'mse': _m(ExamType.MSE),
+                'ct2': _m(ExamType.CT2),
+            })
+
+        cards.append({
+            'student':          student,
+            'att_data':         att_data,
+            'grand_total':      grand_total,
+            'grand_present':    grand_present,
+            'overall_att_pct':  overall_att_pct,
+            'marks_data':       marks_data,
+        })
+
+    # Academic year / semester from first student, fallback to class name
+    ay = 'A.Y. 2025-26'
+    semester = None
+    if students:
+        s0 = students[0]
+        if s0.semester:
+            semester = f'Semester {s0.semester} ({"Even" if s0.semester % 2 == 0 else "Odd"})'
+        if s0.current_year:
+            years = {1: 'FY', 2: 'SY', 3: 'TY', 4: 'Final Year'}
+            div = class_.name
+    
+    # Class teacher name
+    ct_name = ''
+    if class_.class_teacher:
+        ct_name = class_.class_teacher.name
+
+    # Department name
+    dept_name = ''
+    if class_.department:
+        dept_name = class_.department.name
+
+    return render_template('marks/report_cards.html',
+        class_=class_,
+        cards=cards,
+        subjects=subjects,
+        ct_name=ct_name,
+        dept_name=dept_name,
+        ay=ay,
+        semester=semester,
+        exam_labels=ExamType.LABELS,
+    )
+

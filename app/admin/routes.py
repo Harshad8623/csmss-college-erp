@@ -740,7 +740,9 @@ def create_subject():
 
     if name:
         sub = Subject(name=name, code=code, class_id=class_id,
-                      teacher_id=teacher_id, credits=credits, is_elective=is_elective)
+                      teacher_id=teacher_id, credits=credits,
+                      is_elective=is_elective,
+                      count_in_attendance='count_in_attendance' in request.form)
         db.session.add(sub)
         db.session.commit()
         flash(f'Subject "{name}" created.', 'success')
@@ -782,6 +784,7 @@ def edit_subject(id):
     sub.teacher_id = request.form.get('teacher_id') or None
     sub.credits    = int(request.form.get('credits', sub.credits))
     sub.is_elective = request.form.get('is_elective') == 'on'
+    sub.count_in_attendance = 'count_in_attendance' in request.form
     db.session.commit()
     flash(f'Subject "{sub.name}" updated.', 'success')
     return redirect(url_for('admin.subjects'))

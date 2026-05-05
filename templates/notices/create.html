@@ -7,7 +7,7 @@
 <div style="max-width:600px;">
   <div class="card-erp">
     <div class="card-body-erp">
-      <form method="POST" action="{{ url_for('notices.create') }}" data-validate>
+      <form method="POST" action="{{ url_for('notices.create') }}" enctype="multipart/form-data" data-validate>
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group-erp">
           <label class="form-label-erp">Notice Title *</label>
@@ -48,6 +48,35 @@
             🚨 Mark as Urgent Notice
           </label>
         </div>
+
+        {# ── File Attachment ── #}
+        <div class="form-group-erp">
+          <label class="form-label-erp">
+            <i class="fa-solid fa-paperclip"></i> Attach File <span style="color:var(--text-muted);font-weight:400;">(optional)</span>
+          </label>
+          <div style="border:2px dashed rgba(99,102,241,0.35);border-radius:var(--radius-sm);padding:16px 14px;
+                      background:rgba(99,102,241,0.04);transition:border-color .2s;"
+               id="attachment-drop-zone"
+               ondragover="this.style.borderColor='var(--accent-purple)'" 
+               ondragleave="this.style.borderColor='rgba(99,102,241,0.35)'">
+            <label for="notice-attachment" style="display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;">
+              <i class="fa-solid fa-cloud-arrow-up" style="font-size:28px;color:rgba(99,102,241,0.6);"></i>
+              <span style="font-size:13px;color:var(--text-secondary);">Click to browse or drag & drop a file</span>
+              <span style="font-size:11px;color:var(--text-muted);">PDF, Word, Excel, PowerPoint, JPG, PNG — max 16 MB</span>
+            </label>
+            <input type="file" id="notice-attachment" name="attachment"
+                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xlsx,.xls,.ppt,.pptx"
+                   style="display:none;"
+                   onchange="document.getElementById('attachment-name').textContent = this.files[0]?.name || '';">
+          </div>
+          <p id="attachment-name" style="margin-top:6px;font-size:12px;color:var(--accent-purple);font-weight:500;"></p>
+        </div>
+        <script>
+          document.getElementById('attachment-drop-zone').addEventListener('click', function(e){
+            if (e.target.tagName !== 'INPUT') document.getElementById('notice-attachment').click();
+          });
+        </script>
+
         <div style="display:flex;gap:12px;">
           <button type="submit" class="btn-erp btn-primary-erp">
             <i class="fa-solid fa-paper-plane"></i> Post Notice
@@ -59,3 +88,4 @@
   </div>
 </div>
 {% endblock %}
+

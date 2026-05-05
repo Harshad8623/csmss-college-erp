@@ -80,6 +80,16 @@
           </span>
           {% endif %}
         </div>
+        {% if n.attachment %}
+        <div style="margin-top:8px;">
+          <a href="{{ url_for('notices.download_attachment', id=n.id) }}"
+             class="btn-erp btn-outline-erp btn-sm-erp"
+             style="text-decoration:none;font-size:12px;gap:6px;"
+             title="Download attached file">
+            <i class="fa-solid fa-paperclip"></i> Download Attachment
+          </a>
+        </div>
+        {% endif %}
       </div>
     </div>
   </div>

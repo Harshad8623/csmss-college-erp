@@ -1,5 +1,8 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, abort
+import os
+import uuid
+from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, send_from_directory, current_app
 from flask_login import login_required, current_user
+from werkzeug.utils import secure_filename
 from app.extensions import db, limiter
 from app.models import Notice, Class, User, Roles, Student, AuditLog
 from app.utils.decorators import role_required
@@ -7,6 +10,28 @@ from app.utils.helpers import send_notification
 from datetime import datetime
 
 notices_bp = Blueprint('notices', __name__, url_prefix='/notices')
+
+# ── File upload helpers ────────────────────────────────────────────────────────
+NOTICE_ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'xlsx', 'xls', 'ppt', 'pptx'}
+NOTICE_UPLOAD_SUBDIR = 'notices'
+
+
+def _notice_allowed(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in NOTICE_ALLOWED_EXTENSIONS
+
+
+def _save_notice_attachment(file):
+    """Save uploaded notice attachment; returns filename or None."""
+    if not file or file.filename == '':
+        return None
+    if not _notice_allowed(file.filename):
+        return None
+    fname = secure_filename(file.filename)
+    fname = f"{uuid.uuid4().hex[:8]}_{fname}"
+    upload_dir = os.path.join(current_app.static_folder, 'uploads', NOTICE_UPLOAD_SUBDIR)
+    os.makedirs(upload_dir, exist_ok=True)
+    file.save(os.path.join(upload_dir, fname))
+    return fname
 
 def get_user_class_id():
     student = Student.query.filter_by(user_id=current_user.id).first()
@@ -85,7 +110,18 @@ def create():
 
         if not title or not content:
             flash('Title and content are required.', 'danger')
-            return render_template('notices/create.html', classes=classes)
+            return render_template('notices/create.html', classes=classes, roles=[
+                ('', 'All Users'), (Roles.STUDENT, 'Students Only'),
+                (Roles.TEACHER, 'Teachers Only'), (Roles.CLASS_TEACHER, 'Class Teachers'),
+            ])
+
+        # Handle optional file attachment
+        attachment = None
+        if 'attachment' in request.files:
+            f = request.files['attachment']
+            attachment = _save_notice_attachment(f)
+            if f and f.filename and not attachment:
+                flash('Invalid file type. Allowed: PDF, Word, Excel, PowerPoint, JPG, PNG.', 'warning')
 
         # Enforce CR Restrictions
         status = 'APPROVED'
@@ -99,8 +135,8 @@ def create():
             status = 'PENDING'
 
         notice = Notice(title=title, content=content, target_role=target,
-                        target_class_id=cls_id, posted_by=current_user.id, 
-                        is_urgent=urgent, status=status)
+                        target_class_id=cls_id, posted_by=current_user.id,
+                        is_urgent=urgent, status=status, attachment=attachment)
         db.session.add(notice)
         # Audit log goes in the SAME transaction as the notice
         db.session.flush()  # get notice.id
@@ -214,3 +250,15 @@ def delete(id):
     
     flash('Notice deleted.', 'info')
     return redirect(url_for('notices.index'))
+
+
+@notices_bp.route('/<int:id>/download')
+@login_required
+def download_attachment(id):
+    """Serve the notice attachment file for any logged-in user."""
+    notice = Notice.query.get_or_404(id)
+    if not notice.attachment:
+        abort(404)
+    upload_dir = os.path.join(current_app.static_folder, 'uploads', NOTICE_UPLOAD_SUBDIR)
+    return send_from_directory(upload_dir, notice.attachment, as_attachment=True)
+

@@ -64,7 +64,9 @@ def index():
         return redirect(url_for('auth.pending'))
 
     role = current_user.role
-    if role == Roles.SUPER_ADMIN:
+    if role == Roles.SYSTEM_ADMIN:
+        return redirect(url_for('sysadmin.index'))
+    elif role == Roles.SUPER_ADMIN:
         return super_admin_dashboard()
     elif role == Roles.HOD:
         return hod_dashboard()

@@ -1,0 +1,74 @@
+{% extends 'sysadmin/base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block topbar_title %}📊 Database Dashboard{% endblock %}
+
+{% block content %}
+<!-- Top stats -->
+<div class="stat-grid">
+  <div class="stat-card" style="--accent-c:#58a6ff">
+    <div class="stat-icon">🗄️</div>
+    <div class="stat-num">{{ "{:,}".format(total_records) if total_records else 0 }}</div>
+    <div class="stat-label">Total Records</div>
+  </div>
+  <div class="stat-card" style="--accent-c:#3fb950">
+    <div class="stat-icon">📋</div>
+    <div class="stat-num">{{ table_stats | length }}</div>
+    <div class="stat-label">Tables</div>
+  </div>
+  <div class="stat-card" style="--accent-c:#bc8cff">
+    <div class="stat-icon">💾</div>
+    <div class="stat-num" style="font-size:18px">{{ db_size or 'N/A' }}</div>
+    <div class="stat-label">Database Size</div>
+  </div>
+  <div class="stat-card" style="--accent-c:#ffa657">
+    <div class="stat-icon">🛡️</div>
+    <div class="stat-num" style="font-size:16px">SYSTEM</div>
+    <div class="stat-label">Access Level</div>
+  </div>
+</div>
+
+<!-- Table cards grid -->
+<h2 style="font-size:14px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px">
+  All Tables
+</h2>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:32px">
+  {% for t in table_stats %}
+  <a href="{{ url_for('sysadmin.table_view', slug=t.slug) }}"
+     style="text-decoration:none;display:block;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;transition:all .2s;position:relative;overflow:hidden"
+     onmouseover="this.style.borderColor='{{ t.color }}';this.style.transform='translateY(-2px)'"
+     onmouseout="this.style.borderColor='var(--border)';this.style.transform='translateY(0)'">
+    <div style="position:absolute;top:0;left:0;right:0;height:3px;background:{{ t.color }}"></div>
+    <div style="font-size:24px;margin-bottom:8px">{{ t.icon }}</div>
+    <div style="font-size:15px;font-weight:700;color:var(--text1);margin-bottom:4px">{{ t.label }}</div>
+    <div style="font-size:22px;font-weight:800;color:{{ t.color }};font-family:'JetBrains Mono',monospace">
+      {{ t.count if t.count is not none else '—' }}
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-top:2px">records</div>
+    <!-- Quick actions -->
+    <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
+      <span style="font-size:11px;color:var(--text2);background:var(--surface2);padding:2px 7px;border-radius:4px;border:1px solid var(--border)">
+        📤 Export
+      </span>
+      <span style="font-size:11px;color:var(--text2);background:var(--surface2);padding:2px 7px;border-radius:4px;border:1px solid var(--border)">
+        ✏️ Edit
+      </span>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+
+<!-- Quick actions bar -->
+<div class="card" style="margin-bottom:20px">
+  <div style="font-size:13px;font-weight:700;margin-bottom:14px;color:var(--text1)">⚡ Quick Actions</div>
+  <div class="btn-group">
+    <a href="{{ url_for('sysadmin.raw_sql') }}" class="btn btn-primary">
+      <i class="fa fa-terminal"></i> SQL Console
+    </a>
+    {% for t in table_stats %}
+    <a href="{{ url_for('sysadmin.export_excel', slug=t.slug) }}" class="btn btn-success btn-sm" data-tip="Export {{ t.label }} to Excel">
+      {{ t.icon }} {{ t.label }}
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

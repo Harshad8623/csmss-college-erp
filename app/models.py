@@ -6,6 +6,7 @@ from flask_login import UserMixin
 # ENUMS / CONSTANTS
 # ─────────────────────────────────────────────────────────────────────────────
 class Roles:
+    SYSTEM_ADMIN  = 'SYSTEM_ADMIN'   # Technical DB admin — highest privilege
     SUPER_ADMIN   = 'SUPER_ADMIN'
     HOD           = 'HOD'
     CLASS_TEACHER = 'CLASS_TEACHER'
@@ -13,9 +14,9 @@ class Roles:
     CR            = 'CR'
     STUDENT       = 'STUDENT'
 
-    ALL = [SUPER_ADMIN, HOD, CLASS_TEACHER, TEACHER, CR, STUDENT]
-    STAFF = [SUPER_ADMIN, HOD, CLASS_TEACHER, TEACHER]
-    ADMIN_ROLES = [SUPER_ADMIN, HOD, CLASS_TEACHER]
+    ALL = [SYSTEM_ADMIN, SUPER_ADMIN, HOD, CLASS_TEACHER, TEACHER, CR, STUDENT]
+    STAFF = [SYSTEM_ADMIN, SUPER_ADMIN, HOD, CLASS_TEACHER, TEACHER]
+    ADMIN_ROLES = [SYSTEM_ADMIN, SUPER_ADMIN, HOD, CLASS_TEACHER]
 
 class Status:
     ACTIVE  = 'active'
@@ -61,9 +62,6 @@ class GrievancePriority:
 
 class CertificateType:
     BONAFIDE  = 'bonafide'
-    LEAVING   = 'leaving'
-    CHARACTER = 'character'
-    TRANSFER  = 'transfer'
 
 class LeaveStatus:
     PENDING_TG = 'pending_tg'
@@ -204,8 +202,9 @@ class Student(db.Model):
     event_records     = db.relationship('EventRecord',     backref='student', lazy='dynamic')
 
     def attendance_percentage(self, subject_id=None):
-        """Overall attendance = theory + events. Practicals are excluded."""
+        """Overall attendance = theory (counted subjects only) + events. Practicals are excluded."""
         from sqlalchemy import func, cast, Integer
+        from app.models import Subject, Attendance, EventRecord, EventSession
         
         # ── Per-subject logic (only theory) ──
         if subject_id:
@@ -220,16 +219,19 @@ class Student(db.Model):
             present = res[1] or 0
             return round((present / total) * 100, 2) if total > 0 else 0
 
-        # ── Overall: theory + event attendance ──
-        # Theory counts
+        # ── Overall: theory (counted subjects only) + event attendance ──
+        # Only count subjects where count_in_attendance is True
         theory_res = db.session.query(
             func.count(Attendance.id),
             func.sum(cast(Attendance.status, Integer))
-        ).filter(Attendance.student_id == self.id).first()
+        ).join(Subject, Attendance.subject_id == Subject.id).filter(
+            Attendance.student_id == self.id,
+            Subject.count_in_attendance == True
+        ).first()
         theory_total = theory_res[0] or 0
         theory_present = theory_res[1] or 0
 
-        # Event counts
+        # Event counts (events always count toward attendance)
         event_res = db.session.query(
             func.count(EventRecord.id),
             func.sum(cast(EventRecord.status, Integer))
@@ -273,6 +275,7 @@ class Subject(db.Model):
     teacher_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
     credits    = db.Column(db.Integer, default=3)
     is_elective = db.Column(db.Boolean, default=False)
+    count_in_attendance = db.Column(db.Boolean, default=True, nullable=False)  # If False, attendance is recorded but not counted in final %
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     teacher_user = db.relationship('User', foreign_keys=[teacher_id])
@@ -426,6 +429,7 @@ class Notice(db.Model):
     approved_by    = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     approved_at    = db.Column(db.DateTime, nullable=True)
     is_deleted     = db.Column(db.Boolean, default=False)
+    attachment     = db.Column(db.String(300), nullable=True)   # optional uploaded file
     
     created_at     = db.Column(db.DateTime, default=datetime.utcnow)
 

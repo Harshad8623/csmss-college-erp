@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}SysAdmin{% endblock %} — CSMSS DB Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+:root {
+  --bg:       #0d1117;
+  --surface:  #161b22;
+  --surface2: #1c2128;
+  --border:   #30363d;
+  --text1:    #e6edf3;
+  --text2:    #8b949e;
+  --text3:    #484f58;
+  --accent:   #58a6ff;
+  --accent2:  #1f6feb;
+  --green:    #3fb950;
+  --red:      #f85149;
+  --yellow:   #d29922;
+  --purple:   #bc8cff;
+  --orange:   #ffa657;
+  --sidebar-w: 260px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text1);font-size:14px;line-height:1.5}
+
+/* ── Layout ── */
+.layout{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:var(--sidebar-w);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.main-area{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+
+/* ── Sidebar ── */
+.sb-header{padding:20px 16px 12px;border-bottom:1px solid var(--border)}
+.sb-logo{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.sb-logo-icon{width:34px;height:34px;background:linear-gradient(135deg,#1f6feb,#bc8cff);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.sb-logo-text{font-size:15px;font-weight:700;color:var(--text1)}
+.sb-subtitle{font-size:11px;color:var(--text2);font-family:'JetBrains Mono',monospace}
+.sb-user{margin:12px 16px;padding:10px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)}
+.sb-user-name{font-size:12px;font-weight:600;color:var(--accent)}
+.sb-user-role{font-size:10px;color:var(--text2);font-family:'JetBrains Mono',monospace}
+
+.sb-section{padding:8px 16px 4px;font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px}
+.sb-nav{list-style:none}
+.sb-nav li a{display:flex;align-items:center;gap:9px;padding:7px 16px;color:var(--text2);text-decoration:none;font-size:13px;transition:all .15s;border-left:2px solid transparent;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-nav li a:hover{background:var(--surface2);color:var(--text1);border-left-color:var(--border)}
+.sb-nav li a.active{background:rgba(31,111,235,.12);color:var(--accent);border-left-color:var(--accent);font-weight:500}
+.sb-nav li a .sb-icon{width:18px;text-align:center;font-size:14px;flex-shrink:0}
+.sb-count{margin-left:auto;background:var(--surface2);color:var(--text2);font-size:10px;padding:1px 6px;border-radius:10px;font-family:'JetBrains Mono',monospace}
+.sb-nav li a.active .sb-count{background:rgba(88,166,255,.15);color:var(--accent)}
+
+/* ── Top bar ── */
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-shrink:0}
+.topbar-title{font-size:16px;font-weight:700;color:var(--text1)}
+.topbar-actions{display:flex;align-items:center;gap:8px}
+
+/* ── Content ── */
+.content{padding:24px;flex:1}
+
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;border:1px solid transparent;font-size:13px;font-weight:500;cursor:pointer;text-decoration:none;transition:all .15s;line-height:1}
+.btn-primary{background:var(--accent2);border-color:var(--accent2);color:#fff}
+.btn-primary:hover{background:#388bfd;border-color:#388bfd}
+.btn-danger{background:rgba(248,81,73,.15);border-color:var(--red);color:var(--red)}
+.btn-danger:hover{background:var(--red);color:#fff}
+.btn-success{background:rgba(63,185,80,.15);border-color:var(--green);color:var(--green)}
+.btn-success:hover{background:var(--green);color:#fff}
+.btn-secondary{background:var(--surface2);border-color:var(--border);color:var(--text2)}
+.btn-secondary:hover{border-color:var(--text2);color:var(--text1)}
+.btn-warning{background:rgba(210,153,34,.15);border-color:var(--yellow);color:var(--yellow)}
+.btn-warning:hover{background:var(--yellow);color:#000}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-xs{padding:3px 8px;font-size:11px}
+.btn-group{display:flex;gap:6px;flex-wrap:wrap}
+
+/* ── Flash messages ── */
+.flash-msg{padding:10px 16px;border-radius:8px;margin-bottom:16px;font-size:13px;border:1px solid}
+.flash-success{background:rgba(63,185,80,.1);border-color:var(--green);color:var(--green)}
+.flash-danger{background:rgba(248,81,73,.1);border-color:var(--red);color:var(--red)}
+.flash-warning{background:rgba(210,153,34,.1);border-color:var(--yellow);color:var(--yellow)}
+.flash-info{background:rgba(88,166,255,.1);border-color:var(--accent);color:var(--accent)}
+
+/* ── Cards ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-bottom:24px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent-c,var(--accent))}
+.stat-num{font-size:26px;font-weight:800;color:var(--text1);font-family:'JetBrains Mono',monospace;line-height:1}
+.stat-label{font-size:11px;color:var(--text2);margin-top:4px;text-transform:uppercase;letter-spacing:.5px}
+.stat-icon{font-size:24px;margin-bottom:8px}
+
+/* ── Table styles ── */
+.table-wrapper{overflow-x:auto;border-radius:8px;border:1px solid var(--border)}
+table.db-table{width:100%;border-collapse:collapse;font-size:13px}
+table.db-table thead tr{background:var(--surface2)}
+table.db-table th{padding:10px 12px;text-align:left;color:var(--text2);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none}
+table.db-table th:hover{color:var(--text1)}
+table.db-table td{padding:9px 12px;border-bottom:1px solid var(--border);color:var(--text1);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'JetBrains Mono',monospace;font-size:12px}
+table.db-table tbody tr:hover{background:rgba(255,255,255,.03)}
+table.db-table tbody tr:last-child td{border-bottom:none}
+table.db-table td.actions{white-space:nowrap;font-family:'Inter',sans-serif}
+.sort-icon{font-size:10px;margin-left:4px;opacity:.5}
+
+/* ── Search bar ── */
+.search-bar{display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.search-input{background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text1);padding:8px 12px;font-size:13px;min-width:240px;outline:none;font-family:'Inter',sans-serif}
+.search-input:focus{border-color:var(--accent)}
+.search-input::placeholder{color:var(--text3)}
+
+/* ── Pagination ── */
+.pagination{display:flex;align-items:center;gap:6px;margin-top:16px;flex-wrap:wrap}
+.page-btn{padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);text-decoration:none;font-size:12px;transition:.15s}
+.page-btn:hover,.page-btn.active{background:var(--accent2);border-color:var(--accent2);color:#fff}
+.page-btn.disabled{opacity:.4;pointer-events:none}
+.page-info{font-size:12px;color:var(--text2);margin-left:auto}
+
+/* ── Badge ── */
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500}
+.badge-blue{background:rgba(88,166,255,.15);color:var(--accent)}
+.badge-green{background:rgba(63,185,80,.15);color:var(--green)}
+.badge-red{background:rgba(248,81,73,.15);color:var(--red)}
+.badge-purple{background:rgba(188,140,255,.15);color:var(--purple)}
+.badge-orange{background:rgba(255,166,87,.15);color:var(--orange)}
+
+/* ── Modal ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:540px;max-width:96vw;max-height:90vh;overflow-y:auto;padding:24px}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.modal-title{font-size:16px;font-weight:700}
+.modal-close{background:none;border:none;color:var(--text2);cursor:pointer;font-size:20px;padding:4px}
+.modal-close:hover{color:var(--text1)}
+.form-group{margin-bottom:14px}
+.form-label{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:5px}
+.form-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text1);padding:8px 12px;font-size:13px;outline:none;font-family:'Inter',sans-serif}
+.form-input:focus{border-color:var(--accent)}
+.form-hint{font-size:11px;color:var(--text3);margin-top:3px;font-family:'JetBrains Mono',monospace}
+
+/* ── Checkbox column ── */
+input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px;cursor:pointer}
+
+/* ── SQL editor ── */
+.sql-editor{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text1);padding:14px;font-family:'JetBrains Mono',monospace;font-size:13px;width:100%;min-height:140px;outline:none;resize:vertical;line-height:1.6}
+.sql-editor:focus{border-color:var(--accent)}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--text3)}
+
+/* ── Tooltip ── */
+[data-tip]{position:relative}
+[data-tip]::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#000;color:#fff;font-size:11px;white-space:nowrap;padding:4px 8px;border-radius:4px;pointer-events:none;opacity:0;transition:opacity .15s}
+[data-tip]:hover::after{opacity:1}
+</style>
+{% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<div class="layout">
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sb-header">
+      <div class="sb-logo">
+        <div class="sb-logo-icon">🛡️</div>
+        <div>
+          <div class="sb-logo-text">DB Console</div>
+          <div class="sb-subtitle">CSMSS ERP v2</div>
+        </div>
+      </div>
+    </div>
+    <div class="sb-user">
+      <div class="sb-user-name">{{ current_user.name }}</div>
+      <div class="sb-user-role">SYSTEM_ADMIN</div>
+    </div>
+
+    <div class="sb-section">Navigation</div>
+    <ul class="sb-nav">
+      <li><a href="{{ url_for('sysadmin.index') }}" class="{{ 'active' if active_page=='dashboard' else '' }}">
+        <span class="sb-icon">📊</span> Dashboard
+      </a></li>
+      <li><a href="{{ url_for('sysadmin.raw_sql') }}" class="{{ 'active' if active_page=='sql' else '' }}">
+        <span class="sb-icon">⌨️</span> SQL Console
+      </a></li>
+    </ul>
+
+    <div class="sb-section">Tables</div>
+    <ul class="sb-nav">
+      {% for t in table_stats %}
+      <li>
+        <a href="{{ url_for('sysadmin.table_view', slug=t.slug) }}"
+           class="{{ 'active' if active_page==t.slug else '' }}">
+          <span class="sb-icon">{{ t.icon }}</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis">{{ t.label }}</span>
+          <span class="sb-count">{{ t.count }}</span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+
+    <div style="margin-top:auto;padding:16px;border-top:1px solid var(--border)">
+      <a href="{{ url_for('dashboard.index') }}" class="btn btn-secondary btn-sm" style="width:100%;justify-content:center">
+        ← Back to ERP
+      </a>
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-danger btn-sm" style="width:100%;justify-content:center;margin-top:8px">
+        <i class="fa fa-sign-out-alt"></i> Logout
+      </a>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-title">{% block topbar_title %}System Admin Console{% endblock %}</div>
+      <div class="topbar-actions">{% block topbar_actions %}{% endblock %}</div>
+    </div>
+    <div class="content">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in messages %}
+        <div class="flash-msg flash-{{ 'success' if cat=='success' else 'danger' if cat=='danger' else 'warning' if cat=='warning' else 'info' }}">
+          {{ msg }}
+        </div>
+        {% endfor %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</div>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>
