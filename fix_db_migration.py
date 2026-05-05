@@ -16,7 +16,9 @@ import os
 import sys
 
 # ── The revision that represents the current merged head ──────────────────────
-TARGET_REVISION = 'bba8d69cd7a5'
+# b36e8c4f9f84 = add_count_in_attendance_to_subjects (latest migration / HEAD)
+# This is the version that setup_neon.py stamped when creating the Neon DB.
+TARGET_REVISION = 'b36e8c4f9f84'
 
 def get_db_url():
     url = os.environ.get('DATABASE_URL', '')
