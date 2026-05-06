@@ -11,7 +11,7 @@ from datetime import date
 
 sessions_bp = Blueprint('sessions', __name__, url_prefix='/sessions')
 
-BATCHES = ['S1', 'S2', 'S3']
+BATCHES = ['Batch 1', 'Batch 2', 'Batch 3']
 
 
 # ── Helper: get classes in scope for current user ────────────────────────────
@@ -84,7 +84,7 @@ def index():
 def mark_practical():
     subjects  = _scoped_subjects()
     subject_id = request.args.get('subject_id') or request.form.get('subject_id')
-    batch      = request.args.get('batch') or request.form.get('batch', 'S1')
+    batch      = request.args.get('batch') or request.form.get('batch', 'Batch 1')
     att_date   = request.args.get('date') or request.form.get('date', str(date.today()))
 
     selected_subject = None

@@ -30,7 +30,7 @@
           <label class="form-label-erp">Batch *</label>
           <select name="batch" class="form-control-erp" onchange="this.form.submit()">
             {% for b in batches %}
-            <option value="{{ b }}" {{ 'selected' if selected_batch == b }}>Batch {{ b }}</option>
+            <option value="{{ b }}" {{ 'selected' if selected_batch == b }}>{{ b }}</option>
             {% endfor %}
           </select>
         </div>

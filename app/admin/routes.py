@@ -1020,15 +1020,16 @@ def update_batch(id):
         if not cls or student.class_id != cls.id:
             abort(403)
 
-    new_batch = request.form.get('batch', '').strip().upper() or None
-    if new_batch and new_batch not in ['S1', 'S2', 'S3']:
-        flash('Invalid batch. Choose S1, S2, or S3.', 'danger')
+    new_batch = request.form.get('batch', '').strip() or None
+    valid_batches = ['Batch 1', 'Batch 2', 'Batch 3']
+    if new_batch and new_batch not in valid_batches:
+        flash('Invalid batch. Choose Batch 1, Batch 2, or Batch 3.', 'danger')
         return redirect(url_for('admin.student_detail', id=id))
 
     student.batch = new_batch
     db.session.commit()
 
-    batch_label = f'Batch {new_batch}' if new_batch else 'No batch'
+    batch_label = new_batch if new_batch else 'No batch'
     flash(f'{student.user.name} assigned to {batch_label}.', 'success')
     return redirect(url_for('admin.student_detail', id=id) + '#tab-academic')
 
