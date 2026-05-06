@@ -47,3 +47,4 @@ services:
         sync: false          # Set manually in Render Dashboard
     autoDeploy: true
     healthCheckPath: /health  # Dedicated health endpoint — avoids rate-limiting on /auth/login
+

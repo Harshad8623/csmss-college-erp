@@ -142,6 +142,7 @@ def create_app(config_class=Config):
     csrf.exempt(subscribe)
     csrf.exempt(unsubscribe)
 
+
     # ── Health check endpoint (used by Render, no auth or rate limiting) ──────
     @app.route('/health')
     def health():
